@@ -79,37 +79,52 @@ describe('grocery.setChecked', () => {
     expect(await ada.as.mutation(api.grocery.setChecked, { itemIds, checked: true })).toBe(1);
   });
 
-  test("cannot tick another family's rows", async () => {
+  test("another family's rows are skipped exactly like deleted ones", async () => {
     const t = setup();
     const ada = await signedInUser(t, 'ada');
     const eve = await signedInUser(t, 'eve');
-    const groupId = await groupWithMembers(t, [ada.userId]);
-    await groupWithMembers(t, [eve.userId]);
-    const { itemIds } = await listWithItems(t, groupId, MONDAY, ['Milk']);
+    const adaGroup = await groupWithMembers(t, [ada.userId]);
+    const eveGroup = await groupWithMembers(t, [eve.userId]);
+    const foreign = await listWithItems(t, adaGroup, MONDAY, ['Milk']);
+    const own = await listWithItems(t, eveGroup, MONDAY, ['Bread', 'Gone']);
+    await t.run((ctx) => ctx.db.delete(own.itemIds[1]));
 
-    await expect(
-      eve.as.mutation(api.grocery.setChecked, { itemIds, checked: true }),
-    ).rejects.toThrow(/NOT_FOUND/);
-    const item = await t.run((ctx) => ctx.db.get(itemIds[0]));
+    // Probing a foreign id and a deleted id gives the same answer.
+    const probeForeign = await eve.as.mutation(api.grocery.setChecked, {
+      itemIds: foreign.itemIds,
+      checked: true,
+    });
+    const probeDeleted = await eve.as.mutation(api.grocery.setChecked, {
+      itemIds: [own.itemIds[1]],
+      checked: true,
+    });
+    expect(probeForeign).toBe(0);
+    expect(probeDeleted).toBe(0);
+
+    // A mixed batch only touches the caller's own rows.
+    expect(
+      await eve.as.mutation(api.grocery.setChecked, {
+        itemIds: [own.itemIds[0], ...foreign.itemIds],
+        checked: true,
+      }),
+    ).toBe(1);
+    const item = await t.run((ctx) => ctx.db.get(foreign.itemIds[0]));
     expect(item?.checked).toBe(false);
   });
 
-  test('rejects a batch that mixes rows from two families', async () => {
+  test('rejects signed-out callers and oversized batches', async () => {
     const t = setup();
-    const eve = await signedInUser(t, 'eve');
     const ada = await signedInUser(t, 'ada');
-    const adaGroup = await groupWithMembers(t, [ada.userId]);
-    const eveGroup = await groupWithMembers(t, [eve.userId]);
-    const own = await listWithItems(t, eveGroup, MONDAY, ['Bread']);
-    const other = await listWithItems(t, adaGroup, MONDAY, ['Milk']);
-
+    const groupId = await groupWithMembers(t, [ada.userId]);
+    const { itemIds } = await listWithItems(t, groupId, MONDAY, ['Milk']);
+    await expect(t.mutation(api.grocery.setChecked, { itemIds, checked: true })).rejects.toThrow(
+      /UNAUTHENTICATED/,
+    );
     await expect(
-      eve.as.mutation(api.grocery.setChecked, {
-        itemIds: [...own.itemIds, ...other.itemIds],
+      ada.as.mutation(api.grocery.setChecked, {
+        itemIds: Array.from({ length: 101 }, () => itemIds[0]),
         checked: true,
       }),
-    ).rejects.toThrow(/NOT_FOUND/);
-    const item = await t.run((ctx) => ctx.db.get(other.itemIds[0]));
-    expect(item?.checked).toBe(false);
+    ).rejects.toThrow(/TOO_MANY_ITEMS/);
   });
 });

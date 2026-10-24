@@ -56,10 +56,13 @@ family are reported as not found. Every new function needs a cross-family test.
 
 - **CI**: format, lint, typecheck, Jest and Vitest on every PR and on `main`.
 - **jev / PR risk gate**: jev (TypeSafe System One) scores each PR low, medium or high risk and
-  labels it `risk:*`. High-risk PRs get `needs-adversarial-review`, and the check fails until an
-  adversarial review is done and the `adversarial-review-done` label is added.
+  labels it `risk:*`, judging from the changed files and diff excerpts. High-risk PRs get
+  `needs-adversarial-review`, and the check fails until an adversarial review is done and a repo
+  admin or maintainer adds the `adversarial-review-done` label. New pushes remove that sign-off.
 - **jev / nb/en translation parity**: changed Norwegian/English string pairs are checked for the
   same meaning and flagged as warnings.
 
 Both jev checks need the `TYPESAFE_API_KEY` Actions secret and pass with a warning if jev is
-unavailable.
+unavailable. They run on `pull_request_target` from the base branch and read the PR only through
+the GitHub API, so a PR can neither change the gate it is judged by nor run code with the secret.
+Changes to `.github/` and `scripts/ci/` need the code owner.

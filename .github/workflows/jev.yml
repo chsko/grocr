@@ -1,13 +1,20 @@
 name: jev
 
 # jev (TypeSafe System One) checks from GRO-14. Both fail open if jev is unreachable.
+#
+# Security: this uses pull_request_target so the workflow and scripts always come from the base
+# branch. A PR cannot change the gate it is judged by, and PR code is never checked out or run
+# here; the scripts read the PR (files, patches, locale JSON) through the GitHub API only.
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, edited, ready_for_review, labeled, unlabeled]
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
 
 concurrency:
-  group: jev-${{ github.event.pull_request.number }}
+  # Label events must not cancel a scoring run in progress.
+  group: >-
+    jev-${{ github.event.pull_request.number }}-${{
+    contains(fromJSON('["labeled","unlabeled"]'), github.event.action) && 'labels' || 'code' }}
   cancel-in-progress: true
 
 permissions:
@@ -22,11 +29,13 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
       - uses: actions/setup-node@v6
         with:
           node-version: 22
       - name: Score risk with jev
-        # Label changes only re-run the gate, so the score is not recomputed on every label.
         if: github.event.action != 'labeled' && github.event.action != 'unlabeled'
         env:
           TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
@@ -45,11 +54,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          fetch-depth: 0
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
       - uses: actions/setup-node@v6
         with:
           node-version: 22
       - name: Check changed strings with jev
         env:
           TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
-        run: node scripts/ci/i18n-parity.mjs origin/${{ github.base_ref }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/ci/i18n-parity.mjs

@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest';
 
 import {
   changedPairs,
+  describeFiles,
   flatten,
   gatePasses,
   NEEDS_REVIEW_LABEL,
@@ -18,12 +19,29 @@ describe('risk gate', () => {
     expect(riskLevel(1.1)).toBe('medium');
     expect(riskLevel(1.5)).toBe('high');
     expect(riskLevel(2)).toBe('high');
+    expect(riskLevel(undefined)).toBeUndefined();
+    expect(riskLevel(Number.NaN)).toBeUndefined();
   });
 
-  test('high-risk PRs need a recorded adversarial review', () => {
+  test('high-risk PRs need an adversarial review signed off by an admin or maintainer', () => {
     expect(gatePasses([])).toBe(true);
     expect(gatePasses(['risk:high', NEEDS_REVIEW_LABEL])).toBe(false);
-    expect(gatePasses([NEEDS_REVIEW_LABEL, REVIEW_DONE_LABEL])).toBe(true);
+    expect(gatePasses([NEEDS_REVIEW_LABEL, REVIEW_DONE_LABEL], 'admin')).toBe(true);
+    expect(gatePasses([NEEDS_REVIEW_LABEL, REVIEW_DONE_LABEL], 'maintain')).toBe(true);
+    expect(gatePasses([NEEDS_REVIEW_LABEL, REVIEW_DONE_LABEL], 'write')).toBe(false);
+    expect(gatePasses([NEEDS_REVIEW_LABEL, REVIEW_DONE_LABEL], undefined)).toBe(false);
+  });
+
+  test('file descriptions carry capped diff excerpts', () => {
+    const files = [
+      { filename: 'a.ts', status: 'modified', additions: 1, deletions: 0, patch: 'x'.repeat(50) },
+      { filename: 'b.png', status: 'added', additions: 0, deletions: 0 },
+      { filename: 'c.ts', status: 'modified', additions: 1, deletions: 0, patch: 'y'.repeat(50) },
+    ];
+    const described = describeFiles(files, { perFile: 30, total: 40 });
+    expect(described[0].diff).toHaveLength(30);
+    expect(described[1].diff).toBeUndefined();
+    expect(described[2].diff).toHaveLength(10);
   });
 });
 

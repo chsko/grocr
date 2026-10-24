@@ -1,7 +1,8 @@
 import { ConvexError, v } from 'convex/values';
 
 import { mutation, query } from './_generated/server';
-import { assertSameGroup, requireMembership, requireUserId } from './lib/access';
+import type { Id } from './_generated/dataModel';
+import { getMembership, requireMembership, requireUserId } from './lib/access';
 
 /** The grocery list for the week starting `startDate`, or null if nothing was added yet. */
 export const listForWeek = query({
@@ -24,28 +25,30 @@ export const listForWeek = query({
 /**
  * Sets (never toggles) the checked state of every row behind a merged line, so a resent
  * mutation after reconnect is harmless. Rows already in the requested state are left untouched,
- * which keeps the original `checkedBy`/`checkedAt`. Returns how many rows changed.
+ * which keeps the original `checkedBy`/`checkedAt`. Rows that are gone (e.g. "clear checked" ran
+ * while this client was offline) and rows in a family the user is not a member of are skipped
+ * alike, so the result never reveals whether another family's id exists. Returns how many rows
+ * changed.
  */
 export const setChecked = mutation({
   args: { itemIds: v.array(v.id('groceryItems')), checked: v.boolean() },
   handler: async (ctx, { itemIds, checked }) => {
     const userId = await requireUserId(ctx);
-    if (itemIds.length === 0) return 0;
     if (itemIds.length > 100) throw new ConvexError({ code: 'TOO_MANY_ITEMS' });
 
-    const items = await Promise.all(itemIds.map((id) => ctx.db.get('groceryItems', id)));
-    const found = items.filter((item) => item !== null);
-    // A row deleted by someone else (e.g. "clear checked") is skipped, not an error: the
-    // mutation may be a resend from a client that was offline.
-    if (found.length === 0) return 0;
-    const groupId = found[0].groupId;
-    assertSameGroup(groupId, found);
-    await requireMembership(ctx, groupId);
+    const memberOf = new Map<Id<'groups'>, boolean>();
+    const isMember = async (groupId: Id<'groups'>) => {
+      if (!memberOf.has(groupId)) {
+        memberOf.set(groupId, (await getMembership(ctx, groupId, userId)) !== null);
+      }
+      return memberOf.get(groupId)!;
+    };
 
     let changed = 0;
     const now = Date.now();
-    for (const item of found) {
-      if (item.checked === checked) continue;
+    for (const itemId of new Set(itemIds)) {
+      const item = await ctx.db.get('groceryItems', itemId);
+      if (item === null || !(await isMember(item.groupId)) || item.checked === checked) continue;
       await ctx.db.patch(
         'groceryItems',
         item._id,

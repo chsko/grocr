@@ -1,5 +1,5 @@
-import { useConvexConnectionState, useMutation, useQuery } from 'convex/react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useConvexAuth, useConvexConnectionState, useMutation, useQuery } from 'convex/react';
+import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -10,7 +10,6 @@ import {
   createGroceryOfflineStore,
   flushPending,
   type CachedGroceryItem,
-  type CheckBatch,
 } from './offline-store';
 
 export type GroceryListState = {
@@ -22,6 +21,9 @@ export type GroceryListState = {
   pendingCount: number;
   setChecked: (itemIds: string[], checked: boolean) => void;
 };
+
+/** One flush loop per user at a time, shared by every screen using the hook. */
+const flushes = new Map<string, { running: boolean; again: boolean }>();
 
 /**
  * The grocery list for one week, readable and tickable offline (GRO-18 spike). While connected
@@ -36,57 +38,78 @@ export function useGroceryList(
 ): GroceryListState {
   const store = useMemo(() => createGroceryOfflineStore(storage, userId), [userId]);
   const live = useQuery(api.grocery.listForWeek, { groupId, startDate });
-  const [pending, setPending] = useState(() => store.pendingChecks());
-  // Re-read after each queue change: local ticks are written into the saved copy too.
+  const { isAuthenticated } = useConvexAuth();
+  const { isWebSocketConnected } = useConvexConnectionState();
+
+  // Bumped whenever the persisted queue changes; the queue itself is read from the store.
+  const [queueVersion, queueChanged] = useReducer((n: number) => n + 1, 0);
+  const pending = useMemo(
+    () => store.pendingChecks(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [store, queueVersion],
+  );
+  // Local ticks are written into the saved copy too, so re-read it when the queue changes.
   const cached = useMemo(
     () => store.loadList(groupId, startDate),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [store, groupId, startDate, pending],
-  );
-  const { isWebSocketConnected } = useConvexConnectionState();
-
-  const mutate = useMutation(api.grocery.setChecked).withOptimisticUpdate(
-    (localStore, { itemIds, checked }) => {
-      const current = localStore.getQuery(api.grocery.listForWeek, { groupId, startDate });
-      if (!current) return;
-      const ids = new Set<string>(itemIds);
-      localStore.setQuery(
-        api.grocery.listForWeek,
-        { groupId, startDate },
-        {
-          ...current,
-          items: current.items.map((item) => (ids.has(item._id) ? { ...item, checked } : item)),
-        },
-      );
-    },
+    [store, groupId, startDate, queueVersion],
   );
 
-  // One flush at a time; a tick during a flush asks for another round when it finishes.
-  const flushing = useRef(false);
-  const again = useRef(false);
+  const setCheckedMutation = useMutation(api.grocery.setChecked);
+  const mutate = useMemo(
+    () =>
+      setCheckedMutation.withOptimisticUpdate((localStore, { itemIds, checked }) => {
+        const current = localStore.getQuery(api.grocery.listForWeek, { groupId, startDate });
+        if (!current) return;
+        const ids = new Set<string>(itemIds);
+        localStore.setQuery(
+          api.grocery.listForWeek,
+          { groupId, startDate },
+          {
+            ...current,
+            items: current.items.map((item) => (ids.has(item._id) ? { ...item, checked } : item)),
+          },
+        );
+      }),
+    [setCheckedMutation, groupId, startDate],
+  );
+  const mutateRef = useRef(mutate);
+  const activeUser = useRef(userId);
+  useEffect(() => {
+    mutateRef.current = mutate;
+    activeUser.current = userId;
+  }, [mutate, userId]);
+
   const flush = useCallback(async () => {
-    if (flushing.current) {
-      again.current = true;
+    const state = flushes.get(userId) ?? { running: false, again: false };
+    flushes.set(userId, state);
+    if (state.running) {
+      state.again = true;
       return;
     }
-    flushing.current = true;
+    state.running = true;
     try {
       do {
-        again.current = false;
-        await flushPending(store, (batch: CheckBatch) =>
-          mutate({ itemIds: batch.itemIds as Id<'groceryItems'>[], checked: batch.checked }),
-        );
-      } while (again.current);
+        state.again = false;
+        await flushPending(store, async (batch) => {
+          // Never send one user's queue under another user's session.
+          if (activeUser.current !== userId) throw new Error('Signed-in user changed');
+          await mutateRef.current({
+            itemIds: batch.itemIds as Id<'groceryItems'>[],
+            checked: batch.checked,
+          });
+        });
+        queueChanged();
+      } while (state.again);
     } finally {
-      flushing.current = false;
-      setPending(store.pendingChecks());
+      state.running = false;
     }
-  }, [store, mutate]);
+  }, [store, userId]);
 
-  // Resend anything left over from a previous session (e.g. the app was killed offline).
+  // Resend leftovers (e.g. the app was killed offline) once auth is ready, and on every reconnect.
   useEffect(() => {
-    void flush();
-  }, [flush]);
+    if (isAuthenticated && isWebSocketConnected) void flush();
+  }, [flush, isAuthenticated, isWebSocketConnected]);
 
   useEffect(() => {
     if (live === undefined || live === null) return;
@@ -109,10 +132,10 @@ export function useGroceryList(
     (itemIds: string[], checked: boolean) => {
       store.queueChecks(itemIds, checked);
       store.updateCachedChecks(groupId, startDate, itemIds, checked);
-      setPending(store.pendingChecks());
-      void flush();
+      queueChanged();
+      if (isAuthenticated) void flush();
     },
-    [store, flush, groupId, startDate],
+    [store, flush, groupId, startDate, isAuthenticated],
   );
 
   const base = live !== undefined ? (live?.items ?? []) : cached?.items;
@@ -124,4 +147,10 @@ export function useGroceryList(
     pendingCount: pending.length,
     setChecked,
   };
+}
+
+/** Removes a user's cached lists and unsent ticks. Call on sign-out (GRO-22). */
+export function clearGroceryOfflineData(userId: string) {
+  createGroceryOfflineStore(storage, userId).clear();
+  flushes.delete(userId);
 }

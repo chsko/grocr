@@ -143,12 +143,21 @@ export function toBatches(
   return batches;
 }
 
+/** Server refusals that will never succeed on a resend, so the entries are dropped. */
+const PERMANENT_CODES = new Set(['NOT_FOUND', 'TOO_MANY_ITEMS']);
+
+function isPermanentRefusal(error: unknown) {
+  if (!(error instanceof ConvexError)) return false;
+  const code = (error.data as { code?: unknown } | undefined)?.code;
+  return typeof code === 'string' && PERMANENT_CODES.has(code);
+}
+
 /**
  * Sends every queued check-off and removes the ones the server confirmed. The Convex client holds
- * mutations while offline and retries transient failures itself, so a rejection is the server
- * refusing the change (e.g. the user left the family): those entries are dropped so they cannot
- * block the queue. Any other failure stops the flush and keeps the rest queued.
- * Returns whether the queue is empty.
+ * mutations while offline and retries transient failures itself. A permanent refusal (e.g. the
+ * rows are no longer visible to this user) drops its entries so they cannot block the queue. Any
+ * other failure, including UNAUTHENTICATED while auth is still loading, keeps that batch queued
+ * for the next flush and moves on to the next batch. Returns whether the queue is empty.
  */
 export async function flushPending(
   store: GroceryOfflineStore,
@@ -158,7 +167,7 @@ export async function flushPending(
     try {
       await send(batch);
     } catch (error) {
-      if (!(error instanceof ConvexError)) return false;
+      if (!isPermanentRefusal(error)) continue;
     }
     store.acknowledge(entries);
   }

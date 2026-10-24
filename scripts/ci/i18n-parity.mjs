@@ -1,38 +1,33 @@
 // GRO-46: asks jev whether changed Norwegian/English string pairs mean the same, and annotates
 // doubtful pairs on the PR. Warning only (never fails) until the threshold is calibrated.
 //
-// Usage: node scripts/ci/i18n-parity.mjs <base-ref>
-import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-
-import { summary } from './github.mjs';
+// Runs from the base branch (pull_request_target) and reads both versions of the locale files
+// through the API, so no PR code is checked out or run.
+//
+// Usage: node scripts/ci/i18n-parity.mjs
+import { fileAt, prContext, summary } from './github.mjs';
 import { askJev } from './jev.mjs';
 import { changedPairs, PARITY_THRESHOLD, parityRequests } from './lib.mjs';
 
 const LOCALES = 'src/lib/i18n/locales';
-const baseRef = process.argv[2] ?? 'origin/main';
+const { event, repo } = prContext();
+const pr = event.pull_request;
 
-function readAt(ref, path) {
-  try {
-    return JSON.parse(
-      execFileSync('git', ['show', `${ref}:${path}`], {
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-      }),
-    );
-  } catch {
-    return {};
-  }
+async function locales(owner, sha) {
+  const read = async (lang) => {
+    const text = await fileAt(owner, `${LOCALES}/${lang}.json`, sha);
+    try {
+      return text === undefined ? {} : JSON.parse(text);
+    } catch {
+      console.log(`::warning::${LOCALES}/${lang}.json is not valid JSON at ${sha}.`);
+      return {};
+    }
+  };
+  return { en: await read('en'), nb: await read('nb') };
 }
 
-const base = {
-  en: readAt(baseRef, `${LOCALES}/en.json`),
-  nb: readAt(baseRef, `${LOCALES}/nb.json`),
-};
-const head = {
-  en: JSON.parse(readFileSync(`${LOCALES}/en.json`, 'utf8')),
-  nb: JSON.parse(readFileSync(`${LOCALES}/nb.json`, 'utf8')),
-};
+const base = await locales(repo, pr.base.sha);
+const head = await locales(pr.head.repo?.full_name ?? repo, pr.head.sha);
 
 const { pairs, missing } = changedPairs(base, head);
 for (const key of missing) {

@@ -103,10 +103,23 @@ describe('flushPending', () => {
     expect(store.pendingChecks()).toEqual([]);
   });
 
-  test('keeps the queue when sending fails, e.g. the app is killed or the network drops', async () => {
+  test('keeps a batch the server rejects for a transient reason and still sends the rest', async () => {
     const store = createGroceryOfflineStore(memoryStore(), 'u1');
     store.queueChecks(['a'], true);
-    const send = jest.fn().mockRejectedValue(new Error('Connection lost'));
+    store.queueChecks(['b'], false);
+    const send = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('Server error'))
+      .mockResolvedValueOnce(1);
+    await expect(flushPending(store, send)).resolves.toBe(false);
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(store.pendingChecks().map((entry) => entry.itemId)).toEqual(['a']);
+  });
+
+  test('keeps check-offs refused only because auth was not ready yet', async () => {
+    const store = createGroceryOfflineStore(memoryStore(), 'u1');
+    store.queueChecks(['a'], true);
+    const send = jest.fn().mockRejectedValue(new ConvexError({ code: 'UNAUTHENTICATED' }));
     await expect(flushPending(store, send)).resolves.toBe(false);
     expect(store.pendingChecks()).toHaveLength(1);
   });
