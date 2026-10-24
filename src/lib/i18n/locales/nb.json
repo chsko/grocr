@@ -146,7 +146,8 @@
     "removeStep": "Fjern steg",
     "addStep": "+ Legg til steg",
     "icon": "Ikon",
-    "iconAuto": "Etter tittelen"
+    "iconAuto": "Etter tittelen",
+    "qtyPlaceholder": "Ant."
   },
   "groceries": {
     "title": "Handleliste",

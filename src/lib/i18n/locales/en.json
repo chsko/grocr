@@ -146,7 +146,8 @@
     "removeStep": "Remove step",
     "addStep": "+ Add step",
     "icon": "Icon",
-    "iconAuto": "Match the title"
+    "iconAuto": "Match the title",
+    "qtyPlaceholder": "Qty"
   },
   "groceries": {
     "title": "Groceries",

@@ -177,7 +177,7 @@ export default function RecipeEditScreen() {
                   value={row.qty}
                   onChangeText={(qty) => update(row.key, { qty })}
                   keyboardType="decimal-pad"
-                  placeholder={t('recipeEdit.qty')}
+                  placeholder={t('recipeEdit.qtyPlaceholder')}
                   placeholderTextColor={Colors.checkbox}
                   accessibilityLabel={t('recipeEdit.qty')}
                   style={[styles.cell, styles.qtyCell]}
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.ink,
   },
-  qtyCell: { width: 56, textAlign: 'center' },
+  qtyCell: { width: 56, paddingHorizontal: 4, textAlign: 'center' },
   unitCell: { width: 64, alignItems: 'center', justifyContent: 'center' },
   nameCell: { flex: 1, minWidth: 0, paddingHorizontal: 12 },
   cellActive: { borderWidth: 2, borderColor: Colors.tomato, backgroundColor: '#FFFFFF' },
