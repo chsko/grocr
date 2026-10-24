@@ -12,7 +12,11 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { attempt } from '@/lib/errors';
 import { dayMonth } from '@/lib/format';
+import { setLanguagePreference, useLanguagePreference } from '@/lib/i18n/preference';
 import { useMe } from '@/lib/session';
+
+// Each language is named in itself, so it can be found from either.
+const LANGUAGE_NAMES = { nb: 'Norsk', en: 'English' } as const;
 
 /** Members, invites and settings (GRO-26). The owner manages members; anyone can leave. */
 export default function FamilyScreen() {
@@ -28,6 +32,16 @@ export default function FamilyScreen() {
   const leave = useMutation(api.groups.leave);
   const { signOut } = useAuthActions();
   const [now] = useState(() => Date.now());
+  const language = useLanguagePreference();
+
+  function pickLanguage() {
+    Alert.alert(t('family.language'), undefined, [
+      { text: t('family.languageValue'), onPress: () => void setLanguagePreference('system') },
+      { text: LANGUAGE_NAMES.nb, onPress: () => void setLanguagePreference('nb') },
+      { text: LANGUAGE_NAMES.en, onPress: () => void setLanguagePreference('en') },
+      { text: t('common.cancel'), style: 'cancel' },
+    ]);
+  }
 
   function manage(member: { membershipId: Id<'memberships'>; name: string }) {
     Alert.alert(member.name, undefined, [
@@ -156,10 +170,12 @@ export default function FamilyScreen() {
         <Text>{t('family.weekStarts')}</Text>
         <Text color={Colors.muted}>{t('dates.dayLong.mon')}</Text>
       </View>
-      <View style={styles.setting}>
+      <Pressable accessibilityRole="button" onPress={pickLanguage} style={styles.setting}>
         <Text>{t('family.language')}</Text>
-        <Text color={Colors.muted}>{t('family.languageValue')}</Text>
-      </View>
+        <Text color={Colors.muted}>
+          {language === 'system' ? t('family.languageValue') : LANGUAGE_NAMES[language]}
+        </Text>
+      </Pressable>
       <View style={styles.setting}>
         <Text>{t('family.account')}</Text>
         <Text color={Colors.muted} numberOfLines={1} style={{ flexShrink: 1 }}>

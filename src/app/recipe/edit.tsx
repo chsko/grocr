@@ -131,7 +131,10 @@ export default function RecipeEditScreen() {
           ),
         }}
       />
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.content}>
         <Field
           label={t('recipeEdit.titleLabel')}
           value={title}

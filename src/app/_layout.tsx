@@ -16,7 +16,10 @@ import { useTranslation } from 'react-i18next';
 import { Colors, Fonts } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import { convex, tokenStorage } from '@/lib/convex';
+import { restoreLanguage } from '@/lib/i18n/preference';
 import { SessionContext } from '@/lib/session';
+
+void restoreLanguage();
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -91,11 +94,8 @@ function AppStack() {
           />
           <Stack.Screen
             name="pick-dinner"
-            options={{
-              presentation: 'formSheet',
-              sheetAllowedDetents: [0.92],
-              sheetGrabberVisible: true,
-            }}
+            // A plain modal: a formSheet with a flex root renders empty on iOS.
+            options={{ presentation: 'modal' }}
           />
           <Stack.Screen name="invite" options={{ presentation: 'modal' }} />
         </Stack.Protected>

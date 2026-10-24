@@ -68,6 +68,7 @@ export default function JoinScreen() {
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
         style={{ backgroundColor: Colors.background }}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + 24 }]}>

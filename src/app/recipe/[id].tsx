@@ -23,6 +23,7 @@ export default function RecipeScreen() {
 
   return (
     <ScrollView
+      contentInsetAdjustmentBehavior="automatic"
       style={{ backgroundColor: Colors.background }}
       contentContainerStyle={styles.content}>
       <Stack.Screen
