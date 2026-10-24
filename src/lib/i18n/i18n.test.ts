@@ -1,7 +1,7 @@
 import en from './locales/en.json';
 import nb from './locales/nb.json';
 
-import i18n, { pickLanguage } from '.';
+import { pickLanguage } from '.';
 
 type Tree = { [key: string]: string | Tree };
 

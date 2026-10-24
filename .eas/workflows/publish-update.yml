@@ -1,0 +1,18 @@
+# Runs on Expo's servers via the GitHub connection on expo.dev.
+# Publishes the app's JavaScript to the "main" channel on every push to main, so Expo Go and
+# preview builds pick up the change without a rebuild.
+name: Publish update
+
+on:
+  push:
+    branches: ['main']
+
+jobs:
+  publish_update:
+    name: Publish update
+    type: update
+    env:
+      # Public URL of the dev Convex deployment, not a secret (same value as .env). Inlined into the bundle.
+      EXPO_PUBLIC_CONVEX_URL: https://silent-otter-909.eu-west-1.convex.cloud
+    params:
+      channel: main

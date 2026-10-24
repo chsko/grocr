@@ -28,6 +28,15 @@ project **grocr**). `npx convex dev` gives you your own deployment in `.env.loca
 Convex Auth on the deployment needs `JWT_PRIVATE_KEY`, `JWKS` and `SITE_URL` (`grocr://`); they
 are set on the dev deployment. Production has no deployment yet.
 
+## Open it on a phone without a computer (EAS Update)
+
+Every push to `main` publishes the JavaScript to EAS Update on the `main` channel. This runs on
+Expo's servers (`.eas/workflows/publish-update.yml`, through the GitHub connection on expo.dev).
+The runtime version follows the SDK (`exposdk:58.0.0`), so Expo Go can open it: on the iPhone,
+open `exp://u.expo.dev/597e5728-3ace-4f42-9a7a-3199f175b48e?runtime-version=exposdk:58.0.0&channel-name=main`
+(or the QR code for the update on expo.dev). Native changes (new native modules, plugins,
+permissions) need a module Expo Go already bundles, or a development build.
+
 ## Scripts
 
 | Command               | What it does                                             |
