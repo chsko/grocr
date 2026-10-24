@@ -55,7 +55,9 @@ export const week = query({
         .withIndex('by_list', (q) => q.eq('listId', list._id))
         .collect();
       openLines = new Set(
-        items.filter((i) => !i.checked).map((i) => i.ingredientId ?? normalizeName(i.name)),
+        items
+          .filter((i) => !i.checked && !i.removed)
+          .map((i) => i.ingredientId ?? normalizeName(i.name)),
       ).size;
     }
     return { dinners, openLines };

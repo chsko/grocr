@@ -139,6 +139,9 @@ export default defineSchema({
     checkedBy: v.optional(v.id('users')),
     checkedAt: v.optional(v.number()),
     edited: v.boolean(),
+    // A meal row someone removed or merged away. Hidden from the list, but it tells sync that
+    // this dinner's ingredient was handled by hand, so it is not added back.
+    removed: v.optional(v.boolean()),
     source: groceryItemSource,
     createdAt: v.number(),
   })

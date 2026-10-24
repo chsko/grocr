@@ -23,6 +23,7 @@ export const listForWeek = query({
           .query('groceryItems')
           .withIndex('by_list', (q) => q.eq('listId', list._id))
           .collect()
+          .then((rows) => rows.filter((r) => !r.removed))
       : [];
 
     const sources: Record<string, { date: string; title: string }> = {};
@@ -51,7 +52,8 @@ export const listForWeek = query({
           .withIndex('by_list', (q) => q.eq('listId', previous._id))
           .filter((q) => q.eq(q.field('checked'), false))
           .collect();
-        if (open.length > 0) carryOver = { count: open.length };
+        const visible = open.filter((r) => !r.removed).length;
+        if (visible > 0) carryOver = { count: visible };
       }
     }
 
@@ -154,19 +156,34 @@ export const editMerged = mutation({
       unit: unit !== undefined && isUnit(unit) ? unit : undefined,
       edited: true,
     });
-    for (const row of rest) await ctx.db.delete('groceryItems', row._id);
+    for (const row of rest) await removeRow(ctx, row);
   },
 });
+
+/**
+ * Takes a row off the list. Meal rows stay behind as hidden, edited tombstones so a later
+ * servings change or recipe edit does not add them back; manual rows are deleted.
+ */
+async function removeRow(ctx: MutationCtx, row: Doc<'groceryItems'>) {
+  if (row.source.kind === 'meal') {
+    await ctx.db.patch('groceryItems', row._id, { removed: true, edited: true, checked: false });
+  } else {
+    await ctx.db.delete('groceryItems', row._id);
+  }
+}
 
 /** Removes rows from the list. Rows that are already gone are skipped. */
 export const remove = mutation({
   args: { itemIds: v.array(v.id('groceryItems')) },
   handler: async (ctx, { itemIds }) => {
-    for (const row of await loadRows(ctx, itemIds)) await ctx.db.delete('groceryItems', row._id);
+    for (const row of await loadRows(ctx, itemIds)) await removeRow(ctx, row);
   },
 });
 
-/** Deletes the checked rows of a week's list ("Clear checked"). */
+/**
+ * Takes the checked rows off a week's list ("Clear checked"). Bought meal rows stay as hidden
+ * tombstones, so a later servings change does not put them back.
+ */
 export const clearChecked = mutation({
   args: { groupId: v.id('groups'), startDate: v.string() },
   handler: async (ctx, { groupId, startDate }) => {
@@ -178,7 +195,7 @@ export const clearChecked = mutation({
       .withIndex('by_list', (q) => q.eq('listId', list._id))
       .filter((q) => q.eq(q.field('checked'), true))
       .collect();
-    for (const row of checked) await ctx.db.delete('groceryItems', row._id);
+    for (const row of checked) await removeRow(ctx, row);
     return checked.length;
   },
 });
@@ -190,7 +207,7 @@ export const clearChecked = mutation({
 export const carryOver = mutation({
   args: { groupId: v.id('groups'), startDate: v.string(), move: v.boolean() },
   handler: async (ctx, { groupId, startDate, move }) => {
-    const { userId } = await requireMembership(ctx, groupId);
+    await requireMembership(ctx, groupId);
     const listId = await weekList(ctx, groupId, startDate);
     let moved = 0;
     const previous = await findList(ctx, groupId, addDays(startDate, -7));
@@ -201,10 +218,10 @@ export const carryOver = mutation({
         .filter((q) => q.eq(q.field('checked'), false))
         .collect();
       for (const row of open) {
-        await ctx.db.patch('groceryItems', row._id, {
-          listId,
-          source: row.source.kind === 'manual' ? row.source : { kind: 'manual', addedBy: userId },
-        });
+        if (row.removed) continue;
+        // Meal rows keep their dinner but count as edited, so syncing that dinner later
+        // neither duplicates them nor pulls them back.
+        await ctx.db.patch('groceryItems', row._id, { listId, edited: true });
         moved++;
       }
     }

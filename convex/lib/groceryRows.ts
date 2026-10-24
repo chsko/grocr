@@ -8,7 +8,8 @@ import { isUnit, roundQty, scaleQty, type Unit } from './units';
 // keeping them in sync live here so planning, servings changes and recipe edits share them:
 // - unchecked, unedited rows follow the recipe and servings;
 // - checked rows count as bought: if servings go up, a new row holds the extra amount;
-// - once a line is edited by hand, sync leaves that ingredient alone.
+// - once a line is edited, removed or carried over by hand, sync leaves that dinner's ingredient
+//   alone, whatever unit the edit used.
 
 const MASS: Record<string, number> = { g: 1, kg: 1000 };
 const VOLUME: Record<string, number> = { ml: 1, cl: 10, dl: 100, l: 1000 };
@@ -112,7 +113,7 @@ export async function syncEntry(ctx: MutationCtx, entry: Doc<'mealPlanEntries'>)
   for (const [key, want] of wanted) {
     const existing = byKey.get(key) ?? [];
     byKey.delete(key);
-    if (existing.some((r) => r.edited)) continue;
+    if (rows.some((r) => r.ingredientId === want.ingredient._id && r.edited)) continue;
     const open = existing.filter((r) => !r.checked);
     const bought = existing.filter((r) => r.checked);
 
@@ -172,7 +173,7 @@ export async function syncEntry(ctx: MutationCtx, entry: Doc<'mealPlanEntries'>)
 export async function detachEntry(ctx: MutationCtx, entry: Doc<'mealPlanEntries'>) {
   for (const row of await rowsForEntry(ctx, entry._id)) {
     if (row.groupId !== entry.groupId) continue;
-    if (!row.checked && !row.edited) {
+    if (row.removed || (!row.checked && !row.edited)) {
       await ctx.db.delete('groceryItems', row._id);
     } else {
       await ctx.db.patch('groceryItems', row._id, {

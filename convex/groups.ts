@@ -107,6 +107,7 @@ export const transferOwnership = mutation({
     await ctx.db.patch('memberships', target._id, { role: 'owner' });
     await ctx.db.patch('memberships', mine._id, { role: 'member' });
     await ctx.db.patch('groups', target.groupId, { ownerId: target.userId });
+    await revokeInvites(ctx, target.groupId);
   },
 });
 
@@ -131,9 +132,23 @@ export const leave = mutation({
       const heir = rest.sort((a, b) => a.joinedAt - b.joinedAt)[0];
       await ctx.db.patch('memberships', heir._id, { role: 'owner' });
       await ctx.db.patch('groups', groupId, { ownerId: heir.userId });
+      await revokeInvites(ctx, groupId);
     }
   },
 });
+
+/** Invites belong to the owner who made them; a new owner starts fresh. */
+async function revokeInvites(ctx: MutationCtx, groupId: Id<'groups'>) {
+  const now = Date.now();
+  const invites = await ctx.db
+    .query('invites')
+    .withIndex('by_group', (q) => q.eq('groupId', groupId))
+    .collect();
+  for (const invite of invites) {
+    if (invite.revokedAt === undefined)
+      await ctx.db.patch('invites', invite._id, { revokedAt: now });
+  }
+}
 
 async function deleteGroup(ctx: MutationCtx, groupId: Id<'groups'>) {
   const invites = await ctx.db

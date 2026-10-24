@@ -49,6 +49,8 @@ describe('scaling', () => {
     expect(scaleQty(333, 'g', 3, 2)).toBe(220);
     expect(scaleQty(3, 'dl', 4, 6)).toBe(4.5);
     expect(roundQty(47.4, 'g')).toBe(47);
+    // Tiny amounts never round down to nothing.
+    expect(scaleQty(0.1, 'l', 4, 1)).toBe(0.1);
   });
   test('same servings or no amount leaves it alone', () => {
     expect(scaleQty(2, 'pcs', 4, 4)).toBe(2);

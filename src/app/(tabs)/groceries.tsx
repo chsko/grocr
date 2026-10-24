@@ -59,10 +59,12 @@ export default function GroceriesScreen() {
 
   const [text, setText] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
-  const [editing, setEditing] = useState<GroceryLine | null>(null);
+  // The line being edited, by key, so it picks up rows added while the editor is open.
+  const [editingKey, setEditingKey] = useState<string | null>(null);
 
   const lines = useMemo(() => mergeRows(data?.items ?? []), [data]);
   const open = lines.filter((l) => !l.checked);
+  const editing = lines.find((l) => l.key === editingKey) ?? null;
   const cart = lines.filter((l) => l.checked);
   const sections = useMemo(() => {
     const groups: { section: string; lines: GroceryLine[] }[] = [];
@@ -195,7 +197,7 @@ export default function GroceriesScreen() {
               accessibilityRole="checkbox"
               accessibilityState={{ checked: false }}
               onPress={() => toggle(line)}
-              onLongPress={() => setEditing(line)}
+              onLongPress={() => setEditingKey(line.key)}
               style={({ pressed }) => [styles.line, pressed && { opacity: 0.6 }]}>
               <View style={styles.box} />
               <View style={{ flex: 1, gap: 2 }}>
@@ -259,7 +261,7 @@ export default function GroceriesScreen() {
       ) : null}
 
       {editing ? (
-        <GroceryLineEditor key={editing.key} line={editing} onClose={() => setEditing(null)} />
+        <GroceryLineEditor key={editing.key} line={editing} onClose={() => setEditingKey(null)} />
       ) : null}
     </TabScreen>
   );

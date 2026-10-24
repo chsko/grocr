@@ -120,7 +120,7 @@ export function roundQty(qty: number, unit: Unit | undefined): number {
     return Math.max(0.5, Math.round(qty * 2) / 2);
   }
   // Metric mass and volume.
-  if (qty < 10) return Math.round(qty * 10) / 10;
+  if (qty < 10) return Math.max(0.1, Math.round(qty * 10) / 10);
   if (qty < 100) return Math.round(qty);
   return Math.round(qty / 5) * 5;
 }

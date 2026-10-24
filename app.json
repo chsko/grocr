@@ -10,7 +10,6 @@
     "userInterfaceStyle": "light",
     "ios": {
       "bundleIdentifier": "com.grocr.app",
-      "icon": "./assets/expo.icon",
       "supportsTablet": false
     },
     "android": {
@@ -38,7 +37,7 @@
         {
           "backgroundColor": "#FFF6DC",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 160
         }
       ],
       "expo-localization",

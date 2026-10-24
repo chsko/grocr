@@ -30,6 +30,7 @@ async function family() {
 async function rows(t: TestConvex) {
   const items = await t.run((ctx) => ctx.db.query('groceryItems').collect());
   return items
+    .filter((i) => !i.removed)
     .map((i) => ({
       name: i.name,
       qty: i.qty,
@@ -138,6 +139,64 @@ describe('planning a dinner', () => {
       { name: 'Onion', qty: 1, unit: 'pcs', checked: false, kind: 'meal' },
       { name: 'Tortillas', qty: 8, unit: 'pcs', checked: false, kind: 'meal' },
     ]);
+  });
+
+  test('a merged line edited by hand stays put when either dinner changes', async () => {
+    const { t, kari, groupId, recipeId } = await family();
+    await kari.as.mutation(api.mealPlan.set, { groupId, date: TUESDAY, recipeId });
+    const wed = await kari.as.mutation(api.mealPlan.set, {
+      groupId,
+      date: addDays(TUESDAY, 1),
+      recipeId,
+    });
+    const items = await t.run((ctx) => ctx.db.query('groceryItems').collect());
+    const onions = items.filter((i) => i.name === 'Onion').map((i) => i._id);
+    expect(onions).toHaveLength(2);
+    // "4 onions" -> "1 kg": a different unit family than the recipe's pieces.
+    await kari.as.mutation(api.grocery.editMerged, { itemIds: onions, qty: 1, unit: 'kg' });
+    await kari.as.mutation(api.mealPlan.setServings, { entryId: wed, servings: 6 });
+    expect((await rows(t)).filter((r) => r.name === 'Onion')).toEqual([
+      { name: 'Onion', qty: 1, unit: 'kg', checked: false, kind: 'meal' },
+    ]);
+  });
+
+  test('a removed meal line does not come back on the next sync', async () => {
+    const { t, kari, groupId, recipeId } = await family();
+    const entryId = await kari.as.mutation(api.mealPlan.set, { groupId, date: TUESDAY, recipeId });
+    await kari.as.mutation(api.grocery.remove, { itemIds: [await rowId(t, 'Onion')] });
+    await kari.as.mutation(api.mealPlan.setServings, { entryId, servings: 6 });
+    expect((await rows(t)).map((r) => r.name)).toEqual(['Minced beef', 'Salt']);
+    const week = await kari.as.query(api.mealPlan.week, { groupId, startDate: MONDAY });
+    expect(week.openLines).toBe(2);
+    const list = await kari.as.query(api.grocery.listForWeek, { groupId, startDate: MONDAY });
+    expect(list.items.map((i) => i.name).sort()).toEqual(['Minced beef', 'Salt']);
+    // Removing the dinner cleans up the hidden row too.
+    await kari.as.mutation(api.mealPlan.remove, { entryId });
+    expect(await t.run((ctx) => ctx.db.query('groceryItems').collect())).toEqual([]);
+  });
+
+  test('cleared bought lines are not bought again when servings change', async () => {
+    const { t, kari, groupId, recipeId } = await family();
+    const entryId = await kari.as.mutation(api.mealPlan.set, { groupId, date: TUESDAY, recipeId });
+    await kari.as.mutation(api.grocery.setChecked, {
+      itemIds: [await rowId(t, 'Onion')],
+      checked: true,
+    });
+    await kari.as.mutation(api.grocery.clearChecked, { groupId, startDate: MONDAY });
+    await kari.as.mutation(api.mealPlan.setServings, { entryId, servings: 2 });
+    expect((await rows(t)).map((r) => r.name)).toEqual(['Minced beef', 'Salt']);
+  });
+
+  test('carried-over meal lines are not duplicated by a later sync', async () => {
+    const { t, kari, groupId, recipeId } = await family();
+    const entryId = await kari.as.mutation(api.mealPlan.set, { groupId, date: TUESDAY, recipeId });
+    const nextMonday = addDays(MONDAY, 7);
+    expect(
+      await kari.as.mutation(api.grocery.carryOver, { groupId, startDate: nextMonday, move: true }),
+    ).toBe(3);
+    await kari.as.mutation(api.mealPlan.setServings, { entryId, servings: 6 });
+    const items = await t.run((ctx) => ctx.db.query('groceryItems').collect());
+    expect(items).toHaveLength(3);
   });
 
   test('past dinners are not re-synced by recipe edits', async () => {

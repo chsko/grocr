@@ -79,6 +79,17 @@ describe('members and ownership', () => {
     expect(group?.ownerId).toBe(ola.userId);
   });
 
+  test("a change of owner revokes the old owner's invite", async () => {
+    const t = setup();
+    const kari = await signedInUser(t, 'Kari');
+    const ola = await signedInUser(t, 'Ola');
+    const groupId = await groupWithMembers(t, [kari.userId, ola.userId]);
+    const { code } = await kari.as.mutation(api.invites.create, { groupId });
+    await kari.as.mutation(api.groups.leave, { groupId });
+    const emma = await signedInUser(t, 'Emma');
+    expect(await emma.as.mutation(api.invites.accept, { code })).toEqual({ status: 'invalid' });
+  });
+
   test('an owner leaving hands ownership to the longest-standing member', async () => {
     const t = setup();
     const kari = await signedInUser(t, 'Kari');
