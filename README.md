@@ -55,7 +55,7 @@ src/app/            Expo Router routes: (tabs)/week, groceries, recipes, family
 src/components/     UI components
 src/lib/            i18n, week/date helpers, Convex client
 convex/             schema.ts, functions per domain, lib/access.ts (membership checks)
-scripts/ci/         jev CI checks
+scripts/jev/        jev (TypeSafe System One) helpers
 ```
 
 ## Access rules
@@ -73,12 +73,10 @@ Changes are pushed straight to `main` (rebase on conflict). Before every push:
    **high**, run an adversarial review first and add an `Adversarial-Review: <summary>` trailer to
    the commit message.
 
-On every push to `main`, GitHub Actions runs:
+On every push to `main`, GitHub Actions runs **CI**: format, lint, typecheck, Jest and Vitest.
 
-- **CI**: format, lint, typecheck, Jest and Vitest.
-- **jev**: re-scores the push and opens a `needs-adversarial-review` issue if a high-risk push has
-  no `Adversarial-Review` trailer, and flags changed Norwegian/English string pairs that may not
-  mean the same (`npm run jev:i18n` runs the same check locally).
+jev runs locally only and needs `TYPESAFE_API_KEY` in the environment. Besides `jev:risk`:
 
-The jev steps need the `TYPESAFE_API_KEY` Actions secret and pass with a warning if jev is
-unavailable.
+- `npm run jev:i18n` asks whether changed Norwegian/English string pairs mean the same.
+- `npm run jev -- <state> <questions>` asks jev anything, e.g. to weigh a design or product choice
+  (see `scripts/jev/ask.mjs`).

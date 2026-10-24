@@ -1,5 +1,5 @@
 // Minimal client for jev, TypeSafe's System One model (https://api.typesafe.ai/docs).
-// Used only in CI; the key comes from the TYPESAFE_API_KEY secret.
+// Used by the scripts in this folder; the key comes from the TYPESAFE_API_KEY env var.
 
 export const JEV_URL = 'https://api.typesafe.ai/v1/systemone';
 
@@ -13,7 +13,7 @@ export async function askJev(
   { apiKey = process.env.TYPESAFE_API_KEY, fetchImpl = fetch } = {},
 ) {
   if (!apiKey) {
-    console.log('::warning::TYPESAFE_API_KEY is not set; skipping the jev check.');
+    console.log('TYPESAFE_API_KEY is not set; skipping the jev check.');
     return null;
   }
   try {
@@ -25,13 +25,13 @@ export async function askJev(
     });
     if (!response.ok) {
       const detail = (await response.text()).slice(0, 500);
-      console.log(`::warning::jev returned HTTP ${response.status}; skipping. ${detail}`);
+      console.log(`jev returned HTTP ${response.status}; skipping. ${detail}`);
       return null;
     }
     const body = await response.json();
     return body.answers;
   } catch (error) {
-    console.log(`::warning::jev is unreachable (${error.message}); skipping.`);
+    console.log(`jev is unreachable (${error.message}); skipping.`);
     return null;
   }
 }

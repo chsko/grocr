@@ -1,9 +1,8 @@
 // GRO-46: asks jev whether changed Norwegian/English string pairs mean the same, and annotates
 // doubtful pairs. Warning only (never fails) until the threshold is calibrated.
 //
-// Usage: node scripts/ci/i18n-parity.mjs [from] [to]   (default origin/main..HEAD)
+// Usage: node scripts/jev/i18n-parity.mjs [from] [to]   (default origin/main..HEAD)
 import { fileAt } from './git-diff.mjs';
-import { summary } from './github.mjs';
 import { askJev } from './jev.mjs';
 import { changedPairs, PARITY_THRESHOLD, parityRequests } from './lib.mjs';
 
@@ -18,7 +17,7 @@ function locales(ref) {
     try {
       return text === undefined ? {} : JSON.parse(text);
     } catch {
-      console.log(`::warning::${LOCALES}/${lang}.json is not valid JSON at ${ref}.`);
+      console.log(`${LOCALES}/${lang}.json is not valid JSON at ${ref}.`);
       return {};
     }
   };
@@ -30,10 +29,10 @@ const head = locales(to);
 
 const { pairs, missing } = changedPairs(base, head);
 for (const key of missing) {
-  console.log(`::warning file=${LOCALES}/nb.json::"${key}" exists in only one language.`);
+  console.log(`"${key}" exists in only one language.`);
 }
 if (pairs.length === 0) {
-  summary('No changed translation pairs.');
+  console.log('No changed translation pairs.');
   process.exit(0);
 }
 
@@ -47,11 +46,11 @@ for (const { state, questions, names } of parityRequests(pairs)) {
     rows.push(`| \`${pair.key}\` | ${p.toFixed(2)} | ${pair.en} | ${pair.nb} |`);
     if (p < PARITY_THRESHOLD) {
       console.log(
-        `::warning file=${LOCALES}/nb.json,title=Translation mismatch?::"${pair.key}": jev rates ${p.toFixed(2)} that en "${pair.en}" and nb "${pair.nb}" mean the same.`,
+        `Translation mismatch? "${pair.key}": jev rates ${p.toFixed(2)} that en "${pair.en}" and nb "${pair.nb}" mean the same.`,
       );
     }
   }
 }
-summary(
+console.log(
   `### jev nb/en parity\n\n| key | same meaning | en | nb |\n| -- | -- | -- | -- |\n${rows.join('\n')}`,
 );
