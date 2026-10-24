@@ -29,6 +29,7 @@ const me: Me = {
     role: 'owner',
     weekStartsOn: 1,
     timezone: 'Europe/Oslo',
+    sectionOrder: ['produce', 'meat', 'dairy', 'bakery', 'dry', 'frozen', 'household', 'other'],
   },
 };
 

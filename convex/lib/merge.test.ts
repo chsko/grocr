@@ -20,6 +20,7 @@ test('rows of one ingredient merge with all their sources', () => {
   expect(lines).toEqual([
     {
       key: 'open|onion',
+      ingredientId: 'onion',
       name: 'Onion',
       section: 'produce',
       checked: false,
@@ -46,4 +47,18 @@ test('open and checked rows stay apart; lines sort by section then name', () => 
     ['Onion', false, [{ qty: 2, unit: 'pcs' }]],
     ['Milk', false, [{ qty: 5, unit: 'dl' }]],
   ]);
+});
+
+test('lines follow a family store order', () => {
+  const row = (id: string, name: string, section: string) => ({
+    _id: id,
+    ingredientId: id,
+    name,
+    section,
+    checked: false,
+    source: { kind: 'manual' as const },
+  });
+  const rows = [row('a', 'Milk', 'dairy'), row('b', 'Apples', 'produce')];
+  expect(mergeRows(rows).map((l) => l.name)).toEqual(['Apples', 'Milk']);
+  expect(mergeRows(rows, ['dairy', 'produce']).map((l) => l.name)).toEqual(['Milk', 'Apples']);
 });

@@ -170,7 +170,8 @@
     "inCart": "In cart · {{count}}",
     "clearChecked": "Clear checked",
     "amount": "Amount",
-    "removeLine": "Remove from list"
+    "removeLine": "Remove from list",
+    "section": "Section"
   },
   "sections": {
     "produce": "Produce",
@@ -227,7 +228,8 @@
     "weekStarts": "Week starts on",
     "language": "Language",
     "languageValue": "Follows your phone",
-    "account": "Account"
+    "account": "Account",
+    "storeOrder": "Store order"
   },
   "invite": {
     "title": "Invite to {{family}}",
@@ -277,5 +279,12 @@
       "nov": "Nov",
       "dec": "Dec"
     }
+  },
+  "storeOrder": {
+    "title": "Store order",
+    "intro": "Put the sections in the order you walk through your store. The grocery list follows it.",
+    "up": "Move {{section}} up",
+    "down": "Move {{section}} down",
+    "reset": "Reset to default"
   }
 }

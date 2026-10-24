@@ -16,6 +16,7 @@ import { Button, Chip, Field, Text } from '@/components/ui';
 import { Colors } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import { SECTIONS } from '@/convex/lib/catalog';
 import type { GroceryLine } from '@/convex/lib/merge';
 import { formatQty, parseQty, UNITS, type Unit } from '@/convex/lib/units';
 import { attempt } from '@/lib/errors';
@@ -29,6 +30,7 @@ export function GroceryLineEditor({ line, onClose }: { line: GroceryLine; onClos
   const insets = useSafeAreaInsets();
   const editMerged = useMutation(api.grocery.editMerged);
   const remove = useMutation(api.grocery.remove);
+  const setSection = useMutation(api.ingredients.setSection);
   // Lines with mixed units ("1 can + 200 g") start from the first part.
   const first = line.amounts[0];
   const [qty, setQty] = useState(() =>
@@ -78,6 +80,30 @@ export function GroceryLineEditor({ line, onClose }: { line: GroceryLine; onClos
               />
             ))}
           </ScrollView>
+          {line.ingredientId ? (
+            <>
+              <Text variant="label" color={Colors.muted}>
+                {t('groceries.section')}
+              </Text>
+              <View style={styles.sections}>
+                {SECTIONS.map((s) => (
+                  <Chip
+                    key={s}
+                    title={t(`sections.${s}`)}
+                    selected={line.section === s}
+                    onPress={() =>
+                      void attempt(t, () =>
+                        setSection({
+                          ingredientId: line.ingredientId as Id<'ingredients'>,
+                          section: s,
+                        }),
+                      )
+                    }
+                  />
+                ))}
+              </View>
+            </>
+          ) : null}
           <Button title={t('common.save')} onPress={() => void save()} />
           <Button
             kind="danger"
@@ -93,6 +119,7 @@ export function GroceryLineEditor({ line, onClose }: { line: GroceryLine; onClos
 
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: Colors.overlay },
+  sections: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   sheet: {
     backgroundColor: Colors.background,
     borderTopLeftRadius: 24,

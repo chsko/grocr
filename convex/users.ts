@@ -2,7 +2,7 @@ import { ConvexError, v } from 'convex/values';
 
 import { mutation, query } from './_generated/server';
 import { currentMembership, requireUserId } from './lib/access';
-import { cleanName } from './lib/catalog';
+import { cleanName, sectionOrder } from './lib/catalog';
 
 /**
  * The signed-in user and their family. Returns null when signed out, so the app can route to
@@ -31,6 +31,7 @@ export const me = query({
               role: membership.role,
               weekStartsOn: group.weekStartsOn,
               timezone: group.timezone,
+              sectionOrder: sectionOrder(group.sectionOrder),
             }
           : null,
     };

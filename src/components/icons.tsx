@@ -42,6 +42,11 @@ export const ChevronDown = (p: IconProps) => (
     <Path d="M6 9l6 6 6-6" />
   </Stroke>
 );
+export const ChevronUp = (p: IconProps) => (
+  <Stroke {...p}>
+    <Path d="M6 15l6-6 6 6" />
+  </Stroke>
+);
 export const Plus = (p: IconProps) => (
   <Stroke {...p}>
     <Path d="M12 5v14M5 12h14" />

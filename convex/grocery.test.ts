@@ -22,6 +22,7 @@ describe('grocery.listForWeek', () => {
     const groupId = await groupWithMembers(t, [ada.userId]);
     expect(await ada.as.query(api.grocery.listForWeek, { groupId, startDate: MONDAY })).toEqual({
       listId: null,
+      sectionOrder: ['produce', 'meat', 'dairy', 'bakery', 'dry', 'frozen', 'household', 'other'],
       items: [],
       sources: {},
       addedBy: {},

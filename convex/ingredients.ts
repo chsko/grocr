@@ -1,9 +1,11 @@
 import { ConvexError, v } from 'convex/values';
 
+import { internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import { mutation, query, type MutationCtx } from './_generated/server';
 import { accessError, loadForMember, requireMembership } from './lib/access';
 import { cleanName, guessSection, isSection, normalizeName } from './lib/catalog';
+import { jevEnabled } from './lib/jev';
 
 /** Catalog matches for autocomplete: names starting with the text first, then containing it. */
 export const search = query({
@@ -29,13 +31,13 @@ export const search = query({
   },
 });
 
-/** Changes the store section of a catalog item; lines added from then on use it. */
+/** A member moves a catalog item to another section; every list shows it there from now on. */
 export const setSection = mutation({
   args: { ingredientId: v.id('ingredients'), section: v.string() },
   handler: async (ctx, { ingredientId, section }) => {
     const { doc } = await loadForMember(ctx, 'ingredients', ingredientId);
     if (!isSection(section)) throw new ConvexError({ code: 'INVALID_SECTION' });
-    await ctx.db.patch('ingredients', doc._id, { section });
+    await ctx.db.patch('ingredients', doc._id, { section, sectionSource: 'user' });
   },
 });
 
@@ -68,7 +70,24 @@ export async function resolveIngredient(
     name,
     normalizedName,
     section: guessSection(name),
+    sectionSource: 'guess',
     aliases: [],
   });
+  if (jevEnabled() && (await takeJevCall(ctx, groupId))) {
+    await ctx.scheduler.runAfter(0, internal.classify.section, { ingredientId: id });
+  }
   return (await ctx.db.get('ingredients', id))!;
+}
+
+/** Most jev sorting calls one family can trigger per day; past it, items keep the keyword guess. */
+export const JEV_DAILY_LIMIT = 200;
+
+async function takeJevCall(ctx: MutationCtx, groupId: Id<'groups'>) {
+  const group = await ctx.db.get('groups', groupId);
+  if (group === null) return false;
+  const day = new Date().toISOString().slice(0, 10);
+  const count = group.jevUsage?.day === day ? group.jevUsage.count : 0;
+  if (count >= JEV_DAILY_LIMIT) return false;
+  await ctx.db.patch('groups', groupId, { jevUsage: { day, count: count + 1 } });
+  return true;
 }

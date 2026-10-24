@@ -170,7 +170,8 @@
     "inCart": "I kurven · {{count}}",
     "clearChecked": "Fjern avkryssede",
     "amount": "Mengde",
-    "removeLine": "Fjern fra listen"
+    "removeLine": "Fjern fra listen",
+    "section": "Avdeling"
   },
   "sections": {
     "produce": "Frukt og grønt",
@@ -227,7 +228,8 @@
     "weekStarts": "Uka starter på",
     "language": "Språk",
     "languageValue": "Følger telefonen",
-    "account": "Konto"
+    "account": "Konto",
+    "storeOrder": "Rekkefølge i butikken"
   },
   "invite": {
     "title": "Inviter til {{family}}",
@@ -277,5 +279,12 @@
       "nov": "nov.",
       "dec": "des."
     }
+  },
+  "storeOrder": {
+    "title": "Rekkefølge i butikken",
+    "intro": "Sett avdelingene i den rekkefølgen du går gjennom butikken. Handlelisten følger den.",
+    "up": "Flytt {{section}} opp",
+    "down": "Flytt {{section}} ned",
+    "reset": "Tilbakestill"
   }
 }

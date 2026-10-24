@@ -21,10 +21,19 @@ export function isSection(value: string): value is Section {
   return (SECTIONS as readonly string[]).includes(value);
 }
 
-/** Display order on the grocery list. */
-export function sectionRank(section: string): number {
-  const index = SECTIONS.indexOf(section as Section);
-  return index === -1 ? SECTIONS.length : index;
+/**
+ * A family's store order: their sections in the order they gave, then any they left out in the
+ * default order. Unknown or repeated entries are dropped.
+ */
+export function sectionOrder(order?: readonly string[]): Section[] {
+  const picked = [...new Set((order ?? []).filter(isSection))];
+  return [...picked, ...SECTIONS.filter((s) => !picked.includes(s))];
+}
+
+/** Display order on the grocery list, by the family's store order when given. */
+export function sectionRank(section: string, order: readonly string[] = SECTIONS): number {
+  const index = order.indexOf(section);
+  return index === -1 ? order.length : index;
 }
 
 /** Trims, collapses whitespace and capitalizes the first letter: "  red  onion" -> "Red onion". */

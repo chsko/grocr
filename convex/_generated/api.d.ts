@@ -9,6 +9,7 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as classify from "../classify.js";
 import type * as devSignIn from "../devSignIn.js";
 import type * as grocery from "../grocery.js";
 import type * as groups from "../groups.js";
@@ -20,6 +21,7 @@ import type * as lib_catalog from "../lib/catalog.js";
 import type * as lib_devSignIn from "../lib/devSignIn.js";
 import type * as lib_groceryRows from "../lib/groceryRows.js";
 import type * as lib_inviteCode from "../lib/inviteCode.js";
+import type * as lib_jev from "../lib/jev.js";
 import type * as lib_merge from "../lib/merge.js";
 import type * as lib_recipeIcons from "../lib/recipeIcons.js";
 import type * as lib_units from "../lib/units.js";
@@ -36,6 +38,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  classify: typeof classify;
   devSignIn: typeof devSignIn;
   grocery: typeof grocery;
   groups: typeof groups;
@@ -47,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   "lib/devSignIn": typeof lib_devSignIn;
   "lib/groceryRows": typeof lib_groceryRows;
   "lib/inviteCode": typeof lib_inviteCode;
+  "lib/jev": typeof lib_jev;
   "lib/merge": typeof lib_merge;
   "lib/recipeIcons": typeof lib_recipeIcons;
   "lib/units": typeof lib_units;

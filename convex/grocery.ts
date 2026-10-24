@@ -6,6 +6,7 @@ import { resolveIngredient } from './ingredients';
 import { getMembership, requireMemberOf, requireMembership, requireUserId } from './lib/access';
 import { findList, getOrCreateList } from './lib/groceryRows';
 import { isUnit } from './lib/units';
+import { sectionOrder } from './lib/catalog';
 import { addDays, isLocalDate, startOfWeek, type Weekday } from './lib/week';
 
 /**
@@ -57,15 +58,26 @@ export const listForWeek = query({
       }
     }
 
+    // Lines follow their catalog item's current section, so a move or jev's refinement shows on
+    // every list at once.
+    const sections = new Map<string, string>();
+    for (const item of items) {
+      if (item.ingredientId === undefined || sections.has(item.ingredientId)) continue;
+      const ingredient = await ctx.db.get('ingredients', item.ingredientId);
+      if (ingredient?.groupId === groupId) sections.set(item.ingredientId, ingredient.section);
+    }
+    const group = (await ctx.db.get('groups', groupId))!;
+
     return {
       listId: list?._id ?? null,
+      sectionOrder: sectionOrder(group.sectionOrder),
       items: items.map((i) => ({
         _id: i._id,
         ingredientId: i.ingredientId ?? null,
         name: i.name,
         qty: i.qty,
         unit: i.unit,
-        section: i.section,
+        section: (i.ingredientId && sections.get(i.ingredientId)) ?? i.section,
         checked: i.checked,
         edited: i.edited,
         source: i.source,

@@ -39,6 +39,10 @@ export default defineSchema({
     weekStartsOn: v.number(),
     // IANA timezone, e.g. "Europe/Oslo". Server-side "today" is computed from this.
     timezone: v.string(),
+    // Grocery list section order, matching the family's store. Missing = default order.
+    sectionOrder: v.optional(v.array(v.string())),
+    // jev calls made for this family today (UTC), to cap spend.
+    jevUsage: v.optional(v.object({ day: v.string(), count: v.number() })),
     createdAt: v.number(),
   }),
 
@@ -79,6 +83,8 @@ export default defineSchema({
     name: v.string(),
     normalizedName: v.string(),
     section: v.string(),
+    // Who set the section: the keyword guess, jev, or a family member (never overridden).
+    sectionSource: v.optional(v.union(v.literal('guess'), v.literal('jev'), v.literal('user'))),
     defaultUnit: v.optional(v.string()),
     isStaple: v.optional(v.boolean()),
     aliases: v.array(v.string()),

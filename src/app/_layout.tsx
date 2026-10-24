@@ -98,6 +98,7 @@ function AppStack() {
             options={{ presentation: 'modal' }}
           />
           <Stack.Screen name="invite" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="store-order" options={{ ...header, title: t('storeOrder.title') }} />
         </Stack.Protected>
       </Stack>
     </SessionContext.Provider>

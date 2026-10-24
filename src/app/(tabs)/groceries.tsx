@@ -62,7 +62,7 @@ export default function GroceriesScreen() {
   // The line being edited, by key, so it picks up rows added while the editor is open.
   const [editingKey, setEditingKey] = useState<string | null>(null);
 
-  const lines = useMemo(() => mergeRows(data?.items ?? []), [data]);
+  const lines = useMemo(() => mergeRows(data?.items ?? [], data?.sectionOrder), [data]);
   const open = lines.filter((l) => !l.checked);
   const editing = lines.find((l) => l.key === editingKey) ?? null;
   const cart = lines.filter((l) => l.checked);

@@ -18,6 +18,7 @@ export type GroceryRow = {
 
 export type GroceryLine = {
   key: string;
+  ingredientId: string | null;
   name: string;
   section: string;
   checked: boolean;
@@ -29,7 +30,7 @@ export type GroceryLine = {
   addedBy: string[];
 };
 
-export function mergeRows(rows: GroceryRow[]): GroceryLine[] {
+export function mergeRows(rows: GroceryRow[], order?: readonly string[]): GroceryLine[] {
   const lines = new Map<string, GroceryLine & { raw: Amount[] }>();
   for (const row of rows) {
     const ingredientKey = row.ingredientId ?? `name:${normalizeName(row.name)}`;
@@ -38,6 +39,7 @@ export function mergeRows(rows: GroceryRow[]): GroceryLine[] {
     if (line === undefined) {
       line = {
         key,
+        ingredientId: row.ingredientId,
         name: row.name,
         section: row.section,
         checked: row.checked,
@@ -62,6 +64,8 @@ export function mergeRows(rows: GroceryRow[]): GroceryLine[] {
   return [...lines.values()]
     .map(({ raw, ...line }) => ({ ...line, amounts: sumAmounts(raw) }))
     .sort(
-      (a, b) => sectionRank(a.section) - sectionRank(b.section) || a.name.localeCompare(b.name),
+      (a, b) =>
+        sectionRank(a.section, order) - sectionRank(b.section, order) ||
+        a.name.localeCompare(b.name),
     );
 }

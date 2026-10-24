@@ -9,7 +9,7 @@ import {
   requireOwner,
   requireUserId,
 } from './lib/access';
-import { cleanName } from './lib/catalog';
+import { cleanName, sectionOrder } from './lib/catalog';
 
 function validName(name: string) {
   const clean = cleanName(name).slice(0, 60);
@@ -52,6 +52,15 @@ export const rename = mutation({
   handler: async (ctx, { groupId, name }) => {
     await requireOwner(ctx, groupId);
     await ctx.db.patch('groups', groupId, { name: validName(name) });
+  },
+});
+
+/** Sets the family's grocery list section order, to match the route through their store. */
+export const setSectionOrder = mutation({
+  args: { groupId: v.id('groups'), order: v.array(v.string()) },
+  handler: async (ctx, { groupId, order }) => {
+    await requireMembership(ctx, groupId);
+    await ctx.db.patch('groups', groupId, { sectionOrder: sectionOrder(order) });
   },
 });
 

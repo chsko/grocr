@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
-import { Clock, More, Plus } from '@/components/icons';
+import { ChevronRight, Clock, More, Plus } from '@/components/icons';
 import { Avatar, Button, IconButton, TabScreen, Text } from '@/components/ui';
 import { AvatarColors, Colors, Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
@@ -170,6 +170,13 @@ export default function FamilyScreen() {
         <Text>{t('family.weekStarts')}</Text>
         <Text color={Colors.muted}>{t('dates.dayLong.mon')}</Text>
       </View>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.push('/store-order')}
+        style={styles.setting}>
+        <Text>{t('family.storeOrder')}</Text>
+        <ChevronRight color={Colors.muted} size={18} />
+      </Pressable>
       <Pressable accessibilityRole="button" onPress={pickLanguage} style={styles.setting}>
         <Text>{t('family.language')}</Text>
         <Text color={Colors.muted}>
