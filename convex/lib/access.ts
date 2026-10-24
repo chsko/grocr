@@ -65,3 +65,21 @@ export function assertSameGroup(groupId: Id<'groups'>, docs: { groupId: Id<'grou
     if (doc.groupId !== groupId) throw accessError('NOT_FOUND');
   }
 }
+
+/** The signed-in user's membership of `groupId`; throws FORBIDDEN unless they own the group. */
+export async function requireOwner(ctx: QueryCtx, groupId: Id<'groups'>) {
+  const access = await requireMembership(ctx, groupId);
+  if (access.membership.role !== 'owner') throw new ConvexError({ code: 'FORBIDDEN' });
+  return access;
+}
+
+/** The signed-in user's family (one per person in the v1 UI), or null before onboarding. */
+export async function currentMembership(ctx: QueryCtx, userId: Id<'users'>) {
+  const memberships = await ctx.db
+    .query('memberships')
+    .withIndex('by_user', (q) => q.eq('userId', userId))
+    .collect();
+  // Oldest first, so a second family (only possible via data fixes) never hides the first.
+  memberships.sort((a, b) => a.joinedAt - b.joinedAt);
+  return memberships[0] ?? null;
+}

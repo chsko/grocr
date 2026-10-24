@@ -67,6 +67,13 @@ export default defineSchema({
     .index('by_shortCode', ['shortCode'])
     .index('by_group', ['groupId']),
 
+  // Failed invite-code lookups per user in the current window, so codes cannot be guessed.
+  inviteAttempts: defineTable({
+    userId: v.id('users'),
+    windowStart: v.number(),
+    failures: v.number(),
+  }).index('by_user', ['userId']),
+
   ingredients: defineTable({
     groupId: v.id('groups'),
     name: v.string(),
@@ -109,7 +116,9 @@ export default defineSchema({
     servings: v.number(),
     addedBy: v.optional(v.id('users')),
     createdAt: v.number(),
-  }).index('by_group_date', ['groupId', 'date']),
+  })
+    .index('by_group_date', ['groupId', 'date'])
+    .index('by_recipe_date', ['recipeId', 'date']),
 
   groceryLists: defineTable({
     groupId: v.id('groups'),

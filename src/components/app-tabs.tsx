@@ -1,26 +1,25 @@
 import { NativeTabs } from 'expo-router/native-tabs';
 import { useTranslation } from 'react-i18next';
-import { useColorScheme } from 'react-native';
 
 import { Colors } from '@/constants/theme';
 
 export default function AppTabs() {
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
   const { t } = useTranslation();
 
   return (
     <NativeTabs
-      backgroundColor={colors.background}
-      indicatorColor={colors.backgroundElement}
-      labelStyle={{ selected: { color: colors.text } }}>
+      backgroundColor={Colors.background}
+      indicatorColor={Colors.saffronPill}
+      tintColor={Colors.tomato}
+      iconColor={{ default: Colors.muted, selected: Colors.ink }}
+      labelStyle={{ default: { color: Colors.muted }, selected: { color: Colors.ink } }}>
       <NativeTabs.Trigger name="week">
         <NativeTabs.Trigger.Label>{t('tabs.week')}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="calendar" md="calendar_month" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="groceries">
         <NativeTabs.Trigger.Label>{t('tabs.groceries')}</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="cart" md="shopping_cart" />
+        <NativeTabs.Trigger.Icon sf="basket" md="shopping_basket" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="recipes">
         <NativeTabs.Trigger.Label>{t('tabs.recipes')}</NativeTabs.Trigger.Label>

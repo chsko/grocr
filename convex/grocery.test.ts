@@ -16,11 +16,17 @@ describe('grocery.listForWeek', () => {
     expect(result?.items.map((item) => item.name).sort()).toEqual(['Milk', 'Onion']);
   });
 
-  test('returns null for a week with no list', async () => {
+  test('returns an empty list for a week with nothing on it', async () => {
     const t = setup();
     const ada = await signedInUser(t, 'ada');
     const groupId = await groupWithMembers(t, [ada.userId]);
-    expect(await ada.as.query(api.grocery.listForWeek, { groupId, startDate: MONDAY })).toBeNull();
+    expect(await ada.as.query(api.grocery.listForWeek, { groupId, startDate: MONDAY })).toEqual({
+      listId: null,
+      items: [],
+      sources: {},
+      addedBy: {},
+      carryOver: null,
+    });
   });
 
   test('rejects users from another family', async () => {
@@ -126,5 +132,126 @@ describe('grocery.setChecked', () => {
         checked: true,
       }),
     ).rejects.toThrow(/TOO_MANY_ITEMS/);
+  });
+});
+
+describe('manual items and list upkeep', () => {
+  test('manual items go through the catalog and show who added them', async () => {
+    const t = setup();
+    const ada = await signedInUser(t, 'Ada');
+    const groupId = await groupWithMembers(t, [ada.userId]);
+    await ada.as.mutation(api.grocery.addManual, {
+      groupId,
+      startDate: MONDAY,
+      name: 'coffee',
+      qty: 2,
+      unit: 'pack',
+    });
+    await ada.as.mutation(api.grocery.addManual, { groupId, startDate: MONDAY, name: 'Coffee' });
+    const list = await ada.as.query(api.grocery.listForWeek, { groupId, startDate: MONDAY });
+    expect(list.items.map((i) => [i.name, i.qty, i.unit, i.section])).toEqual([
+      ['Coffee', 2, 'pack', 'dry'],
+      ['Coffee', undefined, undefined, 'dry'],
+    ]);
+    expect(new Set(list.items.map((i) => i.ingredientId)).size).toBe(1);
+    expect(Object.values(list.addedBy)).toEqual(['Ada']);
+  });
+
+  test('manual items only go on real week starts', async () => {
+    const t = setup();
+    const ada = await signedInUser(t, 'Ada');
+    const groupId = await groupWithMembers(t, [ada.userId]);
+    await expect(
+      ada.as.mutation(api.grocery.addManual, { groupId, startDate: '2026-10-27', name: 'Tea' }),
+    ).rejects.toThrow(/INVALID_DATE/);
+  });
+
+  test('editing a merged line keeps one edited row with the new amount', async () => {
+    const t = setup();
+    const ada = await signedInUser(t, 'Ada');
+    const groupId = await groupWithMembers(t, [ada.userId]);
+    const { itemIds } = await listWithItems(t, groupId, MONDAY, ['Onion', 'Onion']);
+    await ada.as.mutation(api.grocery.editMerged, { itemIds, qty: 1, unit: 'pcs' });
+    const items = await t.run((ctx) => ctx.db.query('groceryItems').collect());
+    expect(items.map((i) => [i.name, i.qty, i.unit, i.edited])).toEqual([
+      ['Onion', 1, 'pcs', true],
+    ]);
+  });
+
+  test('clear checked removes only checked rows', async () => {
+    const t = setup();
+    const ada = await signedInUser(t, 'Ada');
+    const groupId = await groupWithMembers(t, [ada.userId]);
+    const { itemIds } = await listWithItems(t, groupId, MONDAY, ['Milk', 'Bread']);
+    await ada.as.mutation(api.grocery.setChecked, { itemIds: [itemIds[0]], checked: true });
+    expect(await ada.as.mutation(api.grocery.clearChecked, { groupId, startDate: MONDAY })).toBe(1);
+    const list = await ada.as.query(api.grocery.listForWeek, { groupId, startDate: MONDAY });
+    expect(list.items.map((i) => i.name)).toEqual(['Bread']);
+  });
+
+  test("last week's unchecked items are offered once, and move as manual items", async () => {
+    const t = setup();
+    const ada = await signedInUser(t, 'Ada');
+    const groupId = await groupWithMembers(t, [ada.userId]);
+    const lastWeek = '2026-10-19';
+    const { itemIds } = await listWithItems(t, groupId, lastWeek, ['Milk', 'Bread', 'Eggs']);
+    await ada.as.mutation(api.grocery.setChecked, { itemIds: [itemIds[0]], checked: true });
+
+    let list = await ada.as.query(api.grocery.listForWeek, { groupId, startDate: MONDAY });
+    expect(list.carryOver).toEqual({ count: 2 });
+    expect(
+      await ada.as.mutation(api.grocery.carryOver, { groupId, startDate: MONDAY, move: true }),
+    ).toBe(2);
+    list = await ada.as.query(api.grocery.listForWeek, { groupId, startDate: MONDAY });
+    expect(list.items.map((i) => i.name).sort()).toEqual(['Bread', 'Eggs']);
+    expect(list.carryOver).toBeNull();
+  });
+
+  test('dismissing the offer moves nothing', async () => {
+    const t = setup();
+    const ada = await signedInUser(t, 'Ada');
+    const groupId = await groupWithMembers(t, [ada.userId]);
+    await listWithItems(t, groupId, '2026-10-19', ['Milk']);
+    expect(
+      await ada.as.mutation(api.grocery.carryOver, { groupId, startDate: MONDAY, move: false }),
+    ).toBe(0);
+    const list = await ada.as.query(api.grocery.listForWeek, { groupId, startDate: MONDAY });
+    expect(list.items).toEqual([]);
+    expect(list.carryOver).toBeNull();
+  });
+
+  test("other families can't add to, edit, remove or clear this family's list", async () => {
+    const t = setup();
+    const ada = await signedInUser(t, 'Ada');
+    const eve = await signedInUser(t, 'Eve');
+    const groupId = await groupWithMembers(t, [ada.userId]);
+    await groupWithMembers(t, [eve.userId]);
+    const { itemIds } = await listWithItems(t, groupId, MONDAY, ['Milk']);
+
+    await expect(
+      eve.as.mutation(api.grocery.addManual, { groupId, startDate: MONDAY, name: 'Tea' }),
+    ).rejects.toThrow(/NOT_FOUND/);
+    await expect(eve.as.mutation(api.grocery.editMerged, { itemIds, qty: 9 })).rejects.toThrow(
+      /NOT_FOUND/,
+    );
+    await expect(eve.as.mutation(api.grocery.remove, { itemIds })).rejects.toThrow(/NOT_FOUND/);
+    await expect(
+      eve.as.mutation(api.grocery.clearChecked, { groupId, startDate: MONDAY }),
+    ).rejects.toThrow(/NOT_FOUND/);
+    await expect(
+      eve.as.mutation(api.grocery.carryOver, { groupId, startDate: MONDAY, move: true }),
+    ).rejects.toThrow(/NOT_FOUND/);
+    expect(await t.run((ctx) => ctx.db.get('groceryItems', itemIds[0]))).not.toBeNull();
+  });
+
+  test('rows from two lists cannot be edited together', async () => {
+    const t = setup();
+    const ada = await signedInUser(t, 'Ada');
+    const groupId = await groupWithMembers(t, [ada.userId]);
+    const a = await listWithItems(t, groupId, MONDAY, ['Milk']);
+    const b = await listWithItems(t, groupId, '2026-11-02', ['Milk']);
+    await expect(
+      ada.as.mutation(api.grocery.editMerged, { itemIds: [...a.itemIds, ...b.itemIds], qty: 1 }),
+    ).rejects.toThrow(/NOT_FOUND/);
   });
 });
