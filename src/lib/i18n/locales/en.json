@@ -1,0 +1,32 @@
+{
+  "tabs": {
+    "week": "Week",
+    "groceries": "Groceries",
+    "recipes": "Recipes",
+    "family": "Family"
+  },
+  "week": {
+    "title": "This week",
+    "empty": "No dinners planned yet."
+  },
+  "groceries": {
+    "title": "Groceries",
+    "thisWeek": "This week",
+    "nextWeek": "Next week",
+    "empty": "Your grocery list is empty.",
+    "offline": "Offline. Showing the list from {{time}}. Ticks sync when you are back online.",
+    "pending_one": "{{count}} change waiting to sync",
+    "pending_other": "{{count}} changes waiting to sync"
+  },
+  "recipes": {
+    "title": "Recipes",
+    "empty": "Add your first recipe."
+  },
+  "family": {
+    "title": "Family",
+    "empty": "Invite your family to plan dinners together."
+  },
+  "dates": {
+    "weekNumber": "Week {{week}}"
+  }
+}

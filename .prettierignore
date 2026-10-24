@@ -1,0 +1,6 @@
+convex/_generated
+node_modules
+.expo
+dist
+coverage
+package-lock.json

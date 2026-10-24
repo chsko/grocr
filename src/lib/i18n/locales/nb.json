@@ -1,0 +1,32 @@
+{
+  "tabs": {
+    "week": "Uke",
+    "groceries": "Handleliste",
+    "recipes": "Oppskrifter",
+    "family": "Familie"
+  },
+  "week": {
+    "title": "Denne uken",
+    "empty": "Ingen middager planlagt ennå."
+  },
+  "groceries": {
+    "title": "Handleliste",
+    "thisWeek": "Denne uken",
+    "nextWeek": "Neste uke",
+    "empty": "Handlelisten er tom.",
+    "offline": "Frakoblet. Viser listen fra {{time}}. Avkrysninger synkroniseres når du er på nett igjen.",
+    "pending_one": "{{count}} endring venter på synkronisering",
+    "pending_other": "{{count}} endringer venter på synkronisering"
+  },
+  "recipes": {
+    "title": "Oppskrifter",
+    "empty": "Legg til din første oppskrift."
+  },
+  "family": {
+    "title": "Familie",
+    "empty": "Inviter familien for å planlegge middager sammen."
+  },
+  "dates": {
+    "weekNumber": "Uke {{week}}"
+  }
+}
