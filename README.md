@@ -22,7 +22,10 @@ npx convex dev          # signs in, creates a dev deployment and writes .env.loc
 npx expo run:ios        # or run:android; needs a development build (not Expo Go)
 ```
 
-`EXPO_PUBLIC_CONVEX_URL` must be set (see `.env.example`); `npx convex dev` writes it for you.
+The committed `.env` points the app at the shared dev deployment (`silent-otter-909`, Convex
+project **grocr**). `npx convex dev` gives you your own deployment in `.env.local`, which wins.
+Convex Auth on the deployment needs `JWT_PRIVATE_KEY`, `JWKS` and `SITE_URL` (`grocr://`); they
+are set on the dev deployment. Production has no deployment yet.
 
 ## Scripts
 
