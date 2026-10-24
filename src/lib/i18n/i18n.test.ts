@@ -39,14 +39,6 @@ describe('translations', () => {
       });
     }
   });
-
-  test('plurals resolve in both languages', async () => {
-    await i18n.changeLanguage('nb');
-    expect(i18n.t('groceries.pending', { count: 1 })).toBe('1 endring venter på synkronisering');
-    expect(i18n.t('groceries.pending', { count: 3 })).toBe('3 endringer venter på synkronisering');
-    await i18n.changeLanguage('en');
-    expect(i18n.t('groceries.pending', { count: 1 })).toBe('1 change waiting to sync');
-  });
 });
 
 describe('pickLanguage', () => {

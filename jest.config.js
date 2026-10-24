@@ -1,7 +1,6 @@
 /** App tests (jest-expo). Convex backend tests run in Vitest, see vitest.config.mts. */
 module.exports = {
   preset: 'jest-expo',
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   testPathIgnorePatterns: ['/node_modules/', '<rootDir>/convex/', '<rootDir>/scripts/'],
   moduleNameMapper: {
     '^@/convex/(.*)$': '<rootDir>/convex/$1',

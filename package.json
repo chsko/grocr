@@ -28,8 +28,6 @@
     "react-i18next": "^17.1.8",
     "react-native": "0.88.0",
     "react-native-gesture-handler": "~3.3.0",
-    "react-native-mmkv": "^4.3.2",
-    "react-native-nitro-modules": "^0.37.1",
     "react-native-reanimated": "4.7.1",
     "react-native-safe-area-context": "~5.10.1",
     "react-native-screens": "~4.30.0",
@@ -65,7 +63,9 @@
     "test": "jest",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm test -- --ci && npm run test:convex",
     "jev:risk": "node scripts/ci/risk.mjs",
-    "jev:i18n": "node scripts/ci/i18n-parity.mjs"
+    "jev:i18n": "node scripts/ci/i18n-parity.mjs",
+    "go": "expo start --go",
+    "go:tunnel": "expo start --go --tunnel"
   },
   "private": true
 }

@@ -46,4 +46,4 @@ Docs: https://docs.expo.dev/eas/index.md
 - All user-facing text goes through i18next with keys in both `src/lib/i18n/locales/en.json` and `nb.json`.
 - Dates are local `YYYY-MM-DD` strings in the family's timezone; use `src/lib/week.ts`.
 - Convex functions: never trust client-supplied user or group ids. Load the document, then call the helpers in `convex/lib/access.ts`. Add a cross-family test in `convex/*.test.ts` for every new function.
-- Grocery mutations set absolute state (never toggle) so offline resends are safe.
+- Grocery mutations set absolute state (never toggle), so retries and two people ticking at once are safe. The app requires a connection; there is no offline mode (decided 2026-10-24).

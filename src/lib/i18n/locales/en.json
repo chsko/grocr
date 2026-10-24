@@ -13,10 +13,7 @@
     "title": "Groceries",
     "thisWeek": "This week",
     "nextWeek": "Next week",
-    "empty": "Your grocery list is empty.",
-    "offline": "Offline. Showing the list from {{time}}. Ticks sync when you are back online.",
-    "pending_one": "{{count}} change waiting to sync",
-    "pending_other": "{{count}} changes waiting to sync"
+    "empty": "Your grocery list is empty."
   },
   "recipes": {
     "title": "Recipes",

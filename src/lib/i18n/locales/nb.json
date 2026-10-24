@@ -13,10 +13,7 @@
     "title": "Handleliste",
     "thisWeek": "Denne uken",
     "nextWeek": "Neste uke",
-    "empty": "Handlelisten er tom.",
-    "offline": "Frakoblet. Viser listen fra {{time}}. Avkrysninger synkroniseres når du er på nett igjen.",
-    "pending_one": "{{count}} endring venter på synkronisering",
-    "pending_other": "{{count}} endringer venter på synkronisering"
+    "empty": "Handlelisten er tom."
   },
   "recipes": {
     "title": "Oppskrifter",

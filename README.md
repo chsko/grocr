@@ -11,16 +11,17 @@ Planning, decisions and the architecture doc live in Linear (team **Grocr**, pro
 - Expo SDK 58, Expo Router (routes in `src/app`), strict TypeScript, React Compiler
 - Convex backend (`convex/`) with Convex Auth
 - i18next with Norwegian bokmål and English (`src/lib/i18n`), following the device language
-- MMKV for the offline grocery list cache (`src/features/grocery`)
 - Jest + React Native Testing Library for the app, Vitest + `convex-test` for the backend
 
 ## Getting started
 
 ```sh
 npm ci
-npx convex dev          # signs in, creates a dev deployment and writes .env.local
-npx expo run:ios        # or run:android; needs a development build (not Expo Go)
+npm run go              # starts Expo for Expo Go; scan the QR code with your iPhone camera
 ```
+
+The app runs in Expo Go for now (Expo Go must be on the same SDK, 58). `npm start` targets a
+development build instead (`expo-dev-client`), which native Google/Apple sign-in will need later.
 
 The committed `.env` points the app at the shared dev deployment (`silent-otter-909`, Convex
 project **grocr**). `npx convex dev` gives you your own deployment in `.env.local`, which wins.
@@ -43,8 +44,7 @@ are set on the dev deployment. Production has no deployment yet.
 ```
 src/app/            Expo Router routes: (tabs)/week, groceries, recipes, family
 src/components/     UI components
-src/features/       Feature hooks and UI (grocery offline cache so far)
-src/lib/            i18n, week/date helpers, storage, Convex client
+src/lib/            i18n, week/date helpers, Convex client
 convex/             schema.ts, functions per domain, lib/access.ts (membership checks)
 scripts/ci/         jev CI checks
 ```
