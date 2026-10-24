@@ -90,6 +90,7 @@ export function isRecipeIcon(value: unknown): value is RecipeIcon {
  */
 export function guessIcon(title: string): RecipeIcon {
   const words = title
+    .normalize('NFC')
     .toLocaleLowerCase('nb')
     .split(/[^\p{L}\p{N}]+/u)
     .filter(Boolean);

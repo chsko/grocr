@@ -123,7 +123,10 @@ export const save = mutation({
       ingredients.push({ ingredientId: ingredient._id, qty, unit, note });
     }
     const steps = args.steps.map((s) => s.trim().slice(0, 2000)).filter((s) => s !== '');
-    const icon = isRecipeIcon(args.icon) ? args.icon : undefined;
+    // A missing icon keeps the current one (older app builds don't send it); '' or an unknown
+    // value clears it back to the title's guess.
+    const icon =
+      args.icon === undefined ? existing?.icon : isRecipeIcon(args.icon) ? args.icon : undefined;
     const fields = {
       title,
       icon,

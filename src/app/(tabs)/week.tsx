@@ -8,6 +8,7 @@ import { Basket, ChevronLeft, ChevronRight } from '@/components/icons';
 import { IconButton, IconTile, TabScreen, Text } from '@/components/ui';
 import { Colors, Fonts, Radius, TileColors } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
+import { DEFAULT_ICON } from '@/convex/lib/recipeIcons';
 import { dayShort, weekSpan, weekTitle } from '@/lib/format';
 import { useFamily } from '@/lib/session';
 import { addDays, defaultGroceryWeek, startOfWeek, todayIn, type Weekday } from '@/lib/week';
@@ -108,7 +109,7 @@ export default function WeekScreen() {
                   </View>
                   {dinner.isNote ? null : (
                     <IconTile
-                      icon={dinner.icon ?? ''}
+                      icon={dinner.icon ?? DEFAULT_ICON}
                       color={TileColors[index % TileColors.length]}
                       size={30}
                     />

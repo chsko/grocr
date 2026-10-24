@@ -66,6 +66,11 @@ describe('recipes', () => {
     const [row] = await kari.as.query(api.recipes.list, { groupId });
     expect(row.icon).toBe('🍕');
 
+    // An older client that doesn't send an icon keeps the picked one.
+    await kari.as.mutation(api.recipes.save, { groupId, recipeId, ...tacos });
+    recipe = await kari.as.query(api.recipes.get, { recipeId });
+    expect(recipe.icon).toBe('🍕');
+
     await kari.as.mutation(api.recipes.save, { groupId, recipeId, ...tacos, icon: '<b>' });
     recipe = await kari.as.query(api.recipes.get, { recipeId });
     expect(recipe.icon).toBeUndefined();

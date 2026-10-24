@@ -93,7 +93,7 @@ export default function RecipeEditScreen() {
         groupId: family.groupId,
         recipeId: id,
         title,
-        icon: icon ?? undefined,
+        icon: icon ?? '',
         servings,
         steps,
         ingredients: rows

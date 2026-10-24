@@ -7,6 +7,7 @@ describe('recipe icons', () => {
     expect(guessIcon('Tacos')).toBe('🌮');
     expect(guessIcon('Fredagstaco')).toBe('🌮');
     expect(guessIcon('Fiskesuppe')).toBe('🍲');
+    expect(guessIcon('Fårikål'.normalize('NFD'))).toBe('🥘');
     expect(guessIcon('Spaghetti bolognese')).toBe('🍝');
     expect(guessIcon('Laks med poteter')).toBe('🐟');
     expect(guessIcon('Kylling-curry')).toBe('🍛');
