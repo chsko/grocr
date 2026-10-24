@@ -1,0 +1,55 @@
+name: jev
+
+# jev (TypeSafe System One) checks from GRO-14. Both fail open if jev is unreachable.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, ready_for_review, labeled, unlabeled]
+
+concurrency:
+  group: jev-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  risk:
+    name: PR risk gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - name: Score risk with jev
+        # Label changes only re-run the gate, so the score is not recomputed on every label.
+        if: github.event.action != 'labeled' && github.event.action != 'unlabeled'
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/ci/pr-risk.mjs score
+      - name: Require adversarial review for high-risk PRs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/ci/pr-risk.mjs gate
+
+  translations:
+    name: nb/en translation parity
+    if: github.event.action != 'labeled' && github.event.action != 'unlabeled'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - name: Check changed strings with jev
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+        run: node scripts/ci/i18n-parity.mjs origin/${{ github.base_ref }}
