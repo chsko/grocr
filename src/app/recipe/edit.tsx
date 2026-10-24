@@ -14,10 +14,11 @@ import {
 } from 'react-native';
 
 import { Close } from '@/components/icons';
-import { Button, Chip, Field, IconButton, Loading, Stepper, Text } from '@/components/ui';
-import { Colors, Fonts, Radius } from '@/constants/theme';
+import { Button, Chip, Field, IconButton, IconTile, Loading, Stepper, Text } from '@/components/ui';
+import { Colors, Fonts, Radius, TileColors } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import { guessIcon, isRecipeIcon, RECIPE_ICONS, type RecipeIcon } from '@/convex/lib/recipeIcons';
 import { formatQty, isUnit, parseQty, UNITS, type Unit } from '@/convex/lib/units';
 import { attempt } from '@/lib/errors';
 import { useFamily } from '@/lib/session';
@@ -43,6 +44,9 @@ export default function RecipeEditScreen() {
   const saveRecipe = useMutation(api.recipes.save);
 
   const [title, setTitle] = useState('');
+  // null follows the title's guess until someone picks an icon.
+  const [icon, setIcon] = useState<RecipeIcon | null>(null);
+  const [pickingIcon, setPickingIcon] = useState(false);
   const [servings, setServings] = useState(4);
   const [rows, setRows] = useState<Row[]>(() => [emptyRow()]);
   const [steps, setSteps] = useState<string[]>(['']);
@@ -55,6 +59,7 @@ export default function RecipeEditScreen() {
     if (!existing || loaded.current) return;
     loaded.current = true;
     setTitle(existing.title);
+    setIcon(isRecipeIcon(existing.icon) ? existing.icon : null);
     setServings(existing.servings);
     setRows(
       existing.ingredients.map((line) => ({
@@ -88,6 +93,7 @@ export default function RecipeEditScreen() {
         groupId: family.groupId,
         recipeId: id,
         title,
+        icon: icon ?? undefined,
         servings,
         steps,
         ingredients: rows
@@ -135,14 +141,24 @@ export default function RecipeEditScreen() {
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.content}>
-        <Field
-          label={t('recipeEdit.titleLabel')}
-          value={title}
-          onChangeText={setTitle}
-          placeholder={t('recipeEdit.titlePlaceholder')}
-          autoFocus={!id}
-          inputStyle={{ fontFamily: Fonts.semibold, fontSize: 18 }}
-        />
+        <View style={styles.titleRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('recipeEdit.icon')}
+            onPress={() => setPickingIcon(true)}
+            style={({ pressed }) => pressed && { opacity: 0.7 }}>
+            <IconTile icon={icon ?? guessIcon(title)} color={TileColors[0]} size={50} />
+          </Pressable>
+          <Field
+            label={t('recipeEdit.titleLabel')}
+            value={title}
+            onChangeText={setTitle}
+            placeholder={t('recipeEdit.titlePlaceholder')}
+            autoFocus={!id}
+            style={{ flex: 1 }}
+            inputStyle={{ fontFamily: Fonts.semibold, fontSize: 18 }}
+          />
+        </View>
         <View style={styles.servingsRow}>
           <Text variant="item" style={{ fontSize: 16 }}>
             {t('common.servings')}
@@ -264,6 +280,42 @@ export default function RecipeEditScreen() {
       </ScrollView>
 
       <Modal
+        visible={pickingIcon}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPickingIcon(false)}>
+        <Pressable style={styles.backdrop} onPress={() => setPickingIcon(false)}>
+          <View style={styles.unitSheet}>
+            <Text variant="heading">{t('recipeEdit.icon')}</Text>
+            <View style={styles.iconGrid}>
+              {RECIPE_ICONS.map(({ icon: option }) => (
+                <Pressable
+                  key={option}
+                  accessibilityRole="button"
+                  accessibilityLabel={option}
+                  accessibilityState={{ selected: option === icon }}
+                  onPress={() => {
+                    setIcon(option);
+                    setPickingIcon(false);
+                  }}
+                  style={[styles.iconOption, option === icon && styles.iconSelected]}>
+                  <Text style={{ fontSize: 26, lineHeight: 34 }}>{option}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <Chip
+              title={t('recipeEdit.iconAuto')}
+              selected={icon === null}
+              onPress={() => {
+                setIcon(null);
+                setPickingIcon(false);
+              }}
+            />
+          </View>
+        </Pressable>
+      </Modal>
+
+      <Modal
         visible={unitFor !== null}
         transparent
         animationType="fade"
@@ -300,6 +352,16 @@ export default function RecipeEditScreen() {
 
 const styles = StyleSheet.create({
   content: { padding: 20, gap: 18, paddingBottom: 64 },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 12 },
+  iconGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  iconOption: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconSelected: { backgroundColor: Colors.saffronSoft, borderWidth: 2, borderColor: Colors.tomato },
   servingsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   ingredientRow: { flexDirection: 'row', gap: 6, alignItems: 'center' },
   cell: {

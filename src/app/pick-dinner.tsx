@@ -6,8 +6,8 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Check, Close, Search } from '@/components/icons';
-import { Button, Chip, Field, IconButton, Stepper, Text } from '@/components/ui';
-import { Colors, Radius } from '@/constants/theme';
+import { Button, Chip, Field, IconButton, IconTile, Stepper, Text } from '@/components/ui';
+import { Colors, Radius, TileColors } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { attempt } from '@/lib/errors';
@@ -137,6 +137,7 @@ export default function PickDinnerScreen() {
                 setServingsState(null);
               }}
               style={[styles.recipe, isSelected && styles.recipeSelected]}>
+              <IconTile icon={r.icon} color={TileColors[0]} size={38} />
               <View style={{ flex: 1 }}>
                 <Text variant="item">{r.title}</Text>
                 <Text variant="small" color={isSelected ? Colors.tomatoDeep : Colors.muted}>

@@ -223,12 +223,13 @@ export function Chip({
 }
 
 /** A soft square with the first letter of a name, used for recipes and dinners. */
-export function InitialTile({
-  name,
+/** A recipe's food icon on a soft tile. */
+export function IconTile({
+  icon,
   color,
   size = 46,
 }: {
-  name: string;
+  icon: string;
   color: string;
   size?: number;
 }) {
@@ -237,14 +238,14 @@ export function InitialTile({
       style={{
         width: size,
         height: size,
-        borderRadius: 12,
+        borderRadius: Math.round(size / 4),
         backgroundColor: color,
         alignItems: 'center',
         justifyContent: 'center',
       }}>
-      <Text variant="item" style={{ fontFamily: Fonts.bold, fontSize: 18 }}>
-        {name.charAt(0).toLocaleUpperCase()}
-      </Text>
+      <RNText style={{ fontSize: Math.round(size * 0.55), lineHeight: Math.round(size * 0.75) }}>
+        {icon}
+      </RNText>
     </View>
   );
 }

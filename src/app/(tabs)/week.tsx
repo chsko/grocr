@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Basket, ChevronLeft, ChevronRight } from '@/components/icons';
-import { IconButton, InitialTile, TabScreen, Text } from '@/components/ui';
+import { IconButton, IconTile, TabScreen, Text } from '@/components/ui';
 import { Colors, Fonts, Radius, TileColors } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import { dayShort, weekSpan, weekTitle } from '@/lib/format';
@@ -107,8 +107,8 @@ export default function WeekScreen() {
                     </Text>
                   </View>
                   {dinner.isNote ? null : (
-                    <InitialTile
-                      name={dinner.title}
+                    <IconTile
+                      icon={dinner.icon ?? ''}
                       color={TileColors[index % TileColors.length]}
                       size={30}
                     />

@@ -3,8 +3,8 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
-import { Button, Loading, Text } from '@/components/ui';
-import { Colors, Fonts } from '@/constants/theme';
+import { Button, IconTile, Loading, Text } from '@/components/ui';
+import { Colors, Fonts, TileColors } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { attempt } from '@/lib/errors';
@@ -38,7 +38,10 @@ export default function RecipeScreen() {
           ),
         }}
       />
-      <Text variant="title">{recipe.title}</Text>
+      <IconTile icon={recipe.shownIcon} color={TileColors[0]} size={64} />
+      <Text variant="title" style={{ marginTop: 12 }}>
+        {recipe.title}
+      </Text>
       <Text color={Colors.muted}>{t('recipes.servings', { count: recipe.servings })}</Text>
 
       <Text variant="section" color={Colors.muted} style={styles.section}>

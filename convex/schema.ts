@@ -90,6 +90,8 @@ export default defineSchema({
     servings: v.number(),
     steps: v.array(v.string()),
     tags: v.array(v.string()),
+    /** One of RECIPE_ICONS; missing means guessed from the title. */
+    icon: v.optional(v.string()),
     imageStorageId: v.optional(v.id('_storage')),
     sourceUrl: v.optional(v.string()),
     createdBy: v.optional(v.id('users')),

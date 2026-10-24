@@ -54,6 +54,23 @@ describe('recipes', () => {
     expect(found.map((i) => i.name)).toEqual(['Onion']);
   });
 
+  test('icons: guessed from the title until one is picked; unknown icons are dropped', async () => {
+    const { kari, groupId } = await family();
+    const recipeId = await kari.as.mutation(api.recipes.save, { groupId, ...tacos });
+    let recipe = await kari.as.query(api.recipes.get, { recipeId });
+    expect([recipe.icon, recipe.shownIcon]).toEqual([undefined, '🌮']);
+
+    await kari.as.mutation(api.recipes.save, { groupId, recipeId, ...tacos, icon: '🍕' });
+    recipe = await kari.as.query(api.recipes.get, { recipeId });
+    expect([recipe.icon, recipe.shownIcon]).toEqual(['🍕', '🍕']);
+    const [row] = await kari.as.query(api.recipes.list, { groupId });
+    expect(row.icon).toBe('🍕');
+
+    await kari.as.mutation(api.recipes.save, { groupId, recipeId, ...tacos, icon: '<b>' });
+    recipe = await kari.as.query(api.recipes.get, { recipeId });
+    expect(recipe.icon).toBeUndefined();
+  });
+
   test('list sorts by title and hides archived recipes', async () => {
     const { kari, groupId } = await family();
     const id = await kari.as.mutation(api.recipes.save, { groupId, ...tacos });

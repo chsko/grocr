@@ -6,6 +6,7 @@ import { resolveIngredient } from './ingredients';
 import { loadForMember, requireMembership } from './lib/access';
 import { cleanName } from './lib/catalog';
 import { syncEntry } from './lib/groceryRows';
+import { isRecipeIcon, recipeIcon } from './lib/recipeIcons';
 import { isUnit } from './lib/units';
 import { todayIn } from './lib/week';
 
@@ -42,6 +43,7 @@ export const list = query({
       visible.map(async (r) => ({
         _id: r._id,
         title: r.title,
+        icon: recipeIcon(r),
         servings: r.servings,
         ingredientCount: r.ingredients.length,
         ...(await planDates(ctx, r._id, today)),
@@ -66,7 +68,7 @@ export const get = query({
         };
       }),
     );
-    return { ...doc, ingredients };
+    return { ...doc, shownIcon: recipeIcon(doc), ingredients };
   },
 });
 
@@ -87,6 +89,7 @@ export const save = mutation({
     groupId: v.id('groups'),
     recipeId: v.optional(v.id('recipes')),
     title: v.string(),
+    icon: v.optional(v.string()),
     servings: v.number(),
     steps: v.array(v.string()),
     ingredients: v.array(ingredientInput),
@@ -120,7 +123,15 @@ export const save = mutation({
       ingredients.push({ ingredientId: ingredient._id, qty, unit, note });
     }
     const steps = args.steps.map((s) => s.trim().slice(0, 2000)).filter((s) => s !== '');
-    const fields = { title, servings: args.servings, steps, ingredients, updatedAt: Date.now() };
+    const icon = isRecipeIcon(args.icon) ? args.icon : undefined;
+    const fields = {
+      title,
+      icon,
+      servings: args.servings,
+      steps,
+      ingredients,
+      updatedAt: Date.now(),
+    };
 
     if (existing === null) {
       return await ctx.db.insert('recipes', {

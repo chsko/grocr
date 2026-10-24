@@ -5,6 +5,7 @@ import { loadForMember, requireMembership } from './lib/access';
 import { normalizeName } from './lib/catalog';
 import { detachEntry, findList, syncEntry } from './lib/groceryRows';
 import { addDays, isLocalDate } from './lib/week';
+import { recipeIcon } from './lib/recipeIcons';
 
 function validDate(date: string) {
   if (!isLocalDate(date)) throw new ConvexError({ code: 'INVALID_DATE' });
@@ -41,6 +42,7 @@ export const week = query({
           date: e.date,
           recipeId: e.recipeId ?? null,
           title: recipe?.title ?? e.freeText ?? '',
+          icon: recipe ? recipeIcon(recipe) : null,
           isNote: e.recipeId === undefined,
           servings: e.servings,
         };

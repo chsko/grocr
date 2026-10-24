@@ -21,6 +21,7 @@ import type * as lib_devSignIn from "../lib/devSignIn.js";
 import type * as lib_groceryRows from "../lib/groceryRows.js";
 import type * as lib_inviteCode from "../lib/inviteCode.js";
 import type * as lib_merge from "../lib/merge.js";
+import type * as lib_recipeIcons from "../lib/recipeIcons.js";
 import type * as lib_units from "../lib/units.js";
 import type * as lib_week from "../lib/week.js";
 import type * as mealPlan from "../mealPlan.js";
@@ -47,6 +48,7 @@ declare const fullApi: ApiFromModules<{
   "lib/groceryRows": typeof lib_groceryRows;
   "lib/inviteCode": typeof lib_inviteCode;
   "lib/merge": typeof lib_merge;
+  "lib/recipeIcons": typeof lib_recipeIcons;
   "lib/units": typeof lib_units;
   "lib/week": typeof lib_week;
   mealPlan: typeof mealPlan;

@@ -144,7 +144,9 @@
     "addIngredient": "+ Legg til ingrediens",
     "stepPlaceholder": "Beskriv dette steget",
     "removeStep": "Fjern steg",
-    "addStep": "+ Legg til steg"
+    "addStep": "+ Legg til steg",
+    "icon": "Ikon",
+    "iconAuto": "Etter tittelen"
   },
   "groceries": {
     "title": "Handleliste",

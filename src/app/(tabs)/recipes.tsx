@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { Plus, Search } from '@/components/icons';
-import { Button, IconButton, InitialTile, TabScreen, Text } from '@/components/ui';
+import { Button, IconButton, IconTile, TabScreen, Text } from '@/components/ui';
 import { Colors, Fonts, Radius, TileColors } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import { dayShort } from '@/lib/format';
@@ -70,7 +70,7 @@ export default function RecipesScreen() {
             onPress={() => router.push({ pathname: '/recipe/[id]', params: { id: r._id } })}
             accessibilityRole="link"
             style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}>
-            <InitialTile name={r.title} color={TileColors[index % TileColors.length]} />
+            <IconTile icon={r.icon} color={TileColors[index % TileColors.length]} />
             <View style={{ flex: 1, gap: 2 }}>
               <Text variant="item">{r.title}</Text>
               <Text variant="small" color={Colors.muted}>

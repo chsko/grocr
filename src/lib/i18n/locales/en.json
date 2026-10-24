@@ -144,7 +144,9 @@
     "addIngredient": "+ Add ingredient",
     "stepPlaceholder": "Describe this step",
     "removeStep": "Remove step",
-    "addStep": "+ Add step"
+    "addStep": "+ Add step",
+    "icon": "Icon",
+    "iconAuto": "Match the title"
   },
   "groceries": {
     "title": "Groceries",
