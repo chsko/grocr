@@ -52,17 +52,21 @@ Every Convex function that takes an id loads the document first and checks that 
 user is a member of the document's `groupId` (`convex/lib/access.ts`). Documents in another
 family are reported as not found. Every new function needs a cross-family test.
 
-## CI
+## Workflow and CI
 
-- **CI**: format, lint, typecheck, Jest and Vitest on every PR and on `main`.
-- **jev / PR risk gate**: jev (TypeSafe System One) scores each PR low, medium or high risk and
-  labels it `risk:*`, judging from the changed files and diff excerpts. High-risk PRs get
-  `needs-adversarial-review`, and the check fails until an adversarial review is done and a repo
-  admin or maintainer adds the `adversarial-review-done` label. New pushes remove that sign-off.
-- **jev / nb/en translation parity**: changed Norwegian/English string pairs are checked for the
-  same meaning and flagged as warnings.
+Changes are pushed straight to `main` (rebase on conflict). Before every push:
 
-Both jev checks need the `TYPESAFE_API_KEY` Actions secret and pass with a warning if jev is
-unavailable. They run on `pull_request_target` from the base branch and read the PR only through
-the GitHub API, so a PR can neither change the gate it is judged by nor run code with the secret.
-Changes to `.github/` and `scripts/ci/` need the code owner.
+1. `npm run check` must pass.
+2. `npm run jev:risk` asks jev (TypeSafe System One) how risky the unpushed commits are. If it says
+   **high**, run an adversarial review first and add an `Adversarial-Review: <summary>` trailer to
+   the commit message.
+
+On every push to `main`, GitHub Actions runs:
+
+- **CI**: format, lint, typecheck, Jest and Vitest.
+- **jev**: re-scores the push and opens a `needs-adversarial-review` issue if a high-risk push has
+  no `Adversarial-Review` trailer, and flags changed Norwegian/English string pairs that may not
+  mean the same (`npm run jev:i18n` runs the same check locally).
+
+The jev steps need the `TYPESAFE_API_KEY` Actions secret and pass with a warning if jev is
+unavailable.

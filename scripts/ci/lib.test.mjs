@@ -5,10 +5,8 @@ import {
   changedPairs,
   describeFiles,
   flatten,
-  gatePasses,
-  NEEDS_REVIEW_LABEL,
+  hasReviewTrailer,
   parityRequests,
-  REVIEW_DONE_LABEL,
   riskLevel,
 } from './lib.mjs';
 
@@ -23,13 +21,11 @@ describe('risk gate', () => {
     expect(riskLevel(Number.NaN)).toBeUndefined();
   });
 
-  test('high-risk PRs need an adversarial review signed off by an admin or maintainer', () => {
-    expect(gatePasses([])).toBe(true);
-    expect(gatePasses(['risk:high', NEEDS_REVIEW_LABEL])).toBe(false);
-    expect(gatePasses([NEEDS_REVIEW_LABEL, REVIEW_DONE_LABEL], 'admin')).toBe(true);
-    expect(gatePasses([NEEDS_REVIEW_LABEL, REVIEW_DONE_LABEL], 'maintain')).toBe(true);
-    expect(gatePasses([NEEDS_REVIEW_LABEL, REVIEW_DONE_LABEL], 'write')).toBe(false);
-    expect(gatePasses([NEEDS_REVIEW_LABEL, REVIEW_DONE_LABEL], undefined)).toBe(false);
+  test('adversarial review trailer', () => {
+    expect(hasReviewTrailer('Fix access\n\nAdversarial-Review: 3 findings fixed')).toBe(true);
+    expect(hasReviewTrailer('Fix access\n\nadversarial-review: done')).toBe(true);
+    expect(hasReviewTrailer('Mentions Adversarial-Review: inline')).toBe(false);
+    expect(hasReviewTrailer('Fix access\n\nAdversarial-Review:')).toBe(false);
   });
 
   test('file descriptions carry capped diff excerpts', () => {

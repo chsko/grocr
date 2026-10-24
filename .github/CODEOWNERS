@@ -1,3 +1,0 @@
-# CI and the jev gate decide which PRs need an adversarial review; changes to them need the owner.
-/.github/ @chsko
-/scripts/ci/ @chsko

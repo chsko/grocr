@@ -1,33 +1,32 @@
 // GRO-46: asks jev whether changed Norwegian/English string pairs mean the same, and annotates
-// doubtful pairs on the PR. Warning only (never fails) until the threshold is calibrated.
+// doubtful pairs. Warning only (never fails) until the threshold is calibrated.
 //
-// Runs from the base branch (pull_request_target) and reads both versions of the locale files
-// through the API, so no PR code is checked out or run.
-//
-// Usage: node scripts/ci/i18n-parity.mjs
-import { fileAt, prContext, summary } from './github.mjs';
+// Usage: node scripts/ci/i18n-parity.mjs [from] [to]   (default origin/main..HEAD)
+import { fileAt } from './git-diff.mjs';
+import { summary } from './github.mjs';
 import { askJev } from './jev.mjs';
 import { changedPairs, PARITY_THRESHOLD, parityRequests } from './lib.mjs';
 
 const LOCALES = 'src/lib/i18n/locales';
-const { event, repo } = prContext();
-const pr = event.pull_request;
+const ZERO = /^0+$/;
+const [fromArg = 'origin/main', to = 'HEAD'] = process.argv.slice(2);
+const from = ZERO.test(fromArg) ? `${to}~1` : fromArg;
 
-async function locales(owner, sha) {
-  const read = async (lang) => {
-    const text = await fileAt(owner, `${LOCALES}/${lang}.json`, sha);
+function locales(ref) {
+  const read = (lang) => {
+    const text = fileAt(ref, `${LOCALES}/${lang}.json`);
     try {
       return text === undefined ? {} : JSON.parse(text);
     } catch {
-      console.log(`::warning::${LOCALES}/${lang}.json is not valid JSON at ${sha}.`);
+      console.log(`::warning::${LOCALES}/${lang}.json is not valid JSON at ${ref}.`);
       return {};
     }
   };
-  return { en: await read('en'), nb: await read('nb') };
+  return { en: read('en'), nb: read('nb') };
 }
 
-const base = await locales(repo, pr.base.sha);
-const head = await locales(pr.head.repo?.full_name ?? repo, pr.head.sha);
+const base = locales(from);
+const head = locales(to);
 
 const { pairs, missing } = changedPairs(base, head);
 for (const key of missing) {

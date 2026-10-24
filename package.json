@@ -63,7 +63,9 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit && tsc --noEmit -p convex",
     "test": "jest",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm test -- --ci && npm run test:convex"
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test -- --ci && npm run test:convex",
+    "jev:risk": "node scripts/ci/risk.mjs",
+    "jev:i18n": "node scripts/ci/i18n-parity.mjs"
   },
   "private": true
 }
