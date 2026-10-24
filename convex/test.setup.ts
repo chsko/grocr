@@ -1,0 +1,71 @@
+/// <reference types="vite/client" />
+import { convexTest } from 'convex-test';
+
+import type { Id } from './_generated/dataModel';
+import schema from './schema';
+
+export const modules = import.meta.glob(['./**/*.ts', './**/*.js', '!./**/*.test.ts']);
+
+export function setup() {
+  return convexTest(schema, modules);
+}
+
+export type TestConvex = ReturnType<typeof setup>;
+
+/** Creates a user and returns a client authenticated as them (Convex Auth subject format). */
+export async function signedInUser(t: TestConvex, name: string) {
+  const userId = await t.run((ctx) => ctx.db.insert('users', { name }));
+  return { userId, as: t.withIdentity({ subject: `${userId}|session-${name}` }) };
+}
+
+export async function groupWithMembers(t: TestConvex, members: Id<'users'>[]) {
+  return await t.run(async (ctx) => {
+    const groupId = await ctx.db.insert('groups', {
+      name: 'Family',
+      ownerId: members[0],
+      weekStartsOn: 1,
+      timezone: 'Europe/Oslo',
+      createdAt: Date.now(),
+    });
+    for (const [index, userId] of members.entries()) {
+      await ctx.db.insert('memberships', {
+        groupId,
+        userId,
+        role: index === 0 ? 'owner' : 'member',
+        joinedAt: Date.now(),
+      });
+    }
+    return groupId;
+  });
+}
+
+export async function listWithItems(
+  t: TestConvex,
+  groupId: Id<'groups'>,
+  startDate: string,
+  names: string[],
+) {
+  return await t.run(async (ctx) => {
+    const listId = await ctx.db.insert('groceryLists', {
+      groupId,
+      startDate,
+      endDate: startDate,
+    });
+    const itemIds = [];
+    for (const name of names) {
+      itemIds.push(
+        await ctx.db.insert('groceryItems', {
+          groupId,
+          listId,
+          name,
+          section: 'Other',
+          checked: false,
+          edited: false,
+          source: { kind: 'manual' },
+          createdAt: Date.now(),
+        }),
+      );
+    }
+    return { listId, itemIds };
+  });
+}
