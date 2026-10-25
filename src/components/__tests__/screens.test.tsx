@@ -11,6 +11,7 @@ import SignInScreen from '@/app/sign-in';
 import { Palettes } from '@/constants/theme';
 import { SECTIONS } from '@/convex/lib/catalog';
 import { SchemeContext } from '@/lib/appearance';
+import * as build from '@/lib/build';
 import i18n from '@/lib/i18n';
 import { SessionContext, type Me } from '@/lib/session';
 
@@ -109,6 +110,19 @@ describe('sign-in', () => {
     });
     await render(<SignInScreen />);
     expect(screen.getByText('Fortsett som Kari Hansen')).toBeTruthy();
+  });
+
+  test('hides the test users in TestFlight and store builds', async () => {
+    await i18n.changeLanguage('en');
+    mockUseQuery.mockReturnValue({
+      google: true,
+      apple: false,
+      personas: [{ id: 'kari', name: 'Kari Hansen' }],
+    });
+    jest.spyOn(build, 'isDevBuild').mockReturnValue(false);
+    await render(<SignInScreen />);
+    expect(screen.getByText('Continue with Google')).toBeTruthy();
+    expect(screen.queryByText('Continue as Kari Hansen')).toBeNull();
   });
 
   test('offers Google and no test users when they are off', async () => {

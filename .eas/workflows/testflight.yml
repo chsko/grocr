@@ -1,0 +1,20 @@
+# Runs on Expo's servers when started from expo.dev or `eas workflow:run testflight.yml`.
+# Builds the iOS app with the "preview" profile (store-signed, dev backend, update channel main)
+# and sends it to TestFlight. Needs the App Store Connect API key in the project's credentials.
+name: TestFlight
+
+jobs:
+  build_ios:
+    name: Build iOS
+    type: build
+    params:
+      platform: ios
+      profile: preview
+
+  submit_ios:
+    name: Submit to TestFlight
+    needs: [build_ios]
+    type: submit
+    params:
+      build_id: ${{ needs.build_ios.outputs.build_id }}
+      profile: preview

@@ -11,12 +11,14 @@ import { Button, Text } from '@/components/ui';
 import { Radius, Spacing } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import { makeStyles, useColors, useResolvedScheme } from '@/lib/appearance';
+import { isDevBuild } from '@/lib/build';
 import { showError } from '@/lib/errors';
 import { appleSignInAvailable, signInWithApple, signInWithGoogle } from '@/lib/socialSignIn';
 
 /**
  * Sign-in with Apple (iPhone) and Google (GRO-20/21). Below them the dev deployment lists its
- * test users, the same way Hubbr does; the list is empty unless the deployment enables them.
+ * test users, the same way Hubbr does; the list is empty unless the deployment enables them
+ * and this is a dev copy of the app (see lib/build.ts).
  */
 export default function SignInScreen() {
   const colors = useColors();
@@ -24,7 +26,8 @@ export default function SignInScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const options = useQuery(api.signInOptions.get);
-  const personas = options?.personas;
+  // TestFlight and store builds share the dev backend for now, so they hide its test users.
+  const personas = isDevBuild() ? options?.personas : [];
   const { signIn } = useAuthActions();
   const scheme = useResolvedScheme();
   const [pending, setPending] = useState<string | null>(null);
