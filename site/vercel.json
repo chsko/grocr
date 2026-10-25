@@ -1,4 +1,10 @@
 {
   "cleanUrls": true,
-  "rewrites": [{ "source": "/join/:code", "destination": "/join" }]
+  "rewrites": [
+    { "source": "/join/:code", "destination": "/join" },
+    {
+      "source": "/api/auth/:path*",
+      "destination": "https://silent-otter-909.eu-west-1.convex.site/api/auth/:path*"
+    }
+  ]
 }
