@@ -8,6 +8,30 @@ import { SchemeContext } from '@/lib/appearance';
 import i18n from '@/lib/i18n';
 import { SessionContext, type Me } from '@/lib/session';
 
+// A stand-in tab navigator: the Week tab, with Groceries next to it.
+const mockNav = {
+  index: 0,
+  listeners: {} as Record<string, (() => void)[]>,
+  emit(type: string) {
+    for (const fn of this.listeners[type] ?? []) fn();
+  },
+};
+jest.mock('expo-router', () => ({
+  ...jest.requireActual('expo-router'),
+  useRoute: () => ({ key: 'week' }),
+  useNavigation: () => mockNavigation,
+}));
+const mockNavigation = {
+  isFocused: () => mockNav.index === 0,
+  getState: () => ({ index: mockNav.index, routes: [{ key: 'week' }, { key: 'groceries' }] }),
+  addListener: (type: string, fn: () => void) => {
+    (mockNav.listeners[type] ??= []).push(fn);
+    return () => {
+      mockNav.listeners[type] = mockNav.listeners[type].filter((f) => f !== fn);
+    };
+  },
+};
+
 const mockUseQuery = jest.fn();
 jest.mock('convex/react', () => ({
   useQuery: (...args: unknown[]) => mockUseQuery(...args),
@@ -35,7 +59,10 @@ const me: Me = {
   },
 };
 
-beforeEach(() => mockUseQuery.mockReset());
+beforeEach(() => {
+  mockUseQuery.mockReset();
+  mockNav.index = 0;
+});
 
 const metrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
@@ -135,5 +162,31 @@ describe('week', () => {
       </SchemeContext.Provider>,
     );
     expect(screen.getByText(/^Week \d+$/)).toHaveStyle({ color: Palettes.dark.ink });
+  });
+});
+
+describe('tab switch', () => {
+  test('fades a tab in after switching away and back, not after a pushed screen', async () => {
+    await i18n.changeLanguage('en');
+    mockUseQuery.mockReturnValue({ dinners: [], openLines: 0 });
+    await render(
+      <SessionContext.Provider value={me}>
+        <WeekScreen />
+      </SessionContext.Provider>,
+    );
+    const content = screen.getByTestId('tab-content');
+    expect(content).toHaveStyle({ opacity: 1 });
+
+    // A recipe pushed over the tabs: Week stays the selected tab, so it stays visible.
+    mockNav.emit('blur');
+    expect(content).toHaveStyle({ opacity: 1 });
+
+    // Switching to Groceries hides Week, and coming back fades it in again.
+    mockNav.index = 1;
+    mockNav.emit('blur');
+    expect(content).toHaveStyle({ opacity: 0 });
+    mockNav.index = 0;
+    mockNav.emit('focus');
+    expect(content).toHaveStyle({ opacity: 1 });
   });
 });

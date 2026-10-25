@@ -13,7 +13,16 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
+import { useNavigation, useRoute } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import Animated, {
+  Easing,
+  ReduceMotion,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Fonts, Radius, Spacing } from '@/constants/theme';
@@ -348,6 +357,42 @@ const useStyles = makeStyles((colors) => ({
   },
 }));
 
+/**
+ * Fades a tab's content in when you switch to it. It only fades after the tab itself was left:
+ * coming back from a screen pushed on top (a recipe, the dinner picker) shows it at once.
+ * Reduce Motion skips the fade.
+ */
+function useTabFadeIn() {
+  const navigation = useNavigation();
+  const { key } = useRoute();
+  const [shownAtStart] = useState(() => navigation.isFocused());
+  const opacity = useSharedValue(shownAtStart ? 1 : 0);
+
+  useEffect(() => {
+    const fadeIn = () => {
+      if (opacity.value === 1) return;
+      opacity.value = withTiming(1, {
+        duration: 200,
+        easing: Easing.out(Easing.quad),
+        reduceMotion: ReduceMotion.System,
+      });
+    };
+    const offFocus = navigation.addListener('focus', fadeIn);
+    const offBlur = navigation.addListener('blur', () => {
+      // Blur also fires when a screen is pushed over the tabs; then this tab stays selected.
+      const tabs = navigation.getState();
+      if (tabs?.routes[tabs.index]?.key !== key) opacity.value = 0;
+    });
+    if (navigation.isFocused()) fadeIn();
+    return () => {
+      offFocus();
+      offBlur();
+    };
+  }, [navigation, key, opacity]);
+
+  return useAnimatedStyle(() => ({ opacity: opacity.value }));
+}
+
 /** A scrolling tab screen below the status bar; iOS insets it above the native tab bar. */
 export function TabScreen({
   children,
@@ -359,15 +404,18 @@ export function TabScreen({
   contentStyle?: StyleProp<ViewStyle>;
 }) {
   const colors = useColors();
+  const fade = useTabFadeIn();
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.background }}>
-      {header}
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={[{ paddingHorizontal: 20, paddingBottom: 32 }, contentStyle]}>
-        {children}
-      </ScrollView>
+      <Animated.View testID="tab-content" style={[{ flex: 1 }, fade]}>
+        {header}
+        <ScrollView
+          contentInsetAdjustmentBehavior="automatic"
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={[{ paddingHorizontal: 20, paddingBottom: 32 }, contentStyle]}>
+          {children}
+        </ScrollView>
+      </Animated.View>
     </SafeAreaView>
   );
 }
