@@ -11,7 +11,8 @@
       "env": {
         "EXPO_PUBLIC_CONVEX_URL": "https://silent-otter-909.eu-west-1.convex.cloud"
       },
-      "channel": "development"
+      "channel": "development",
+      "corepack": true
     },
     "preview": {
       "distribution": "store",
@@ -20,12 +21,14 @@
       "env": {
         "EXPO_PUBLIC_CONVEX_URL": "https://silent-otter-909.eu-west-1.convex.cloud"
       },
-      "channel": "main"
+      "channel": "main",
+      "corepack": true
     },
     "production": {
       "autoIncrement": true,
       "environment": "production",
-      "channel": "production"
+      "channel": "production",
+      "corepack": true
     }
   },
   "submit": {

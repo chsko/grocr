@@ -15,16 +15,19 @@ Planning, decisions and the architecture doc live in Linear (team **Grocr**, pro
 
 ## Getting started
 
+Grocr uses pnpm only (version pinned in `package.json`; `corepack enable` picks it up). Never npm.
+`pnpm-workspace.yaml` sets a 7-day dependency cooldown and blocks install scripts except esbuild.
+
 ```sh
-npm ci
-npm run go              # starts Expo for Expo Go; scan the QR code with your iPhone camera
+pnpm install
+pnpm go                 # starts Expo for Expo Go; scan the QR code with your iPhone camera
 ```
 
-The app runs in Expo Go for now (Expo Go must be on the same SDK, 58). `npm start` targets a
+The app runs in Expo Go for now (Expo Go must be on the same SDK, 58). `pnpm start` targets a
 development build instead (`expo-dev-client`), which native Google/Apple sign-in will need later.
 
 The committed `.env` points the app at the shared dev deployment (`silent-otter-909`, Convex
-project **grocr**). `npx convex dev` gives you your own deployment in `.env.local`, which wins.
+project **grocr**). `pnpm exec convex dev` gives you your own deployment in `.env.local`, which wins.
 Convex Auth on the deployment needs `JWT_PRIVATE_KEY`, `JWKS` and `SITE_URL` (`grocr://`); they
 are set on the dev deployment. Production has no deployment yet.
 
@@ -39,14 +42,14 @@ permissions) need a module Expo Go already bundles, or a development build.
 
 ## Scripts
 
-| Command               | What it does                                             |
-| --------------------- | -------------------------------------------------------- |
-| `npm run check`       | Everything CI runs: format check, lint, typecheck, tests |
-| `npm run format`      | Prettier                                                 |
-| `npm run lint`        | ESLint (`eslint-config-expo`)                            |
-| `npm run typecheck`   | `tsc` for the app and for `convex/`                      |
-| `npm test`            | App tests (Jest)                                         |
-| `npm run test:convex` | Backend and CI-script tests (Vitest, `convex-test`)      |
+| Command            | What it does                                             |
+| ------------------ | -------------------------------------------------------- |
+| `pnpm check`       | Everything CI runs: format check, lint, typecheck, tests |
+| `pnpm format`      | Prettier                                                 |
+| `pnpm lint`        | ESLint (`eslint-config-expo`)                            |
+| `pnpm typecheck`   | `tsc` for the app and for `convex/`                      |
+| `pnpm test`        | App tests (Jest)                                         |
+| `pnpm test:convex` | Backend and CI-script tests (Vitest, `convex-test`)      |
 
 ## Project layout
 
@@ -68,8 +71,8 @@ family are reported as not found. Every new function needs a cross-family test.
 
 Changes are pushed straight to `main` (rebase on conflict). Before every push:
 
-1. `npm run check` must pass.
-2. `npm run jev:risk` asks jev (TypeSafe System One) how risky the unpushed commits are. If it says
+1. `pnpm check` must pass.
+2. `pnpm jev:risk` asks jev (TypeSafe System One) how risky the unpushed commits are. If it says
    **high**, run an adversarial review first and add an `Adversarial-Review: <summary>` trailer to
    the commit message.
 
@@ -77,6 +80,6 @@ On every push to `main`, GitHub Actions runs **CI**: format, lint, typecheck, Je
 
 jev runs locally only and needs `TYPESAFE_API_KEY` in the environment. Besides `jev:risk`:
 
-- `npm run jev:i18n` asks whether changed Norwegian/English string pairs mean the same.
-- `npm run jev -- <state> <questions>` asks jev anything, e.g. to weigh a design or product choice
+- `pnpm jev:i18n` asks whether changed Norwegian/English string pairs mean the same.
+- `pnpm jev <state> <questions>` asks jev anything, e.g. to weigh a design or product choice
   (see `scripts/jev/ask.mjs`).

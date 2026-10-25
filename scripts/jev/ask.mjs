@@ -1,12 +1,12 @@
 // Ask jev any question about a piece of state, e.g. to weigh a design or product choice.
 //
-//   npm run jev -- <state> <questions>
+//   pnpm jev <state> <questions>
 //
 // Both arguments are JSON, inline or as @path/to/file.json. `questions` is keyed by your own
 // names, each { type: 'noul' | 'choice' | 'score', instructions, criteria? } (see
 // https://api.typesafe.ai/docs). Prints the answers as JSON.
 //
-//   npm run jev -- '"Recipe titled Fårikål"' \
+//   pnpm jev '"Recipe titled Fårikål"' \
 //     '{"icon":{"type":"choice","instructions":"Best icon","criteria":{"stew":"🥘","soup":"🍲"}}}'
 import { readFileSync } from 'node:fs';
 
@@ -16,7 +16,7 @@ const parse = (arg) => JSON.parse(arg.startsWith('@') ? readFileSync(arg.slice(1
 
 const [stateArg, questionsArg] = process.argv.slice(2);
 if (!stateArg || !questionsArg) {
-  console.error('Usage: npm run jev -- <state json|@file> <questions json|@file>');
+  console.error('Usage: pnpm jev <state json|@file> <questions json|@file>');
   process.exit(2);
 }
 const answers = await askJev(parse(stateArg), parse(questionsArg));

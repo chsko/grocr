@@ -1,6 +1,6 @@
 // GRO-45, run locally before pushing to main: jev scores the risk of a set of commits.
 //
-//   npm run jev:risk                 before pushing: scores origin/main..HEAD. If jev rates it high,
+//   pnpm jev:risk                 before pushing: scores origin/main..HEAD. If jev rates it high,
 //                                    do the adversarial review first and add an
 //                                    "Adversarial-Review: <summary>" trailer to the commit message.
 //   node scripts/jev/risk.mjs <from> <to>   scores another range.
