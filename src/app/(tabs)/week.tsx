@@ -2,19 +2,22 @@ import { useQuery } from 'convex/react';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { Basket, ChevronLeft, ChevronRight } from '@/components/icons';
 import { IconButton, IconTile, TabScreen, Text } from '@/components/ui';
-import { Colors, Fonts, Radius, TileColors } from '@/constants/theme';
+import { Fonts, Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import { DEFAULT_ICON } from '@/convex/lib/recipeIcons';
+import { makeStyles, useColors } from '@/lib/appearance';
 import { dayShort, weekSpan, weekTitle } from '@/lib/format';
 import { useFamily } from '@/lib/session';
 import { addDays, defaultGroceryWeek, startOfWeek, todayIn, type Weekday } from '@/lib/week';
 
 /** One dinner per day for a calendar week (GRO-32). Tapping a day plans or changes it. */
 export default function WeekScreen() {
+  const colors = useColors();
+  const styles = useStyles();
   const { t } = useTranslation();
   const family = useFamily();
   const weekStartsOn = family.weekStartsOn as Weekday;
@@ -44,12 +47,12 @@ export default function WeekScreen() {
       <View style={styles.header}>
         <View style={{ gap: 4, flex: 1 }}>
           {relative ? (
-            <Text variant="label" color={Colors.saffronInk} style={styles.pill}>
+            <Text variant="label" color={colors.saffronInk} style={styles.pill}>
               {relative}
             </Text>
           ) : null}
           <Text variant="display">{weekTitle(t, startDate)}</Text>
-          <Text color={Colors.muted} style={{ fontSize: 15 }}>
+          <Text color={colors.muted} style={{ fontSize: 15 }}>
             {weekSpan(t, startDate)}
           </Text>
         </View>
@@ -87,7 +90,7 @@ export default function WeekScreen() {
               <View style={styles.dateTile}>
                 <Text
                   variant="small"
-                  color={Colors.muted}
+                  color={colors.muted}
                   style={{ fontFamily: Fonts.semibold, fontSize: 11 }}>
                   {dayShort(t, date).toLocaleUpperCase()}
                 </Text>
@@ -101,7 +104,7 @@ export default function WeekScreen() {
                     <Text variant="item" numberOfLines={1}>
                       {dinner.title}
                     </Text>
-                    <Text variant="small" color={Colors.muted}>
+                    <Text variant="small" color={colors.muted}>
                       {dinner.isNote
                         ? t('week.note')
                         : t('week.serves', { count: dinner.servings })}
@@ -110,13 +113,13 @@ export default function WeekScreen() {
                   {dinner.isNote ? null : (
                     <IconTile
                       icon={dinner.icon ?? DEFAULT_ICON}
-                      color={TileColors[index % TileColors.length]}
+                      color={colors.tiles[index % colors.tiles.length]}
                       size={30}
                     />
                   )}
                 </>
               ) : (
-                <Text variant="item" color={Colors.tomato} style={{ flex: 1, fontSize: 16 }}>
+                <Text variant="item" color={colors.tomato} style={{ flex: 1, fontSize: 16 }}>
                   {t('week.addDinner')}
                 </Text>
               )}
@@ -130,18 +133,18 @@ export default function WeekScreen() {
           accessibilityRole="link"
           onPress={() => router.navigate({ pathname: '/groceries', params: { start: startDate } })}
           style={({ pressed }) => [styles.banner, pressed && { opacity: 0.8 }]}>
-          <Basket color={Colors.tomato} size={20} />
+          <Basket color={colors.tomato} size={20} />
           <Text variant="item" style={{ flex: 1, fontSize: 16 }}>
             {t('week.groceryBanner', { count: week.openLines })}
           </Text>
-          <ChevronRight color={Colors.tomato} size={18} strokeWidth={2.2} />
+          <ChevronRight color={colors.tomato} size={18} strokeWidth={2.2} />
         </Pressable>
       ) : null}
     </TabScreen>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   header: {
     paddingTop: 24,
     paddingBottom: 14,
@@ -154,7 +157,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 2,
     borderRadius: Radius.pill,
-    backgroundColor: Colors.saffronSoft,
+    backgroundColor: colors.saffronSoft,
     overflow: 'hidden',
     fontSize: 13,
   },
@@ -162,7 +165,7 @@ const styles = StyleSheet.create({
     minHeight: 62,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     paddingVertical: 7,
     paddingLeft: 7,
     paddingRight: 14,
@@ -170,13 +173,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  dayEmpty: { borderWidth: 1.5, borderStyle: 'dashed', borderColor: Colors.dashed },
-  dayToday: { borderWidth: 2, borderStyle: 'solid', borderColor: Colors.tomato },
+  dayEmpty: { borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.dashed },
+  dayToday: { borderWidth: 2, borderStyle: 'solid', borderColor: colors.tomato },
   dateTile: {
     width: 46,
     height: 46,
     borderRadius: 12,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -184,10 +187,10 @@ const styles = StyleSheet.create({
     marginTop: 16,
     minHeight: 54,
     borderRadius: 16,
-    backgroundColor: Colors.saffronTint,
+    backgroundColor: colors.saffronTint,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     paddingHorizontal: 16,
   },
-});
+}));

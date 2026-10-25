@@ -1,6 +1,6 @@
 import Svg, { Circle, Path, Rect, Text as SvgText } from 'react-native-svg';
 
-import { Colors } from '@/constants/theme';
+import { useColors } from '@/lib/appearance';
 
 // Stroke icons from the design canvas, drawn on a 24px grid.
 
@@ -8,17 +8,18 @@ type IconProps = { size?: number; color?: string; strokeWidth?: number };
 
 function Stroke({
   size = 22,
-  color = Colors.ink,
+  color,
   strokeWidth = 2,
   children,
 }: IconProps & { children: React.ReactNode }) {
+  const colors = useColors();
   return (
     <Svg
       width={size}
       height={size}
       viewBox="0 0 24 24"
       fill="none"
-      stroke={color}
+      stroke={color ?? colors.ink}
       strokeWidth={strokeWidth}
       strokeLinecap="round"
       strokeLinejoin="round">
@@ -127,17 +128,18 @@ export const Calendar = (p: IconProps) => (
 
 /** Logo 7, "Grocery bag": tomato bag, ink handle, herb sprig, white G. */
 export function Logo({ size = 104 }: { size?: number }) {
+  const colors = useColors();
   return (
     <Svg width={size} height={size} viewBox="0 0 100 100" accessibilityLabel="Grocr">
       <Path
         d="M38 38v-6a12 12 0 0 1 24 0v6"
-        stroke={Colors.ink}
+        stroke={colors.ink}
         strokeWidth={5}
         fill="none"
         strokeLinecap="round"
       />
-      <Path d="M22 38h56l-4 42a6 6 0 0 1-6 5H32a6 6 0 0 1-6-5z" fill={Colors.tomato} />
-      <Path d="M31 27c-2-6 2-12 9-12 1 7-3 11-9 12z" fill={Colors.herb} />
+      <Path d="M22 38h56l-4 42a6 6 0 0 1-6 5H32a6 6 0 0 1-6-5z" fill={colors.tomatoFill} />
+      <Path d="M31 27c-2-6 2-12 9-12 1 7-3 11-9 12z" fill={colors.herb} />
       <SvgText
         x="50"
         y="74"

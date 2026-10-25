@@ -2,13 +2,14 @@ import { useAuthActions } from '@convex-dev/auth/react';
 import { useQuery } from 'convex/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Logo } from '@/components/icons';
 import { Button, Text } from '@/components/ui';
-import { Colors, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
+import { makeStyles, useColors } from '@/lib/appearance';
 import { showError } from '@/lib/errors';
 
 /**
@@ -16,6 +17,8 @@ import { showError } from '@/lib/errors';
  * users, the same way Hubbr does. The list is empty unless the deployment enables them.
  */
 export default function SignInScreen() {
+  const colors = useColors();
+  const styles = useStyles();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const personas = useQuery(api.devSignIn.personas);
@@ -35,7 +38,7 @@ export default function SignInScreen() {
 
   return (
     <ScrollView
-      style={{ backgroundColor: Colors.background }}
+      style={{ backgroundColor: colors.background }}
       contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + 32 }]}>
       <View style={[styles.hero, { paddingTop: insets.top + 24 }]}>
         <View style={styles.logoTile}>
@@ -48,16 +51,16 @@ export default function SignInScreen() {
       <View style={styles.body}>
         <Text variant="heading" style={{ fontSize: 28, lineHeight: 32 }}>
           {t('signIn.headline')}{' '}
-          <Text variant="heading" color={Colors.tomato} style={{ fontSize: 28, lineHeight: 32 }}>
+          <Text variant="heading" color={colors.tomato} style={{ fontSize: 28, lineHeight: 32 }}>
             {t('signIn.headlineAccent')}
           </Text>
         </Text>
-        <Text color={Colors.muted}>{t('signIn.pitch')}</Text>
+        <Text color={colors.muted}>{t('signIn.pitch')}</Text>
       </View>
       <View style={styles.actions}>
         {personas !== undefined && personas.length > 0 ? (
           <>
-            <Text variant="section" color={Colors.muted}>
+            <Text variant="section" color={colors.muted}>
               {t('signIn.testUsers')}
             </Text>
             {personas.map((p, index) => (
@@ -73,7 +76,7 @@ export default function SignInScreen() {
             ))}
           </>
         ) : personas !== undefined ? (
-          <Text color={Colors.muted} style={{ textAlign: 'center' }}>
+          <Text color={colors.muted} style={{ textAlign: 'center' }}>
             {t('signIn.comingSoon')}
           </Text>
         ) : null}
@@ -82,11 +85,11 @@ export default function SignInScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { flexGrow: 1 },
   hero: {
     minHeight: 340,
-    backgroundColor: Colors.saffronTint,
+    backgroundColor: colors.saffronTint,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 18,
@@ -96,8 +99,8 @@ const styles = StyleSheet.create({
     width: 104,
     height: 104,
     borderRadius: 28,
-    backgroundColor: '#FFFFFF',
-    shadowColor: Colors.tomato,
+    backgroundColor: colors.raised,
+    shadowColor: colors.tomato,
     shadowOpacity: 0.14,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 6 },
@@ -105,4 +108,4 @@ const styles = StyleSheet.create({
   },
   body: { paddingHorizontal: Spacing.four, paddingTop: 32, gap: 12 },
   actions: { paddingHorizontal: Spacing.four, paddingTop: 32, gap: 12, marginTop: 'auto' },
-});
+}));

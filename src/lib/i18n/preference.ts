@@ -1,6 +1,6 @@
-import * as SecureStore from 'expo-secure-store';
-import { useEffect, useState } from 'react';
-import { Platform } from 'react-native';
+import { useSyncExternalStore } from 'react';
+
+import { readDeviceSetting, writeDeviceSetting } from '@/lib/device-setting';
 
 import i18n, { deviceLanguage, resources, type AppLanguage } from '.';
 
@@ -9,32 +9,29 @@ export type LanguagePreference = AppLanguage | 'system';
 
 const KEY = 'grocr.language';
 let current: LanguagePreference = 'system';
-const listeners = new Set<(pref: LanguagePreference) => void>();
+const listeners = new Set<() => void>();
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
 
 function isPreference(value: unknown): value is LanguagePreference {
   return value === 'system' || (typeof value === 'string' && value in resources);
 }
 
-async function read(): Promise<string | null> {
-  if (Platform.OS === 'web') return globalThis.localStorage?.getItem(KEY) ?? null;
-  return await SecureStore.getItemAsync(KEY);
-}
-
-async function write(value: LanguagePreference) {
-  if (Platform.OS === 'web') globalThis.localStorage?.setItem(KEY, value);
-  else await SecureStore.setItemAsync(KEY, value);
-}
-
 function apply(pref: LanguagePreference) {
   current = pref;
   void i18n.changeLanguage(pref === 'system' ? deviceLanguage() : pref);
-  for (const listener of listeners) listener(pref);
+  for (const listener of listeners) listener();
 }
 
 /** Applies the saved language on start. A missing or unreadable value keeps the phone's. */
 export async function restoreLanguage() {
   try {
-    const saved = await read();
+    const saved = await readDeviceSetting(KEY);
     if (isPreference(saved) && saved !== current) apply(saved);
   } catch {
     // Storage unavailable: stay on the phone's language.
@@ -44,19 +41,12 @@ export async function restoreLanguage() {
 export async function setLanguagePreference(pref: LanguagePreference) {
   apply(pref);
   try {
-    await write(pref);
+    await writeDeviceSetting(KEY, pref);
   } catch {
     // The choice still holds for this session.
   }
 }
 
 export function useLanguagePreference() {
-  const [pref, setPref] = useState(current);
-  useEffect(() => {
-    listeners.add(setPref);
-    return () => {
-      listeners.delete(setPref);
-    };
-  }, []);
-  return pref;
+  return useSyncExternalStore(subscribe, () => current);
 }

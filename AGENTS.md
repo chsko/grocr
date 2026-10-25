@@ -43,6 +43,7 @@ Docs: https://docs.expo.dev/eas/index.md
 ## Grocr conventions
 
 - Run `npm run check` before declaring a change done (format, lint, typecheck, Jest, Vitest).
+- Colors come from the active palette (light or dark): `useColors()` and `makeStyles((colors) => ({...}))` from `src/lib/appearance.ts`, never hex literals. Use `tomato` for text and icons, `tomatoFill` with `onTomato` for filled buttons and checks.
 - All user-facing text goes through i18next with keys in both `src/lib/i18n/locales/en.json` and `nb.json`.
 - Dates are local `YYYY-MM-DD` strings in the family's timezone; use `src/lib/week.ts`.
 - Convex functions: never trust client-supplied user or group ids. Load the document, then call the helpers in `convex/lib/access.ts`. Add a cross-family test in `convex/*.test.ts` for every new function.

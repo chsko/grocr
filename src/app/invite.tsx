@@ -3,18 +3,21 @@ import * as Clipboard from 'expo-clipboard';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, ScrollView, Share as RNShare, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Share as RNShare, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Book, Close, Clock, Person, Share } from '@/components/icons';
 import { Button, IconButton, Text } from '@/components/ui';
-import { Colors, Fonts, Radius } from '@/constants/theme';
+import { Fonts, Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
+import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
 import { useFamily } from '@/lib/session';
 
 /** Shows the family's invite code, creating one if none is active (GRO-25). Owner only. */
 export default function InviteScreen() {
+  const colors = useColors();
+  const styles = useStyles();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const family = useFamily();
@@ -45,7 +48,7 @@ export default function InviteScreen() {
 
   return (
     <ScrollView
-      style={{ backgroundColor: Colors.background }}
+      style={{ backgroundColor: colors.background }}
       contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
       <IconButton
         label={t('common.close')}
@@ -54,12 +57,12 @@ export default function InviteScreen() {
         <Close />
       </IconButton>
       <Text variant="title">{t('invite.title', { family: family.name })}</Text>
-      <Text color={Colors.muted} style={{ marginTop: 10 }}>
+      <Text color={colors.muted} style={{ marginTop: 10 }}>
         {t('invite.intro')}
       </Text>
 
       <View style={styles.codeCard}>
-        <Text variant="label" color={Colors.muted}>
+        <Text variant="label" color={colors.muted}>
           {t('invite.codeLabel')}
         </Text>
         {code ? (
@@ -67,14 +70,14 @@ export default function InviteScreen() {
             {code}
           </Text>
         ) : (
-          <ActivityIndicator color={Colors.tomato} style={{ height: 48 }} />
+          <ActivityIndicator color={colors.tomato} style={{ height: 48 }} />
         )}
       </View>
 
       <View style={{ marginTop: 20, gap: 12 }}>
         <Button
           title={t('invite.share')}
-          icon={<Share color="#FFFFFF" size={20} />}
+          icon={<Share color={colors.onTomato} size={20} />}
           disabled={!code}
           onPress={() => void share()}
         />
@@ -88,13 +91,13 @@ export default function InviteScreen() {
 
       <View style={{ marginTop: 28, gap: 12 }}>
         {[
-          { icon: <Clock color={Colors.tomato} size={18} />, text: t('invite.factExpiry') },
-          { icon: <Person color={Colors.tomato} size={18} />, text: t('invite.factMembers') },
-          { icon: <Book color={Colors.tomato} size={18} />, text: t('invite.factEdit') },
+          { icon: <Clock color={colors.tomato} size={18} />, text: t('invite.factExpiry') },
+          { icon: <Person color={colors.tomato} size={18} />, text: t('invite.factMembers') },
+          { icon: <Book color={colors.tomato} size={18} />, text: t('invite.factEdit') },
         ].map((fact) => (
           <View key={fact.text} style={{ flexDirection: 'row', gap: 10 }}>
             <View style={{ marginTop: 3 }}>{fact.icon}</View>
-            <Text color={Colors.muted} style={{ flex: 1, fontSize: 15 }}>
+            <Text color={colors.muted} style={{ flex: 1, fontSize: 15 }}>
               {fact.text}
             </Text>
           </View>
@@ -104,12 +107,12 @@ export default function InviteScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { paddingHorizontal: 24, paddingTop: 16 },
   codeCard: {
     marginTop: 28,
     borderRadius: Radius.card,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     padding: 22,
     alignItems: 'center',
     gap: 10,
@@ -119,6 +122,6 @@ const styles = StyleSheet.create({
     fontSize: 38,
     lineHeight: 46,
     letterSpacing: 6,
-    color: Colors.ink,
+    color: colors.ink,
   },
-});
+}));

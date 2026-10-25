@@ -8,18 +8,18 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   TextInput,
   View,
 } from 'react-native';
 
 import { Close } from '@/components/icons';
 import { Button, Chip, Field, IconButton, IconTile, Loading, Stepper, Text } from '@/components/ui';
-import { Colors, Fonts, Radius, TileColors } from '@/constants/theme';
+import { Fonts, Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { guessIcon, isRecipeIcon, RECIPE_ICONS, type RecipeIcon } from '@/convex/lib/recipeIcons';
 import { formatQty, isUnit, parseQty, UNITS, type Unit } from '@/convex/lib/units';
+import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
 import { useFamily } from '@/lib/session';
 
@@ -37,6 +37,8 @@ const emptyRow = (): Row => ({ key: nextKey++, name: '', qty: '' });
 
 /** Create or edit a recipe with structured ingredients and steps (GRO-29). `?id=` edits. */
 export default function RecipeEditScreen() {
+  const colors = useColors();
+  const styles = useStyles();
   const { t, i18n } = useTranslation();
   const family = useFamily();
   const { id } = useLocalSearchParams<{ id?: Id<'recipes'> }>();
@@ -117,7 +119,7 @@ export default function RecipeEditScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: Colors.background }}
+      style={{ flex: 1, backgroundColor: colors.background }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={100}>
       <Stack.Screen
@@ -147,7 +149,7 @@ export default function RecipeEditScreen() {
             accessibilityLabel={t('recipeEdit.icon')}
             onPress={() => setPickingIcon(true)}
             style={({ pressed }) => pressed && { opacity: 0.7 }}>
-            <IconTile icon={icon ?? guessIcon(title)} color={TileColors[0]} size={50} />
+            <IconTile icon={icon ?? guessIcon(title)} color={colors.tiles[0]} size={50} />
           </Pressable>
           <Field
             label={t('recipeEdit.titleLabel')}
@@ -166,7 +168,7 @@ export default function RecipeEditScreen() {
           <Stepper value={servings} onChange={setServings} />
         </View>
 
-        <Text variant="section" color={Colors.muted}>
+        <Text variant="section" color={colors.muted}>
           {t('recipeEdit.ingredients')}
         </Text>
         <View style={{ gap: 8 }}>
@@ -178,7 +180,7 @@ export default function RecipeEditScreen() {
                   onChangeText={(qty) => update(row.key, { qty })}
                   keyboardType="decimal-pad"
                   placeholder={t('recipeEdit.qtyPlaceholder')}
-                  placeholderTextColor={Colors.checkbox}
+                  placeholderTextColor={colors.checkbox}
                   accessibilityLabel={t('recipeEdit.qty')}
                   style={[styles.cell, styles.qtyCell]}
                 />
@@ -187,7 +189,7 @@ export default function RecipeEditScreen() {
                   accessibilityLabel={t('recipeEdit.unit')}
                   onPress={() => setUnitFor(row.key)}
                   style={[styles.cell, styles.unitCell]}>
-                  <Text color={row.unit ? Colors.ink : Colors.checkbox} style={{ fontSize: 16 }}>
+                  <Text color={row.unit ? colors.ink : colors.checkbox} style={{ fontSize: 16 }}>
                     {row.unit ? t(`units.${row.unit}`) : t('recipeEdit.unit')}
                   </Text>
                 </Pressable>
@@ -196,7 +198,7 @@ export default function RecipeEditScreen() {
                   onChangeText={(name) => update(row.key, { name, ingredientId: undefined })}
                   onFocus={() => setActive(row.key)}
                   placeholder={t('recipeEdit.ingredientPlaceholder')}
-                  placeholderTextColor={Colors.checkbox}
+                  placeholderTextColor={colors.checkbox}
                   accessibilityLabel={t('recipeEdit.ingredient')}
                   style={[styles.cell, styles.nameCell, row.key === active && styles.cellActive]}
                 />
@@ -204,7 +206,7 @@ export default function RecipeEditScreen() {
                   label={t('recipeEdit.removeIngredient')}
                   style={{ width: 32 }}
                   onPress={() => setRows((current) => current.filter((r) => r.key !== row.key))}>
-                  <Close size={18} color={Colors.muted} />
+                  <Close size={18} color={colors.muted} />
                 </IconButton>
               </View>
               {row.key === active && suggestions && suggestions.length > 0 ? (
@@ -219,12 +221,12 @@ export default function RecipeEditScreen() {
                       }}
                       style={({ pressed }) => [
                         styles.suggestion,
-                        pressed && { backgroundColor: Colors.surface },
+                        pressed && { backgroundColor: colors.surface },
                       ]}>
                       <Text variant="item" style={{ fontSize: 16 }}>
                         {s.name}
                       </Text>
-                      <Text variant="small" color={Colors.muted} style={{ fontSize: 12 }}>
+                      <Text variant="small" color={colors.muted} style={{ fontSize: 12 }}>
                         {t(`sections.${s.section as 'other'}`, { defaultValue: s.section })}
                       </Text>
                     </Pressable>
@@ -244,13 +246,13 @@ export default function RecipeEditScreen() {
           />
         </View>
 
-        <Text variant="section" color={Colors.muted}>
+        <Text variant="section" color={colors.muted}>
           {t('recipeEdit.steps')}
         </Text>
         <View style={{ gap: 8 }}>
           {steps.map((step, index) => (
             <View key={index} style={styles.stepRow}>
-              <Text variant="label" color={Colors.tomatoDeep} style={styles.stepNumber}>
+              <Text variant="label" color={colors.tomatoDeep} style={styles.stepNumber}>
                 {index + 1}
               </Text>
               <Field
@@ -267,7 +269,7 @@ export default function RecipeEditScreen() {
                 label={t('recipeEdit.removeStep')}
                 style={{ width: 32 }}
                 onPress={() => setSteps((current) => current.filter((_, i) => i !== index))}>
-                <Close size={18} color={Colors.muted} />
+                <Close size={18} color={colors.muted} />
               </IconButton>
             </View>
           ))}
@@ -350,7 +352,7 @@ export default function RecipeEditScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { padding: 20, gap: 18, paddingBottom: 64 },
   titleRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 12 },
   iconGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
@@ -361,28 +363,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  iconSelected: { backgroundColor: Colors.saffronSoft, borderWidth: 2, borderColor: Colors.tomato },
+  iconSelected: { backgroundColor: colors.saffronSoft, borderWidth: 2, borderColor: colors.tomato },
   servingsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   ingredientRow: { flexDirection: 'row', gap: 6, alignItems: 'center' },
   cell: {
     height: 44,
     borderRadius: 10,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     fontFamily: Fonts.medium,
     fontSize: 16,
-    color: Colors.ink,
+    color: colors.ink,
   },
   qtyCell: { width: 56, paddingHorizontal: 4, textAlign: 'center' },
   unitCell: { width: 64, alignItems: 'center', justifyContent: 'center' },
   nameCell: { flex: 1, minWidth: 0, paddingHorizontal: 12 },
-  cellActive: { borderWidth: 2, borderColor: Colors.tomato, backgroundColor: '#FFFFFF' },
+  cellActive: { borderWidth: 2, borderColor: colors.tomato, backgroundColor: colors.raised },
   suggestions: {
     marginTop: 4,
     marginLeft: 126,
     borderRadius: Radius.field,
     borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: '#FFFFFF',
+    borderColor: colors.border,
+    backgroundColor: colors.raised,
     overflow: 'hidden',
   },
   suggestion: {
@@ -391,7 +393,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderTopWidth: 1,
-    borderTopColor: Colors.divider,
+    borderTopColor: colors.divider,
   },
   stepRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
   stepNumber: {
@@ -399,12 +401,12 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: Colors.saffronSoft,
+    backgroundColor: colors.saffronSoft,
     textAlign: 'center',
     lineHeight: 26,
     overflow: 'hidden',
   },
-  backdrop: { flex: 1, backgroundColor: Colors.overlay, justifyContent: 'center', padding: 24 },
-  unitSheet: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, gap: 14 },
+  backdrop: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'center', padding: 24 },
+  unitSheet: { backgroundColor: colors.raised, borderRadius: 20, padding: 20, gap: 14 },
   unitGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-});
+}));

@@ -1,18 +1,21 @@
 import { useMutation } from 'convex/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 import { ChevronDown, ChevronUp } from '@/components/icons';
 import { Button, IconButton, Text } from '@/components/ui';
-import { Colors, Radius } from '@/constants/theme';
+import { Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import { SECTIONS, type Section } from '@/convex/lib/catalog';
+import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
 import { useFamily } from '@/lib/session';
 
 /** The family arranges grocery list sections in the order they walk through their store. */
 export default function StoreOrderScreen() {
+  const colors = useColors();
+  const styles = useStyles();
   const { t } = useTranslation();
   const family = useFamily();
   const setSectionOrder = useMutation(api.groups.setSectionOrder);
@@ -38,15 +41,15 @@ export default function StoreOrderScreen() {
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
-      style={{ backgroundColor: Colors.background }}
+      style={{ backgroundColor: colors.background }}
       contentContainerStyle={styles.content}>
-      <Text color={Colors.muted}>{t('storeOrder.intro')}</Text>
+      <Text color={colors.muted}>{t('storeOrder.intro')}</Text>
       <View style={styles.list}>
         {order.map((section, index) => {
           const name = t(`sections.${section}`);
           return (
             <View key={section} style={[styles.row, index > 0 && styles.divider]}>
-              <Text variant="label" color={Colors.muted} style={styles.number}>
+              <Text variant="label" color={colors.muted} style={styles.number}>
                 {index + 1}
               </Text>
               <Text variant="item" style={{ flex: 1 }}>
@@ -56,13 +59,13 @@ export default function StoreOrderScreen() {
                 label={t('storeOrder.up', { section: name })}
                 disabled={index === 0}
                 onPress={() => move(index, -1)}>
-                <ChevronUp color={index === 0 ? Colors.checkbox : Colors.ink} />
+                <ChevronUp color={index === 0 ? colors.checkbox : colors.ink} />
               </IconButton>
               <IconButton
                 label={t('storeOrder.down', { section: name })}
                 disabled={index === order.length - 1}
                 onPress={() => move(index, 1)}>
-                <ChevronDown color={index === order.length - 1 ? Colors.checkbox : Colors.ink} />
+                <ChevronDown color={index === order.length - 1 ? colors.checkbox : colors.ink} />
               </IconButton>
             </View>
           );
@@ -79,10 +82,10 @@ export default function StoreOrderScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { padding: 20, gap: 16 },
-  list: { borderRadius: Radius.card, backgroundColor: Colors.surface, paddingHorizontal: 14 },
+  list: { borderRadius: Radius.card, backgroundColor: colors.surface, paddingHorizontal: 14 },
   row: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  divider: { borderTopWidth: 1, borderTopColor: Colors.divider },
+  divider: { borderTopWidth: 1, borderTopColor: colors.divider },
   number: { width: 20, textAlign: 'center' },
-});
+}));

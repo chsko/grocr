@@ -231,6 +231,9 @@
     "weekStarts": "Uka starter på",
     "language": "Språk",
     "languageValue": "Følger telefonen",
+    "appearance": "Utseende",
+    "appearanceLight": "Lyst",
+    "appearanceDark": "Mørkt",
     "account": "Konto",
     "storeOrder": "Rekkefølge i butikken"
   },

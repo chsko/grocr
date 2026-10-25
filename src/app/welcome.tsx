@@ -4,20 +4,14 @@ import { getCalendars } from 'expo-localization';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChevronRight, Home, Mail } from '@/components/icons';
 import { Button, Field, Text } from '@/components/ui';
-import { Colors, Radius, Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
+import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
 import { useMe } from '@/lib/session';
 
@@ -32,6 +26,8 @@ function suggestedFamilyName(
 
 /** First run after sign-in: create a family, or join one with an invite code (GRO-24). */
 export default function WelcomeScreen() {
+  const colors = useColors();
+  const styles = useStyles();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { user } = useMe();
@@ -53,32 +49,32 @@ export default function WelcomeScreen() {
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView
-        style={{ backgroundColor: Colors.background }}
+        style={{ backgroundColor: colors.background }}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[
           styles.container,
           { paddingTop: insets.top + 48, paddingBottom: insets.bottom + 24 },
         ]}>
-        <Text variant="label" color={Colors.tomato} style={{ fontSize: 15 }}>
+        <Text variant="label" color={colors.tomato} style={{ fontSize: 15 }}>
           {t('welcome.signedInAs', { who: user.email ?? user.name })}
         </Text>
         <Text variant="title" style={{ marginTop: 10, fontSize: 32 }}>
           {firstName ? t('welcome.titleNamed', { name: firstName }) : t('welcome.title')}
         </Text>
-        <Text color={Colors.muted} style={{ marginTop: 12 }}>
+        <Text color={colors.muted} style={{ marginTop: 12 }}>
           {t('welcome.intro')}
         </Text>
 
         <View style={[styles.card, styles.cardActive]}>
           <View style={styles.cardHead}>
-            <View style={[styles.cardIcon, { backgroundColor: Colors.saffronSoft }]}>
-              <Home color={Colors.tomato} strokeWidth={1.8} size={24} />
+            <View style={[styles.cardIcon, { backgroundColor: colors.saffronSoft }]}>
+              <Home color={colors.tomato} strokeWidth={1.8} size={24} />
             </View>
             <View style={{ flex: 1, gap: 2 }}>
               <Text variant="item" style={{ fontSize: 18 }}>
                 {t('welcome.createTitle')}
               </Text>
-              <Text variant="small" color={Colors.muted} style={{ fontSize: 14 }}>
+              <Text variant="small" color={colors.muted} style={{ fontSize: 14 }}>
                 {t('welcome.createHint')}
               </Text>
             </View>
@@ -103,21 +99,21 @@ export default function WelcomeScreen() {
           onPress={() => router.push('/join')}
           accessibilityRole="link"
           style={({ pressed }) => [styles.card, styles.row, pressed && { opacity: 0.7 }]}>
-          <View style={[styles.cardIcon, { backgroundColor: Colors.surface }]}>
+          <View style={[styles.cardIcon, { backgroundColor: colors.surface }]}>
             <Mail strokeWidth={1.8} size={24} />
           </View>
           <View style={{ flex: 1, gap: 2 }}>
             <Text variant="item" style={{ fontSize: 18 }}>
               {t('welcome.joinTitle')}
             </Text>
-            <Text variant="small" color={Colors.muted} style={{ fontSize: 14 }}>
+            <Text variant="small" color={colors.muted} style={{ fontSize: 14 }}>
               {t('welcome.joinHint')}
             </Text>
           </View>
-          <ChevronRight color={Colors.muted} size={20} />
+          <ChevronRight color={colors.muted} size={20} />
         </Pressable>
 
-        <Text variant="small" color={Colors.muted} style={styles.footer}>
+        <Text variant="small" color={colors.muted} style={styles.footer}>
           {t('welcome.next')}
         </Text>
         <Button
@@ -131,17 +127,17 @@ export default function WelcomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { flexGrow: 1, paddingHorizontal: Spacing.four },
   card: {
     marginTop: 14,
     borderRadius: Radius.card,
     borderWidth: 1.5,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     padding: 18,
     gap: 14,
   },
-  cardActive: { marginTop: 32, borderWidth: 2, borderColor: Colors.tomato },
+  cardActive: { marginTop: 32, borderWidth: 2, borderColor: colors.tomato },
   cardHead: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   cardIcon: {
@@ -152,4 +148,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   footer: { marginTop: 'auto', paddingTop: 24, textAlign: 'center', fontSize: 14 },
-});
+}));

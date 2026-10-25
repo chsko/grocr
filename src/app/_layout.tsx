@@ -7,34 +7,70 @@ import { BricolageGrotesque_700Bold } from '@expo-google-fonts/bricolage-grotesq
 import { ConvexAuthProvider } from '@convex-dev/auth/react';
 import { useConvexAuth, useQuery } from 'convex/react';
 import { useFonts } from 'expo-font';
-import { DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import * as SystemUI from 'expo-system-ui';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Colors, Fonts } from '@/constants/theme';
+import { Fonts, Palettes } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
+import {
+  restoreAppearance,
+  SchemeContext,
+  useAppearanceRestored,
+  useColors,
+  useResolvedScheme,
+} from '@/lib/appearance';
 import { convex, tokenStorage } from '@/lib/convex';
 import { restoreLanguage } from '@/lib/i18n/preference';
 import { SessionContext } from '@/lib/session';
 
 void restoreLanguage();
+void restoreAppearance();
 
 void SplashScreen.preventAutoHideAsync();
 
-const theme = {
-  ...DefaultTheme,
-  colors: { ...DefaultTheme.colors, background: Colors.background, primary: Colors.tomato },
+const themes = {
+  light: {
+    ...DefaultTheme,
+    colors: {
+      ...DefaultTheme.colors,
+      background: Palettes.light.background,
+      card: Palettes.light.background,
+      text: Palettes.light.ink,
+      border: Palettes.light.border,
+      primary: Palettes.light.tomato,
+    },
+  },
+  dark: {
+    ...DarkTheme,
+    colors: {
+      ...DarkTheme.colors,
+      background: Palettes.dark.background,
+      card: Palettes.dark.background,
+      text: Palettes.dark.ink,
+      border: Palettes.dark.border,
+      primary: Palettes.dark.tomato,
+    },
+  },
 };
 
 export default function RootLayout() {
+  const scheme = useResolvedScheme();
+  useEffect(() => {
+    // The root view shows behind modals and while screens slide.
+    void SystemUI.setBackgroundColorAsync(Palettes[scheme].background);
+  }, [scheme]);
   return (
     <ConvexAuthProvider client={convex} storage={tokenStorage}>
-      <ThemeProvider value={theme}>
-        <StatusBar style="dark" />
-        <AppStack />
-      </ThemeProvider>
+      <SchemeContext.Provider value={scheme}>
+        <ThemeProvider value={themes[scheme]}>
+          <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+          <AppStack />
+        </ThemeProvider>
+      </SchemeContext.Provider>
     </ConvexAuthProvider>
   );
 }
@@ -45,6 +81,7 @@ export default function RootLayout() {
  */
 function AppStack() {
   const { t } = useTranslation();
+  const colors = useColors();
   const [fontsLoaded] = useFonts({
     BricolageGrotesque_400Regular,
     BricolageGrotesque_500Medium,
@@ -53,7 +90,9 @@ function AppStack() {
   });
   const { isLoading, isAuthenticated } = useConvexAuth();
   const me = useQuery(api.users.me, isAuthenticated ? {} : 'skip');
-  const ready = fontsLoaded && !isLoading && (!isAuthenticated || me !== undefined);
+  const appearanceRestored = useAppearanceRestored();
+  const ready =
+    fontsLoaded && appearanceRestored && !isLoading && (!isAuthenticated || me !== undefined);
 
   useEffect(() => {
     if (ready) void SplashScreen.hideAsync();
@@ -65,7 +104,7 @@ function AppStack() {
   const header = {
     headerShown: true,
     headerShadowVisible: false,
-    headerTintColor: Colors.ink,
+    headerTintColor: colors.ink,
     headerTitleStyle: { fontFamily: Fonts.bold, fontSize: 17 },
     headerBackButtonDisplayMode: 'minimal' as const,
   };
@@ -75,7 +114,7 @@ function AppStack() {
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: Colors.background },
+          contentStyle: { backgroundColor: colors.background },
         }}>
         <Stack.Screen name="index" />
         <Stack.Protected guard={!signedIn}>

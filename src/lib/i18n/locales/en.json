@@ -231,6 +231,9 @@
     "weekStarts": "Week starts on",
     "language": "Language",
     "languageValue": "Follows your phone",
+    "appearance": "Appearance",
+    "appearanceLight": "Light",
+    "appearanceDark": "Dark",
     "account": "Account",
     "storeOrder": "Store order"
   },

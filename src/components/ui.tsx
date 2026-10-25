@@ -16,7 +16,8 @@ import {
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing } from '@/constants/theme';
+import { makeStyles, useColors } from '@/lib/appearance';
 
 // Small building blocks shared by the screens, styled after the design canvas.
 
@@ -41,11 +42,12 @@ type Variant = keyof typeof variants;
 
 export function Text({
   variant = 'body',
-  color = Colors.ink,
+  color,
   style,
   ...rest
 }: TextProps & { variant?: Variant; color?: string }) {
-  return <RNText style={[variants[variant], { color }, style]} {...rest} />;
+  const colors = useColors();
+  return <RNText style={[variants[variant], { color: color ?? colors.ink }, style]} {...rest} />;
 }
 
 type ButtonKind = 'primary' | 'secondary' | 'dark' | 'ghost' | 'danger';
@@ -65,22 +67,26 @@ export function Button({
   icon?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
 }) {
+  const colors = useColors();
+  const styles = useStyles();
   const fg =
-    kind === 'primary' || kind === 'dark'
-      ? '#FFFFFF'
-      : kind === 'ghost' || kind === 'danger'
-        ? kind === 'danger'
-          ? Colors.danger
-          : Colors.tomato
-        : Colors.ink;
+    kind === 'primary'
+      ? colors.onTomato
+      : kind === 'dark'
+        ? colors.background
+        : kind === 'ghost' || kind === 'danger'
+          ? kind === 'danger'
+            ? colors.danger
+            : colors.tomato
+          : colors.ink;
   return (
     <Pressable
       accessibilityRole="button"
       disabled={disabled || loading}
       style={({ pressed }) => [
         styles.button,
-        kind === 'primary' && { backgroundColor: Colors.tomato },
-        kind === 'dark' && { backgroundColor: Colors.ink },
+        kind === 'primary' && { backgroundColor: colors.tomatoFill },
+        kind === 'dark' && { backgroundColor: colors.ink },
         kind === 'secondary' && styles.secondary,
         (kind === 'ghost' || kind === 'danger') && styles.ghost,
         (pressed || disabled) && { opacity: disabled ? 0.45 : 0.8 },
@@ -115,6 +121,8 @@ export function IconButton({
   style?: StyleProp<ViewStyle>;
   children: React.ReactNode;
 }) {
+  const colors = useColors();
+  const styles = useStyles();
   return (
     <Pressable
       accessibilityRole="button"
@@ -122,8 +130,8 @@ export function IconButton({
       hitSlop={6}
       style={({ pressed }) => [
         styles.iconButton,
-        filled && { backgroundColor: Colors.tomato },
-        outlined && { borderWidth: 1.5, borderColor: Colors.borderStrong },
+        filled && { backgroundColor: colors.tomatoFill },
+        outlined && { borderWidth: 1.5, borderColor: colors.borderStrong },
         pressed && { opacity: 0.7 },
         style,
       ]}
@@ -143,9 +151,11 @@ export function Field({
   style?: StyleProp<ViewStyle>;
   inputStyle?: StyleProp<TextStyle>;
 }) {
+  const colors = useColors();
+  const styles = useStyles();
   const input = (
     <TextInput
-      placeholderTextColor={Colors.checkbox}
+      placeholderTextColor={colors.checkbox}
       style={[styles.input, inputStyle]}
       accessibilityLabel={label}
       {...rest}
@@ -154,7 +164,7 @@ export function Field({
   if (!label) return <View style={style}>{input}</View>;
   return (
     <View style={[{ gap: 6 }, style]}>
-      <Text variant="label" color={Colors.muted}>
+      <Text variant="label" color={colors.muted}>
         {label}
       </Text>
       {input}
@@ -174,13 +184,15 @@ export function Stepper({
   max?: number;
 }) {
   const { t } = useTranslation();
+  const colors = useColors();
+  const styles = useStyles();
   return (
     <View style={styles.stepper}>
       <IconButton
         label={t('common.fewer')}
         disabled={value <= min}
         onPress={() => onChange(Math.max(min, value - 1))}>
-        <Text variant="heading" color={value <= min ? Colors.checkbox : Colors.ink}>
+        <Text variant="heading" color={value <= min ? colors.checkbox : colors.ink}>
           −
         </Text>
       </IconButton>
@@ -191,7 +203,7 @@ export function Stepper({
         label={t('common.more')}
         disabled={value >= max}
         onPress={() => onChange(Math.min(max, value + 1))}>
-        <Text variant="heading" color={value >= max ? Colors.checkbox : Colors.ink}>
+        <Text variant="heading" color={value >= max ? colors.checkbox : colors.ink}>
           +
         </Text>
       </IconButton>
@@ -205,24 +217,25 @@ export function Chip({
   selected,
   ...rest
 }: PressableProps & { title: string; dashed?: boolean; selected?: boolean }) {
+  const colors = useColors();
+  const styles = useStyles();
   return (
     <Pressable
       accessibilityRole="button"
       style={({ pressed }) => [
         styles.chip,
-        dashed && { borderStyle: 'dashed', borderColor: Colors.dashed },
-        selected && { backgroundColor: Colors.saffronSoft, borderColor: Colors.saffronSoft },
+        dashed && { borderStyle: 'dashed', borderColor: colors.dashed },
+        selected && { backgroundColor: colors.chipSelected, borderColor: colors.chipSelected },
         pressed && { opacity: 0.7 },
       ]}
       {...rest}>
-      <Text variant="label" color={dashed ? Colors.tomato : Colors.ink} style={{ fontSize: 15 }}>
+      <Text variant="label" color={dashed ? colors.tomato : colors.ink} style={{ fontSize: 15 }}>
         {title}
       </Text>
     </Pressable>
   );
 }
 
-/** A soft square with the first letter of a name, used for recipes and dinners. */
 /** A recipe's food icon on a soft tile. */
 export function IconTile({
   icon,
@@ -269,20 +282,21 @@ export function Avatar({ name, color, size = 42 }: { name: string; color: string
 }
 
 export function Loading() {
+  const colors = useColors();
   return (
     <View
       style={{
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: Colors.background,
+        backgroundColor: colors.background,
       }}>
-      <ActivityIndicator color={Colors.tomato} />
+      <ActivityIndicator color={colors.tomato} />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   button: {
     minHeight: 54,
     borderRadius: Radius.button,
@@ -293,9 +307,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   secondary: {
-    backgroundColor: Colors.background,
+    backgroundColor: colors.background,
     borderWidth: 1.5,
-    borderColor: Colors.borderStrong,
+    borderColor: colors.borderStrong,
   },
   ghost: { minHeight: 44, paddingHorizontal: 0, alignSelf: 'flex-start' },
   iconButton: {
@@ -309,30 +323,30 @@ const styles = StyleSheet.create({
     minHeight: 50,
     borderRadius: Radius.field,
     borderWidth: 1.5,
-    borderColor: Colors.borderStrong,
+    borderColor: colors.borderStrong,
     paddingHorizontal: 14,
     fontFamily: Fonts.medium,
     fontSize: 17,
-    color: Colors.ink,
-    backgroundColor: Colors.background,
+    color: colors.ink,
+    backgroundColor: colors.background,
   },
   stepper: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     borderRadius: Radius.field,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
   },
   chip: {
     height: 40,
     paddingHorizontal: 14,
     borderRadius: Radius.pill,
     borderWidth: 1.5,
-    borderColor: Colors.borderStrong,
-    backgroundColor: Colors.background,
+    borderColor: colors.borderStrong,
+    backgroundColor: 'transparent',
     justifyContent: 'center',
   },
-});
+}));
 
 /** A scrolling tab screen below the status bar; iOS insets it above the native tab bar. */
 export function TabScreen({
@@ -344,8 +358,9 @@ export function TabScreen({
   header?: React.ReactNode;
   contentStyle?: StyleProp<ViewStyle>;
 }) {
+  const colors = useColors();
   return (
-    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: Colors.background }}>
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.background }}>
       {header}
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"

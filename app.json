@@ -7,7 +7,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "grocr",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "com.grocr.app",
       "supportsTablet": false
@@ -37,7 +37,11 @@
         {
           "backgroundColor": "#FFF6DC",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 160
+          "imageWidth": 160,
+          "dark": {
+            "backgroundColor": "#17130F",
+            "image": "./assets/images/splash-icon-dark.png"
+          }
         }
       ],
       "expo-localization",

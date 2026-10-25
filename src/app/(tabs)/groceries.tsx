@@ -2,15 +2,16 @@ import { useMutation, useQuery } from 'convex/react';
 import { useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Pressable, TextInput, View } from 'react-native';
 
 import { GroceryLineEditor } from '@/components/grocery-line-editor';
 import { Check, ChevronDown, ChevronRight, Plus } from '@/components/icons';
 import { Button, TabScreen, Text } from '@/components/ui';
-import { Colors, Fonts, Radius } from '@/constants/theme';
+import { Fonts, Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { mergeRows, type GroceryLine } from '@/convex/lib/merge';
+import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
 import { dayShort, formatAmounts, weekSpan, weekTitle } from '@/lib/format';
 import { parseItemInput } from '@/lib/parse-item';
@@ -22,6 +23,8 @@ import { addDays, defaultGroceryWeek, startOfWeek, todayIn, type Weekday } from 
  * by store section, tap to tick. Opens on next week's list Fri-Sun (the family shops then).
  */
 export default function GroceriesScreen() {
+  const colors = useColors();
+  const styles = useStyles();
   const { t, i18n } = useTranslation();
   const family = useFamily();
   const { start } = useLocalSearchParams<{ start?: string }>();
@@ -116,7 +119,7 @@ export default function GroceriesScreen() {
     <View style={styles.header}>
       <View style={styles.titleRow}>
         <Text variant="title">{t('groceries.title')}</Text>
-        <Text color={Colors.muted} style={{ fontSize: 15 }}>
+        <Text color={colors.muted} style={{ fontSize: 15 }}>
           {`${weekTitle(t, startDate)} · ${weekSpan(t, startDate)}`}
         </Text>
       </View>
@@ -138,12 +141,12 @@ export default function GroceriesScreen() {
         ))}
       </View>
       <View style={styles.add}>
-        <Plus color={Colors.muted} size={20} />
+        <Plus color={colors.muted} size={20} />
         <TextInput
           value={text}
           onChangeText={setText}
           placeholder={t('groceries.addPlaceholder')}
-          placeholderTextColor={Colors.checkbox}
+          placeholderTextColor={colors.checkbox}
           accessibilityLabel={t('groceries.addLabel')}
           returnKeyType="done"
           submitBehavior="submit"
@@ -181,14 +184,14 @@ export default function GroceriesScreen() {
       ) : null}
 
       {data && lines.length === 0 ? (
-        <Text color={Colors.muted} style={{ marginTop: 24 }}>
+        <Text color={colors.muted} style={{ marginTop: 24 }}>
           {t('groceries.empty')}
         </Text>
       ) : null}
 
       {sections.map(({ section, lines: sectionLines }) => (
         <View key={section} style={{ marginTop: 14 }}>
-          <Text variant="section" color={Colors.muted} style={{ marginBottom: 4 }}>
+          <Text variant="section" color={colors.muted} style={{ marginBottom: 4 }}>
             {t(`sections.${section as 'other'}`, { defaultValue: section })}
           </Text>
           {sectionLines.map((line) => (
@@ -203,7 +206,7 @@ export default function GroceriesScreen() {
               <View style={{ flex: 1, gap: 2 }}>
                 <Text variant="item">{line.name}</Text>
                 {sourceText(line) ? (
-                  <Text variant="small" color={Colors.muted}>
+                  <Text variant="small" color={colors.muted}>
                     {sourceText(line)}
                   </Text>
                 ) : null}
@@ -244,14 +247,14 @@ export default function GroceriesScreen() {
                   onPress={() => toggle(line)}
                   style={styles.cartLine}>
                   <View style={styles.boxOn}>
-                    <Check color="#FFFFFF" size={14} strokeWidth={3} />
+                    <Check color={colors.onTomato} size={14} strokeWidth={3} />
                   </View>
                   <Text
-                    color={Colors.muted}
+                    color={colors.muted}
                     style={{ flex: 1, textDecorationLine: 'line-through', fontSize: 16 }}>
                     {line.name}
                   </Text>
-                  <Text color={Colors.muted} style={{ fontSize: 15 }}>
+                  <Text color={colors.muted} style={{ fontSize: 15 }}>
                     {formatAmounts(t, i18n.language, line.amounts)}
                   </Text>
                 </Pressable>
@@ -267,7 +270,7 @@ export default function GroceriesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   header: { paddingHorizontal: 20, paddingTop: 24, gap: 12, paddingBottom: 4 },
   titleRow: {
     flexDirection: 'row',
@@ -280,10 +283,10 @@ const styles = StyleSheet.create({
     gap: 4,
     padding: 4,
     borderRadius: Radius.field,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
   },
   switch: { flex: 1, height: 38, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
-  switchOn: { backgroundColor: '#FFFFFF' },
+  switchOn: { backgroundColor: colors.raised },
   add: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -292,17 +295,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: Radius.field,
     borderWidth: 1.5,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
-  addInput: { flex: 1, fontFamily: Fonts.medium, fontSize: 16, color: Colors.ink, height: '100%' },
+  addInput: { flex: 1, fontFamily: Fonts.medium, fontSize: 16, color: colors.ink, height: '100%' },
   carry: {
     marginTop: 14,
     borderRadius: 14,
-    backgroundColor: Colors.warningSurface,
+    backgroundColor: colors.warningSurface,
     padding: 14,
     gap: 10,
   },
-  carryButton: { minHeight: 40, borderRadius: 10, backgroundColor: '#A3462B' },
+  carryButton: { minHeight: 40, borderRadius: 10, backgroundColor: colors.warningFill },
   line: {
     minHeight: 56,
     flexDirection: 'row',
@@ -310,21 +313,21 @@ const styles = StyleSheet.create({
     gap: 14,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.divider,
+    borderBottomColor: colors.divider,
   },
-  box: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: Colors.checkbox },
+  box: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: colors.checkbox },
   boxOn: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: Colors.tomato,
+    backgroundColor: colors.tomatoFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cart: {
     marginTop: 22,
     borderRadius: 14,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     paddingHorizontal: 14,
     paddingVertical: 6,
   },
@@ -335,6 +338,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 14,
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
+    borderTopColor: colors.border,
   },
-});
+}));

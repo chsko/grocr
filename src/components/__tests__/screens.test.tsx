@@ -3,6 +3,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import WeekScreen from '@/app/(tabs)/week';
 import SignInScreen from '@/app/sign-in';
+import { Palettes } from '@/constants/theme';
+import { SchemeContext } from '@/lib/appearance';
 import i18n from '@/lib/i18n';
 import { SessionContext, type Me } from '@/lib/session';
 
@@ -84,5 +86,18 @@ describe('week', () => {
     expect(screen.getAllByText('+ Add dinner')).toHaveLength(6);
     expect(screen.getByText('3 items on the grocery list')).toBeTruthy();
     expect(screen.getByText(/^Week \d+$/)).toBeTruthy();
+  });
+
+  test('draws in dark mode', async () => {
+    await i18n.changeLanguage('en');
+    mockUseQuery.mockReturnValue({ dinners: [], openLines: 0 });
+    await render(
+      <SchemeContext.Provider value="dark">
+        <SessionContext.Provider value={me}>
+          <WeekScreen />
+        </SessionContext.Provider>
+      </SchemeContext.Provider>,
+    );
+    expect(screen.getByText(/^Week \d+$/)).toHaveStyle({ color: Palettes.dark.ink });
   });
 });

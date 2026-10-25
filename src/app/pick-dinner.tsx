@@ -2,14 +2,15 @@ import { useMutation, useQuery } from 'convex/react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Check, Close, Search } from '@/components/icons';
 import { Button, Chip, Field, IconButton, IconTile, Stepper, Text } from '@/components/ui';
-import { Colors, Radius, TileColors } from '@/constants/theme';
+import { Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
 import { dayLabel, weekTitle } from '@/lib/format';
 import { relativeDay } from '@/lib/relative';
@@ -20,6 +21,8 @@ const NOTES = ['leftovers', 'pizzaNight', 'eatingOut'] as const;
 
 /** Plan, change or remove the dinner for one day (GRO-33). */
 export default function PickDinnerScreen() {
+  const colors = useColors();
+  const styles = useStyles();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const family = useFamily();
@@ -82,7 +85,7 @@ export default function PickDinnerScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: Colors.background }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
         <View style={styles.titleRow}>
           <Text variant="heading" style={{ flex: 1 }}>
@@ -107,7 +110,7 @@ export default function PickDinnerScreen() {
         ) : null}
 
         <View style={styles.search}>
-          <Search color={Colors.muted} size={18} />
+          <Search color={colors.muted} size={18} />
           <Field
             value={search}
             onChangeText={setSearch}
@@ -119,11 +122,11 @@ export default function PickDinnerScreen() {
           />
         </View>
 
-        <Text variant="section" color={Colors.muted} style={{ marginTop: 18, marginBottom: 4 }}>
+        <Text variant="section" color={colors.muted} style={{ marginTop: 18, marginBottom: 4 }}>
           {search ? t('pick.results') : t('pick.recipes')}
         </Text>
         {recipes && recipes.length === 0 ? (
-          <Text color={Colors.muted}>{t('pick.noRecipes')}</Text>
+          <Text color={colors.muted}>{t('pick.noRecipes')}</Text>
         ) : null}
         {shown.map((r) => {
           const isSelected = r._id === selectedId;
@@ -137,10 +140,10 @@ export default function PickDinnerScreen() {
                 setServingsState(null);
               }}
               style={[styles.recipe, isSelected && styles.recipeSelected]}>
-              <IconTile icon={r.icon} color={TileColors[0]} size={38} />
+              <IconTile icon={r.icon} color={colors.tiles[0]} size={38} />
               <View style={{ flex: 1 }}>
                 <Text variant="item">{r.title}</Text>
-                <Text variant="small" color={isSelected ? Colors.tomatoDeep : Colors.muted}>
+                <Text variant="small" color={isSelected ? colors.tomatoDeep : colors.muted}>
                   {r.lastCooked
                     ? t('recipes.cooked', {
                         when: relativeDay(t, r.lastCooked, todayIn(family.timezone)),
@@ -148,12 +151,12 @@ export default function PickDinnerScreen() {
                     : t('recipes.neverCooked')}
                 </Text>
               </View>
-              {isSelected ? <Check color={Colors.tomato} /> : null}
+              {isSelected ? <Check color={colors.tomato} /> : null}
             </Pressable>
           );
         })}
 
-        <Text variant="section" color={Colors.muted} style={{ marginTop: 18, marginBottom: 8 }}>
+        <Text variant="section" color={colors.muted} style={{ marginTop: 18, marginBottom: 8 }}>
           {t('pick.orNote')}
         </Text>
         <View style={styles.chips}>
@@ -201,7 +204,7 @@ export default function PickDinnerScreen() {
             loading={busy}
             onPress={planRecipe}
           />
-          <Text variant="small" color={Colors.muted} style={{ textAlign: 'center' }}>
+          <Text variant="small" color={colors.muted} style={{ textAlign: 'center' }}>
             {t('pick.footer', { count: selected.ingredientCount, week: weekTitle(t, startDate) })}
           </Text>
         </View>
@@ -210,7 +213,7 @@ export default function PickDinnerScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   content: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 24 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   current: {
@@ -218,7 +221,7 @@ const styles = StyleSheet.create({
     paddingLeft: 14,
     paddingRight: 8,
     borderRadius: Radius.field,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -227,7 +230,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingLeft: 14,
     borderRadius: Radius.field,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -242,15 +245,15 @@ const styles = StyleSheet.create({
     marginHorizontal: -12,
     borderRadius: 12,
   },
-  recipeSelected: { backgroundColor: Colors.saffronSoft },
+  recipeSelected: { backgroundColor: colors.saffronSoft },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   footer: {
     paddingHorizontal: 20,
     paddingTop: 12,
     gap: 12,
     borderTopWidth: 1,
-    borderTopColor: Colors.divider,
-    backgroundColor: Colors.background,
+    borderTopColor: colors.divider,
+    backgroundColor: colors.background,
   },
   servingsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-});
+}));

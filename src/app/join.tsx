@@ -2,13 +2,14 @@ import { useMutation } from 'convex/react';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar, Button, Field, Text } from '@/components/ui';
-import { Colors, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import { CODE_LENGTH, normalizeCode } from '@/convex/lib/inviteCode';
+import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
 
 type Preview = {
@@ -20,6 +21,8 @@ type Preview = {
 
 /** Join a family with an invite code (GRO-25). `?code=` prefills it, e.g. from a link. */
 export default function JoinScreen() {
+  const colors = useColors();
+  const styles = useStyles();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ code?: string }>();
@@ -69,11 +72,11 @@ export default function JoinScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
-        style={{ backgroundColor: Colors.background }}
+        style={{ backgroundColor: colors.background }}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + 24 }]}>
         <Text variant="title">{t('join.title')}</Text>
-        <Text color={Colors.muted} style={{ marginTop: 10 }}>
+        <Text color={colors.muted} style={{ marginTop: 10 }}>
           {t('join.intro')}
         </Text>
         <Field
@@ -88,7 +91,7 @@ export default function JoinScreen() {
           inputStyle={styles.codeInput}
         />
         {problem ? (
-          <Text color={Colors.danger} style={{ marginTop: 10 }}>
+          <Text color={colors.danger} style={{ marginTop: 10 }}>
             {problem === 'invalid' ? t('join.invalid') : t('join.rateLimited')}
           </Text>
         ) : null}
@@ -96,9 +99,9 @@ export default function JoinScreen() {
         {preview ? (
           <View style={styles.preview}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-              <Avatar name={preview.inviterName} color={Colors.tomato} size={48} />
+              <Avatar name={preview.inviterName} color={colors.tomatoFill} size={48} />
               <View style={{ flex: 1, gap: 2 }}>
-                <Text variant="small" color={Colors.muted} style={{ fontSize: 15 }}>
+                <Text variant="small" color={colors.muted} style={{ fontSize: 15 }}>
                   {t('join.invitedYou', { name: preview.inviterName })}
                 </Text>
                 <Text variant="heading" style={{ fontSize: 20 }}>
@@ -122,7 +125,7 @@ export default function JoinScreen() {
           </View>
         ) : null}
 
-        <Text variant="small" color={Colors.muted} style={styles.footer}>
+        <Text variant="small" color={colors.muted} style={styles.footer}>
           {t('join.footer')}
         </Text>
       </ScrollView>
@@ -130,12 +133,12 @@ export default function JoinScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   container: { flexGrow: 1, paddingHorizontal: Spacing.four, paddingTop: Spacing.three },
   codeInput: {
     height: 64,
     borderWidth: 2,
-    borderColor: Colors.tomato,
+    borderColor: colors.tomato,
     fontFamily: Fonts.bold,
     fontSize: 28,
     letterSpacing: 5,
@@ -143,7 +146,7 @@ const styles = StyleSheet.create({
   preview: {
     marginTop: 24,
     borderRadius: Radius.card,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
     padding: 20,
     gap: 16,
   },
@@ -151,9 +154,9 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: Radius.pill,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.raised,
     overflow: 'hidden',
     fontSize: 13,
   },
   footer: { marginTop: 'auto', paddingTop: 24, textAlign: 'center', fontSize: 14 },
-});
+}));

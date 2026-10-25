@@ -2,12 +2,13 @@ import { useQuery } from 'convex/react';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, TextInput, View } from 'react-native';
 
 import { Plus, Search } from '@/components/icons';
 import { Button, IconButton, IconTile, TabScreen, Text } from '@/components/ui';
-import { Colors, Fonts, Radius, TileColors } from '@/constants/theme';
+import { Fonts, Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
+import { makeStyles, useColors } from '@/lib/appearance';
 import { dayShort } from '@/lib/format';
 import { relativeDay } from '@/lib/relative';
 import { useFamily } from '@/lib/session';
@@ -15,6 +16,8 @@ import { addDays, startOfWeek, todayIn, type Weekday } from '@/lib/week';
 
 /** The family's recipes with search (GRO-30). Archived ones are one tap away. */
 export default function RecipesScreen() {
+  const colors = useColors();
+  const styles = useStyles();
   const { t } = useTranslation();
   const family = useFamily();
   const [archived, setArchived] = useState(false);
@@ -35,17 +38,17 @@ export default function RecipesScreen() {
         <Text variant="title">{archived ? t('recipes.archivedTitle') : t('recipes.title')}</Text>
         {archived ? null : (
           <IconButton onPress={() => router.push('/recipe/edit')} filled label={t('recipes.new')}>
-            <Plus color="#FFFFFF" strokeWidth={2.2} />
+            <Plus color={colors.onTomato} strokeWidth={2.2} />
           </IconButton>
         )}
       </View>
       <View style={styles.search}>
-        <Search color={Colors.muted} size={18} />
+        <Search color={colors.muted} size={18} />
         <TextInput
           value={search}
           onChangeText={setSearch}
           placeholder={t('recipes.search', { count: recipes?.length ?? 0 })}
-          placeholderTextColor={Colors.checkbox}
+          placeholderTextColor={colors.checkbox}
           accessibilityLabel={t('recipes.searchLabel')}
           style={styles.searchInput}
         />
@@ -57,7 +60,7 @@ export default function RecipesScreen() {
     <TabScreen header={header}>
       {recipes && recipes.length === 0 && !archived ? (
         <View style={{ marginTop: 24, gap: 12 }}>
-          <Text color={Colors.muted}>{t('recipes.empty')}</Text>
+          <Text color={colors.muted}>{t('recipes.empty')}</Text>
           <Button onPress={() => router.push('/recipe/edit')} title={t('recipes.addFirst')} />
         </View>
       ) : null}
@@ -70,10 +73,10 @@ export default function RecipesScreen() {
             onPress={() => router.push({ pathname: '/recipe/[id]', params: { id: r._id } })}
             accessibilityRole="link"
             style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}>
-            <IconTile icon={r.icon} color={TileColors[index % TileColors.length]} />
+            <IconTile icon={r.icon} color={colors.tiles[index % colors.tiles.length]} />
             <View style={{ flex: 1, gap: 2 }}>
               <Text variant="item">{r.title}</Text>
-              <Text variant="small" color={Colors.muted}>
+              <Text variant="small" color={colors.muted}>
                 {[
                   t('recipes.servings', { count: r.servings }),
                   r.lastCooked
@@ -83,7 +86,7 @@ export default function RecipesScreen() {
               </Text>
             </View>
             {planned ? (
-              <Text variant="small" color={Colors.tomatoDeep} style={styles.badge}>
+              <Text variant="small" color={colors.tomatoDeep} style={styles.badge}>
                 {planned}
               </Text>
             ) : null}
@@ -106,7 +109,7 @@ export default function RecipesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   header: { paddingHorizontal: 20, paddingTop: 24, gap: 14, paddingBottom: 8 },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   search: {
@@ -116,13 +119,13 @@ const styles = StyleSheet.create({
     height: 46,
     paddingHorizontal: 14,
     borderRadius: Radius.field,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface,
   },
   searchInput: {
     flex: 1,
     fontFamily: Fonts.medium,
     fontSize: 16,
-    color: Colors.ink,
+    color: colors.ink,
     height: '100%',
   },
   row: {
@@ -131,7 +134,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 14,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.divider,
+    borderBottomColor: colors.divider,
   },
   badge: {
     fontFamily: Fonts.bold,
@@ -139,7 +142,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: Radius.pill,
-    backgroundColor: Colors.saffronSoft,
+    backgroundColor: colors.saffronSoft,
     overflow: 'hidden',
   },
-});
+}));

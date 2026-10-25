@@ -1,24 +1,16 @@
 import { useMutation } from 'convex/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Chip, Field, Text } from '@/components/ui';
-import { Colors } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { SECTIONS } from '@/convex/lib/catalog';
 import type { GroceryLine } from '@/convex/lib/merge';
 import { formatQty, parseQty, UNITS, type Unit } from '@/convex/lib/units';
+import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
 
 /**
@@ -26,6 +18,8 @@ import { attempt } from '@/lib/errors';
  * marks it edited, so planning changes leave it alone (Product plan §5.3).
  */
 export function GroceryLineEditor({ line, onClose }: { line: GroceryLine; onClose: () => void }) {
+  const colors = useColors();
+  const styles = useStyles();
   const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
   const editMerged = useMutation(api.grocery.editMerged);
@@ -82,7 +76,7 @@ export function GroceryLineEditor({ line, onClose }: { line: GroceryLine; onClos
           </ScrollView>
           {line.ingredientId ? (
             <>
-              <Text variant="label" color={Colors.muted}>
+              <Text variant="label" color={colors.muted}>
                 {t('groceries.section')}
               </Text>
               <View style={styles.sections}>
@@ -117,14 +111,14 @@ export function GroceryLineEditor({ line, onClose }: { line: GroceryLine; onClos
   );
 }
 
-const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: Colors.overlay },
+const useStyles = makeStyles((colors) => ({
+  backdrop: { flex: 1, backgroundColor: colors.overlay },
   sections: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   sheet: {
-    backgroundColor: Colors.background,
+    backgroundColor: colors.raised,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
     gap: 14,
   },
-});
+}));

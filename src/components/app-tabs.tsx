@@ -1,18 +1,19 @@
 import { NativeTabs } from 'expo-router/native-tabs';
 import { useTranslation } from 'react-i18next';
 
-import { Colors } from '@/constants/theme';
+import { useColors } from '@/lib/appearance';
 
 export default function AppTabs() {
   const { t } = useTranslation();
+  const colors = useColors();
 
   return (
     <NativeTabs
-      backgroundColor={Colors.background}
-      indicatorColor={Colors.saffronPill}
-      tintColor={Colors.tomato}
-      iconColor={{ default: Colors.muted, selected: Colors.ink }}
-      labelStyle={{ default: { color: Colors.muted }, selected: { color: Colors.ink } }}>
+      backgroundColor={colors.background}
+      indicatorColor={colors.saffronPill}
+      tintColor={colors.tomato}
+      iconColor={{ default: colors.muted, selected: colors.ink }}
+      labelStyle={{ default: { color: colors.muted }, selected: { color: colors.ink } }}>
       <NativeTabs.Trigger name="week">
         <NativeTabs.Trigger.Label>{t('tabs.week')}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="calendar" md="calendar_month" />
