@@ -2,11 +2,12 @@ import { ConvexError, v } from 'convex/values';
 
 import type { Doc, Id } from './_generated/dataModel';
 import { mutation, query, type QueryCtx } from './_generated/server';
+import { scheduleIconGuess } from './classify';
 import { resolveIngredient } from './ingredients';
 import { loadForMember, requireMembership } from './lib/access';
 import { cleanName } from './lib/catalog';
 import { syncEntry } from './lib/groceryRows';
-import { isRecipeIcon, recipeIcon } from './lib/recipeIcons';
+import { DEFAULT_ICON, guessIcon, isRecipeIcon, recipeIcon } from './lib/recipeIcons';
 import { isUnit } from './lib/units';
 import { todayIn } from './lib/week';
 
@@ -127,25 +128,35 @@ export const save = mutation({
     // value clears it back to the title's guess.
     const icon =
       args.icon === undefined ? existing?.icon : isRecipeIcon(args.icon) ? args.icon : undefined;
+    // jev's guess belongs to the title it was asked about.
+    const guessedIcon = existing?.title === title ? existing.guessedIcon : undefined;
     const fields = {
       title,
       icon,
+      guessedIcon,
       servings: args.servings,
       steps,
       ingredients,
       updatedAt: Date.now(),
     };
 
+    // jev is asked once per title, whatever it answered (or if it failed).
+    const askJev =
+      icon === undefined && existing?.iconAskedFor !== title && guessIcon(title) === DEFAULT_ICON;
+
     if (existing === null) {
-      return await ctx.db.insert('recipes', {
+      const recipeId = await ctx.db.insert('recipes', {
         ...fields,
         groupId: args.groupId,
         tags: [],
         createdBy: userId,
       });
+      if (askJev) await scheduleIconGuess(ctx, args.groupId, recipeId, title);
+      return recipeId;
     }
 
     await ctx.db.patch('recipes', existing._id, fields);
+    if (askJev) await scheduleIconGuess(ctx, args.groupId, existing._id, title);
     const group = (await ctx.db.get('groups', args.groupId))!;
     const today = todayIn(group.timezone);
     const upcoming = await ctx.db

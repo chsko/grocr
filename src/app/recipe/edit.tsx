@@ -9,7 +9,8 @@ import { Button, Chip, Field, IconButton, IconTile, Loading, Stepper, Text } fro
 import { Fonts, Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
-import { guessIcon, isRecipeIcon, RECIPE_ICONS, type RecipeIcon } from '@/convex/lib/recipeIcons';
+import { cleanName } from '@/convex/lib/catalog';
+import { isRecipeIcon, RECIPE_ICONS, recipeIcon, type RecipeIcon } from '@/convex/lib/recipeIcons';
 import { formatQty, isUnit, parseQty, UNITS, type Unit } from '@/convex/lib/units';
 import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
@@ -143,7 +144,21 @@ export default function RecipeEditScreen() {
             accessibilityLabel={t('recipeEdit.icon')}
             onPress={() => setPickingIcon(true)}
             style={({ pressed }) => pressed && { opacity: 0.7 }}>
-            <IconTile icon={icon ?? guessIcon(title)} color={colors.tiles[0]} size={50} />
+            <IconTile
+              icon={
+                icon ??
+                recipeIcon({
+                  title,
+                  // jev's guess holds only for the title it was asked about.
+                  guessedIcon:
+                    existing && cleanName(title) === existing.title
+                      ? existing.guessedIcon
+                      : undefined,
+                })
+              }
+              color={colors.tiles[0]}
+              size={50}
+            />
           </Pressable>
           <Field
             label={t('recipeEdit.titleLabel')}

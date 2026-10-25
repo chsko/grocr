@@ -106,7 +106,14 @@ export function guessIcon(title: string): RecipeIcon {
   return DEFAULT_ICON;
 }
 
-/** The recipe's chosen icon, or a guess from its title. */
-export function recipeIcon(recipe: { icon?: string; title: string }): RecipeIcon {
-  return isRecipeIcon(recipe.icon) ? recipe.icon : guessIcon(recipe.title);
+/** The recipe's chosen icon, else the keyword guess, else jev's guess, else the plate. */
+export function recipeIcon(recipe: {
+  icon?: string;
+  guessedIcon?: string;
+  title: string;
+}): RecipeIcon {
+  if (isRecipeIcon(recipe.icon)) return recipe.icon;
+  const guess = guessIcon(recipe.title);
+  if (guess !== DEFAULT_ICON) return guess;
+  return isRecipeIcon(recipe.guessedIcon) ? recipe.guessedIcon : DEFAULT_ICON;
 }

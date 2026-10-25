@@ -119,6 +119,10 @@ export default defineSchema({
     tags: v.array(v.string()),
     /** One of RECIPE_ICONS; missing means guessed from the title. */
     icon: v.optional(v.string()),
+    /** jev's pick for a title the keywords don't know; dropped when the title changes. */
+    guessedIcon: v.optional(v.string()),
+    /** The title jev was last asked about, so saves don't ask again. */
+    iconAskedFor: v.optional(v.string()),
     imageStorageId: v.optional(v.id('_storage')),
     sourceUrl: v.optional(v.string()),
     createdBy: v.optional(v.id('users')),

@@ -9,6 +9,7 @@ import {
   type MutationCtx,
 } from './_generated/server';
 import { familySections, isSection, type FamilySection } from './lib/catalog';
+import { isRecipeIcon, RECIPE_ICONS } from './lib/recipeIcons';
 import { askJevChoices, jevEnabled, type JevQuestion } from './lib/jev';
 
 // jev sorts catalog items into the family's own sections (GRO-51): a new item a moment after it
@@ -68,6 +69,23 @@ export async function scheduleSort(
       into,
     });
   }
+}
+
+/**
+ * Asks jev for an icon for a recipe whose title the keywords don't know ("Fredagskos",
+ * "Mormors lørdagsmiddag"), once per title, while the family's daily jev allowance lasts.
+ */
+export async function scheduleIconGuess(
+  ctx: MutationCtx,
+  groupId: Id<'groups'>,
+  recipeId: Id<'recipes'>,
+  title: string,
+) {
+  if (!jevEnabled()) return;
+  // Icons are nice to have: they leave the reserve to new grocery items.
+  if (!(await takeJevCall(ctx, groupId, JEV_DAILY_LIMIT - JEV_RESERVE))) return;
+  await ctx.db.patch('recipes', recipeId, { iconAskedFor: title });
+  await ctx.scheduler.runAfter(0, internal.classify.icon, { recipeId });
 }
 
 async function takeJevCall(ctx: MutationCtx, groupId: Id<'groups'>, limit: number) {
@@ -155,5 +173,63 @@ export const applySections = internalMutation({
       if (!keys.includes(section) || doc.section === section) continue;
       await ctx.db.patch('ingredients', ingredientId, { section, sectionSource: 'jev' });
     }
+  },
+});
+
+/** The recipe's title and ingredients, while it still has no icon of its own. */
+export const iconInput = internalQuery({
+  args: { recipeId: v.id('recipes') },
+  handler: async (ctx, { recipeId }) => {
+    const recipe = await ctx.db.get('recipes', recipeId);
+    if (recipe === null || recipe.icon !== undefined) return null;
+    const ingredients = [];
+    for (const line of recipe.ingredients) {
+      const doc = await ctx.db.get('ingredients', line.ingredientId);
+      if (doc !== null) ingredients.push(doc.name);
+    }
+    return { title: recipe.title, ingredients };
+  },
+});
+
+export const icon = internalAction({
+  args: { recipeId: v.id('recipes') },
+  handler: async (ctx, { recipeId }) => {
+    const input = await ctx.runQuery(internal.classify.iconInput, { recipeId });
+    if (input === null) return;
+    // Plain choice keys (c0, c1...); the plate is jev's way of saying none fits.
+    const criteria = Object.fromEntries(
+      RECIPE_ICONS.map(({ icon, words }, i) => [
+        `c${i}`,
+        words.length > 0 ? `${icon} (${words.join(', ')})` : `${icon} (none of the others fits)`,
+      ]),
+    );
+    const { pick } = await askJevChoices(
+      { dinner: input.title, ingredients: input.ingredients },
+      {
+        pick: {
+          instructions:
+            'Which food icon best shows this family dinner recipe? The title may be Norwegian ' +
+            'or English; use the ingredients when the title alone is unclear.',
+          criteria,
+        },
+      },
+    );
+    if (pick === null || pick.confidence < MIN_CONFIDENCE) return;
+    await ctx.runMutation(internal.classify.applyIcon, {
+      recipeId,
+      title: input.title,
+      icon: RECIPE_ICONS[Number(pick.choice.slice(1))].icon,
+    });
+  },
+});
+
+/** Stores jev's icon, unless the recipe was renamed or given an icon in the meantime. */
+export const applyIcon = internalMutation({
+  args: { recipeId: v.id('recipes'), title: v.string(), icon: v.string() },
+  handler: async (ctx, { recipeId, title, icon }) => {
+    const recipe = await ctx.db.get('recipes', recipeId);
+    if (recipe === null || recipe.title !== title || recipe.icon !== undefined) return;
+    if (!isRecipeIcon(icon)) return;
+    await ctx.db.patch('recipes', recipeId, { guessedIcon: icon });
   },
 });

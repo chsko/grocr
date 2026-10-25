@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import { api, internal } from './_generated/api';
+import type { Id } from './_generated/dataModel';
 import { JEV_DAILY_LIMIT, SORT_BATCH } from './classify';
 import {
   addItem,
@@ -210,5 +211,123 @@ describe('jev off or failing', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const group = await t.run((ctx) => ctx.db.get('groups', groupId));
     expect(group?.jevUsage?.count).toBe(2);
+  });
+});
+
+describe('recipe icons', () => {
+  /** jev picks `icon` for every recipe it is asked about; the mock counts only those calls. */
+  function jevIcon(icon: string, confidence = 0.9) {
+    const asked = vi.fn();
+    vi.stubGlobal('fetch', async (_url: unknown, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as {
+        state: { dinner?: string };
+        questions: Record<string, { criteria: Record<string, string> }>;
+      };
+      if (body.state.dinner === undefined) return Response.json({ answers: {} });
+      asked(body.state.dinner);
+      const choice = Object.entries(body.questions.pick.criteria).find(([, d]) =>
+        d.startsWith(icon),
+      )![0];
+      return Response.json({ answers: { pick: { type: 'choice', choice, confidence } } });
+    });
+    return asked;
+  }
+
+  async function save(
+    ada: Awaited<ReturnType<typeof signedInUser>>,
+    groupId: Parameters<typeof addItem>[1],
+    title: string,
+    extra: { recipeId?: Id<'recipes'>; icon?: string } = {},
+  ) {
+    return await ada.as.mutation(api.recipes.save, {
+      groupId,
+      title,
+      servings: 4,
+      steps: [],
+      ingredients: [],
+      ...extra,
+    });
+  }
+
+  test('jev picks an icon for a title the keywords miss, until the title changes', async () => {
+    vi.useFakeTimers();
+    vi.stubEnv('TYPESAFE_API_KEY', 'test-key');
+    const fetchMock = jevIcon('🌮');
+    const { t, ada, groupId } = await family();
+    const recipeId = await save(ada, groupId, 'Fredagskos');
+    expect((await ada.as.query(api.recipes.get, { recipeId })).shownIcon).toBe('🍽️');
+
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect((await ada.as.query(api.recipes.get, { recipeId })).shownIcon).toBe('🌮');
+    const [row] = await ada.as.query(api.recipes.list, { groupId });
+    expect(row.icon).toBe('🌮');
+
+    // Saving under the same title keeps the guess without asking again.
+    await save(ada, groupId, 'Fredagskos', { recipeId });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect((await ada.as.query(api.recipes.get, { recipeId })).shownIcon).toBe('🌮');
+
+    // A title the keywords know doesn't ask jev, and drops the old guess.
+    await save(ada, groupId, 'Fiskesuppe', { recipeId });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const recipe = await ada.as.query(api.recipes.get, { recipeId });
+    expect([recipe.shownIcon, recipe.guessedIcon]).toEqual(['🍲', undefined]);
+  });
+
+  test("an unsure jev leaves the plate, and saves of that title don't ask again", async () => {
+    vi.useFakeTimers();
+    vi.stubEnv('TYPESAFE_API_KEY', 'test-key');
+    const asked = jevIcon('🌮', 0.3);
+    const { t, ada, groupId } = await family();
+    const recipeId = await save(ada, groupId, 'Fredagskos');
+    await save(ada, groupId, 'Fredagskos', { recipeId });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    await save(ada, groupId, 'Fredagskos', { recipeId });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    expect(asked).toHaveBeenCalledOnce();
+    expect((await ada.as.query(api.recipes.get, { recipeId })).shownIcon).toBe('🍽️');
+  });
+
+  test('a picked icon is never asked about', async () => {
+    vi.useFakeTimers();
+    vi.stubEnv('TYPESAFE_API_KEY', 'test-key');
+    const asked = jevIcon('🌮');
+    const { t, ada, groupId } = await family();
+    await save(ada, groupId, 'Mormors middag', { icon: '🍕' });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    expect(asked).not.toHaveBeenCalled();
+  });
+
+  test('an answer for an old title, or after an icon was picked, is dropped', async () => {
+    const { t, ada, groupId } = await family();
+    const recipeId = await save(ada, groupId, 'Søndagsmiddag');
+    await t.mutation(internal.classify.applyIcon, {
+      recipeId,
+      title: 'Lørdagsmiddag',
+      icon: '🌮',
+    });
+    expect((await ada.as.query(api.recipes.get, { recipeId })).guessedIcon).toBeUndefined();
+
+    await save(ada, groupId, 'Søndagsmiddag', { recipeId, icon: '🍕' });
+    await t.mutation(internal.classify.applyIcon, {
+      recipeId,
+      title: 'Søndagsmiddag',
+      icon: '🌮',
+    });
+    const recipe = await ada.as.query(api.recipes.get, { recipeId });
+    expect([recipe.shownIcon, recipe.guessedIcon]).toEqual(['🍕', undefined]);
+  });
+
+  test('without a key nothing is asked', async () => {
+    vi.useFakeTimers();
+    vi.stubEnv('TYPESAFE_API_KEY', '');
+    const fetchMock = jevIcon('🌮');
+    const { t, ada, groupId } = await family();
+    await save(ada, groupId, 'Fredagskos');
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
