@@ -1,6 +1,6 @@
 import { ConvexError, v } from 'convex/values';
 
-import type { Id } from './_generated/dataModel';
+import type { Doc, Id } from './_generated/dataModel';
 import { mutation, query, type MutationCtx } from './_generated/server';
 import {
   accessError,
@@ -128,23 +128,36 @@ export const leave = mutation({
   args: { groupId: v.id('groups') },
   handler: async (ctx, { groupId }) => {
     const { membership } = await requireMembership(ctx, groupId);
-    await ctx.db.delete('memberships', membership._id);
-    const rest = await ctx.db
-      .query('memberships')
-      .withIndex('by_group', (q) => q.eq('groupId', groupId))
-      .collect();
-    if (rest.length === 0) {
-      await deleteGroup(ctx, groupId);
-      return;
-    }
-    if (membership.role === 'owner' && !rest.some((m) => m.role === 'owner')) {
-      const heir = rest.sort((a, b) => a.joinedAt - b.joinedAt)[0];
-      await ctx.db.patch('memberships', heir._id, { role: 'owner' });
-      await ctx.db.patch('groups', groupId, { ownerId: heir.userId });
-      await revokeInvites(ctx, groupId);
-    }
+    await leaveFamily(ctx, membership);
   },
 });
+
+/**
+ * Removes a membership. The longest-standing member takes over from a leaving owner; the last
+ * member leaving deletes the family and everything in it. Shared with account deletion.
+ */
+export async function leaveFamily(ctx: MutationCtx, membership: Doc<'memberships'>) {
+  const { groupId } = membership;
+  await ctx.db.delete('memberships', membership._id);
+  const rest = await ctx.db
+    .query('memberships')
+    .withIndex('by_group', (q) => q.eq('groupId', groupId))
+    .collect();
+  if (rest.length === 0) {
+    await deleteGroup(ctx, groupId);
+    return;
+  }
+  if (membership.role === 'owner' && !rest.some((m) => m.role === 'owner')) {
+    const heir = rest.sort((a, b) => a.joinedAt - b.joinedAt)[0];
+    await ctx.db.patch('memberships', heir._id, { role: 'owner' });
+    await ctx.db.patch('groups', groupId, { ownerId: heir.userId });
+    await revokeInvites(ctx, groupId);
+  } else if (membership.role === 'owner') {
+    // Another owner remains; keep the family's owner field pointing at a current member.
+    const owner = rest.find((m) => m.role === 'owner')!;
+    await ctx.db.patch('groups', groupId, { ownerId: owner.userId });
+  }
+}
 
 /** Invites belong to the owner who made them; a new owner starts fresh. */
 async function revokeInvites(ctx: MutationCtx, groupId: Id<'groups'>) {

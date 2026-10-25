@@ -30,6 +30,7 @@ export default function FamilyScreen() {
   const removeMember = useMutation(api.groups.removeMember);
   const transferOwnership = useMutation(api.groups.transferOwnership);
   const leave = useMutation(api.groups.leave);
+  const deleteAccount = useMutation(api.account.deleteAccount);
   const { signOut } = useAuthActions();
   const [now] = useState(() => Date.now());
   const language = useLanguagePreference();
@@ -87,6 +88,22 @@ export default function FamilyScreen() {
         text: t('family.leave'),
         style: 'destructive',
         onPress: () => void attempt(t, () => leave({ groupId })),
+      },
+    ]);
+  }
+
+  function confirmDeleteAccount() {
+    Alert.alert(t('account.deleteTitle'), t('account.deleteBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('account.delete'),
+        style: 'destructive',
+        onPress: () =>
+          void attempt(t, async () => {
+            await deleteAccount({});
+            // The session is already gone; this just clears the tokens on the device.
+            await signOut().catch(() => undefined);
+          }),
       },
     ]);
   }
@@ -192,11 +209,14 @@ export default function FamilyScreen() {
       <Pressable accessibilityRole="button" onPress={() => void signOut()} style={styles.setting}>
         <Text>{t('account.signOut')}</Text>
       </Pressable>
+      <Pressable accessibilityRole="button" onPress={confirmLeave} style={styles.setting}>
+        <Text color={Colors.danger}>{t('family.leave')}</Text>
+      </Pressable>
       <Pressable
         accessibilityRole="button"
-        onPress={confirmLeave}
+        onPress={confirmDeleteAccount}
         style={[styles.setting, { borderBottomWidth: 0 }]}>
-        <Text color={Colors.danger}>{t('family.leave')}</Text>
+        <Text color={Colors.danger}>{t('account.delete')}</Text>
       </Pressable>
     </TabScreen>
   );

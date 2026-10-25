@@ -33,7 +33,10 @@
     "comingSoon": "Sign-in with Apple and Google is coming soon."
   },
   "account": {
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "delete": "Delete account",
+    "deleteTitle": "Delete your account?",
+    "deleteBody": "You leave your family and your account is deleted for good. Recipes, dinners and list items you added stay for the others, without your name. If you're the only member, the family and everything in it is deleted too."
   },
   "welcome": {
     "signedInAs": "Signed in as {{who}}",

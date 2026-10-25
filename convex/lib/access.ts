@@ -21,6 +21,8 @@ type GroupScopedTable = {
 export async function requireUserId(ctx: QueryCtx): Promise<Id<'users'>> {
   const userId = await getAuthUserId(ctx);
   if (userId === null) throw accessError('UNAUTHENTICATED');
+  // Access tokens outlive a deleted account by up to an hour; the user row is the real check.
+  if ((await ctx.db.get('users', userId)) === null) throw accessError('UNAUTHENTICATED');
   return userId;
 }
 

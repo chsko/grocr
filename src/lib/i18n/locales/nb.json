@@ -33,7 +33,10 @@
     "comingSoon": "Innlogging med Apple og Google kommer snart."
   },
   "account": {
-    "signOut": "Logg ut"
+    "signOut": "Logg ut",
+    "delete": "Slett konto",
+    "deleteTitle": "Slette kontoen din?",
+    "deleteBody": "Du forlater familien, og kontoen din slettes for godt. Oppskrifter, middager og varer du har lagt til, blir værende for de andre, uten navnet ditt. Er du eneste medlem, slettes også familien og alt i den."
   },
   "welcome": {
     "signedInAs": "Logget inn som {{who}}",
