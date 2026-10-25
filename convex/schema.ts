@@ -90,6 +90,15 @@ export default defineSchema({
     aliases: v.array(v.string()),
   }).index('by_group_normalizedName', ['groupId', 'normalizedName']),
 
+  // Names merged into another catalog item (ingredients.merge), so typing them finds that item.
+  ingredientAliases: defineTable({
+    groupId: v.id('groups'),
+    normalizedName: v.string(),
+    ingredientId: v.id('ingredients'),
+  })
+    .index('by_group_name', ['groupId', 'normalizedName'])
+    .index('by_ingredient', ['ingredientId']),
+
   recipes: defineTable({
     groupId: v.id('groups'),
     title: v.string(),

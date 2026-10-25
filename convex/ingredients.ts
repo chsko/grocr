@@ -42,6 +42,86 @@ export const setSection = mutation({
 });
 
 /**
+ * Merges a duplicate catalog item into another ("Melk" into "Helmelk", GRO-31): recipes and
+ * grocery lines switch to the kept item, the old name becomes its alias so typing it again finds
+ * the kept item, and the duplicate is deleted.
+ */
+export const merge = mutation({
+  args: { fromId: v.id('ingredients'), intoId: v.id('ingredients') },
+  handler: async (ctx, { fromId, intoId }) => {
+    const { doc: from } = await loadForMember(ctx, 'ingredients', fromId);
+    const { doc: into } = await loadForMember(ctx, 'ingredients', intoId);
+    if (from.groupId !== into.groupId) throw accessError('NOT_FOUND');
+    if (from._id === into._id) throw new ConvexError({ code: 'SAME_INGREDIENT' });
+    const groupId = into.groupId;
+
+    const recipes = await ctx.db
+      .query('recipes')
+      .withIndex('by_group', (q) => q.eq('groupId', groupId))
+      .collect();
+    for (const recipe of recipes) {
+      if (!recipe.ingredients.some((line) => line.ingredientId === fromId)) continue;
+      await ctx.db.patch('recipes', recipe._id, {
+        ingredients: recipe.ingredients.map((line) =>
+          line.ingredientId === fromId ? { ...line, ingredientId: intoId } : line,
+        ),
+      });
+    }
+
+    const lists = await ctx.db
+      .query('groceryLists')
+      .withIndex('by_group_startDate', (q) => q.eq('groupId', groupId))
+      .collect();
+    for (const list of lists) {
+      const items = await ctx.db
+        .query('groceryItems')
+        .withIndex('by_list', (q) => q.eq('listId', list._id))
+        .collect();
+      const intoEntries = new Set(
+        items.flatMap((i) =>
+          i.ingredientId === intoId && i.source.kind === 'meal' ? [i.source.mealPlanEntryId] : [],
+        ),
+      );
+      for (const item of items) {
+        if (item.ingredientId !== fromId) continue;
+        // A removed line of the duplicate would freeze the kept item for that dinner (sync leaves
+        // edited ingredients alone), so it goes when the dinner also has the kept item.
+        if (
+          item.removed &&
+          item.source.kind === 'meal' &&
+          intoEntries.has(item.source.mealPlanEntryId)
+        ) {
+          await ctx.db.delete('groceryItems', item._id);
+          continue;
+        }
+        await ctx.db.patch('groceryItems', item._id, {
+          ingredientId: intoId,
+          name: into.name,
+          section: into.section,
+        });
+      }
+    }
+
+    const aliases = new Set([...into.aliases, from.normalizedName, ...from.aliases]);
+    aliases.delete(into.normalizedName);
+    await ctx.db.patch('ingredients', intoId, { aliases: [...aliases] });
+    const fromAliases = await ctx.db
+      .query('ingredientAliases')
+      .withIndex('by_ingredient', (q) => q.eq('ingredientId', fromId))
+      .collect();
+    for (const alias of fromAliases) {
+      await ctx.db.patch('ingredientAliases', alias._id, { ingredientId: intoId });
+    }
+    await ctx.db.insert('ingredientAliases', {
+      groupId,
+      normalizedName: from.normalizedName,
+      ingredientId: intoId,
+    });
+    await ctx.db.delete('ingredients', fromId);
+  },
+});
+
+/**
  * The catalog item for a recipe or grocery line: the given id after checking it belongs to the
  * family, else the item with the same name, else a new one with a guessed section.
  */
@@ -52,8 +132,9 @@ export async function resolveIngredient(
 ) {
   if (input.ingredientId !== undefined) {
     const doc = await ctx.db.get('ingredients', input.ingredientId);
-    if (doc === null || doc.groupId !== groupId) throw accessError('NOT_FOUND');
-    return doc;
+    if (doc !== null && doc.groupId !== groupId) throw accessError('NOT_FOUND');
+    if (doc !== null) return doc;
+    // Gone, e.g. merged away while a recipe was open in the editor: resolve by name instead.
   }
   const name = cleanName(input.name).slice(0, 80);
   if (name === '') throw new ConvexError({ code: 'NAME_REQUIRED' });
@@ -65,6 +146,15 @@ export async function resolveIngredient(
     )
     .first();
   if (existing !== null) return existing;
+  // A name merged into another item (see `merge`) resolves to that item.
+  const alias = await ctx.db
+    .query('ingredientAliases')
+    .withIndex('by_group_name', (q) =>
+      q.eq('groupId', groupId).eq('normalizedName', normalizedName),
+    )
+    .first();
+  const aliased = alias && (await ctx.db.get('ingredients', alias.ingredientId));
+  if (aliased) return aliased;
   const id = await ctx.db.insert('ingredients', {
     groupId,
     name,

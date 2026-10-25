@@ -188,6 +188,11 @@ async function deleteGroup(ctx: MutationCtx, groupId: Id<'groups'>) {
     .withIndex('by_group_normalizedName', (q) => q.eq('groupId', groupId))
     .collect();
   for (const doc of ingredients) await ctx.db.delete('ingredients', doc._id);
+  const aliases = await ctx.db
+    .query('ingredientAliases')
+    .withIndex('by_group_name', (q) => q.eq('groupId', groupId))
+    .collect();
+  for (const doc of aliases) await ctx.db.delete('ingredientAliases', doc._id);
   const entries = await ctx.db
     .query('mealPlanEntries')
     .withIndex('by_group_date', (q) => q.eq('groupId', groupId))

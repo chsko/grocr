@@ -174,7 +174,13 @@
     "clearChecked": "Clear checked",
     "amount": "Amount",
     "removeLine": "Remove from list",
-    "section": "Section"
+    "section": "Section",
+    "sameAs": "Same as another item…",
+    "sameAsLabel": "Which item is {{name}} the same as?",
+    "sameAsPlaceholder": "Search the family’s items",
+    "merge": "Merge",
+    "mergeTitle": "Merge {{from}} into {{into}}?",
+    "mergeBody": "Recipes and lists that use {{from}} will use {{into}} instead, and typing “{{from}}” later finds {{into}}."
   },
   "sections": {
     "produce": "Produce",

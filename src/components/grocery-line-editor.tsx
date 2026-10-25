@@ -1,7 +1,15 @@
-import { useMutation } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from 'react-native';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Chip, Field, Text } from '@/components/ui';
@@ -12,6 +20,7 @@ import type { GroceryLine } from '@/convex/lib/merge';
 import { formatQty, parseQty, UNITS, type Unit } from '@/convex/lib/units';
 import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
+import { useFamily } from '@/lib/session';
 
 /**
  * Edit or remove a merged grocery line (long press). Saving puts the new amount on one row and
@@ -25,6 +34,13 @@ export function GroceryLineEditor({ line, onClose }: { line: GroceryLine; onClos
   const editMerged = useMutation(api.grocery.editMerged);
   const remove = useMutation(api.grocery.remove);
   const setSection = useMutation(api.ingredients.setSection);
+  const mergeIngredients = useMutation(api.ingredients.merge);
+  const family = useFamily();
+  const [mergeText, setMergeText] = useState<string | null>(null);
+  const matches = useQuery(
+    api.ingredients.search,
+    mergeText?.trim() ? { groupId: family.groupId, text: mergeText } : 'skip',
+  );
   // Lines with mixed units ("1 can + 200 g") start from the first part.
   const first = line.amounts[0];
   const [qty, setQty] = useState(() =>
@@ -36,6 +52,27 @@ export function GroceryLineEditor({ line, onClose }: { line: GroceryLine; onClos
   async function save() {
     await attempt(t, () => editMerged({ itemIds, qty: parseQty(qty), unit }));
     onClose();
+  }
+
+  function confirmMerge(into: { _id: Id<'ingredients'>; name: string }) {
+    Alert.alert(
+      t('groceries.mergeTitle', { from: line.name, into: into.name }),
+      t('groceries.mergeBody', { from: line.name, into: into.name }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('groceries.merge'),
+          // The line changes ingredient, so the editor closes on its own once the list updates.
+          onPress: () =>
+            void attempt(t, () =>
+              mergeIngredients({
+                fromId: line.ingredientId as Id<'ingredients'>,
+                intoId: into._id,
+              }),
+            ),
+        },
+      ],
+    );
   }
 
   async function removeLine() {
@@ -97,6 +134,32 @@ export function GroceryLineEditor({ line, onClose }: { line: GroceryLine; onClos
                 ))}
               </View>
             </>
+          ) : null}
+          {line.ingredientId && mergeText === null ? (
+            <Button
+              kind="ghost"
+              title={t('groceries.sameAs')}
+              style={{ alignSelf: 'flex-start' }}
+              onPress={() => setMergeText('')}
+            />
+          ) : null}
+          {mergeText !== null ? (
+            <View style={{ gap: 6 }}>
+              <Field
+                label={t('groceries.sameAsLabel', { name: line.name })}
+                value={mergeText}
+                onChangeText={setMergeText}
+                autoFocus
+                placeholder={t('groceries.sameAsPlaceholder')}
+              />
+              <View style={styles.sections}>
+                {matches
+                  ?.filter((m) => m._id !== line.ingredientId)
+                  .map((m) => (
+                    <Chip key={m._id} title={m.name} onPress={() => confirmMerge(m)} />
+                  ))}
+              </View>
+            </View>
           ) : null}
           <Button title={t('common.save')} onPress={() => void save()} />
           <Button

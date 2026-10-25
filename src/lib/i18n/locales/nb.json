@@ -174,7 +174,13 @@
     "clearChecked": "Fjern avkryssede",
     "amount": "Mengde",
     "removeLine": "Fjern fra listen",
-    "section": "Avdeling"
+    "section": "Avdeling",
+    "sameAs": "Samme som en annen vare …",
+    "sameAsLabel": "Hvilken vare er {{name}} det samme som?",
+    "sameAsPlaceholder": "Søk i familiens varer",
+    "merge": "Slå sammen",
+    "mergeTitle": "Slå sammen {{from}} med {{into}}?",
+    "mergeBody": "Oppskrifter og lister som bruker {{from}}, bruker {{into}} i stedet, og skriver du «{{from}}» senere, finner du {{into}}."
   },
   "sections": {
     "produce": "Frukt og grønt",
