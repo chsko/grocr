@@ -47,16 +47,21 @@ const render = (ui: React.ReactElement) =>
 describe('sign-in', () => {
   test('lists the test users in Norwegian', async () => {
     await i18n.changeLanguage('nb');
-    mockUseQuery.mockReturnValue([{ id: 'kari', name: 'Kari Hansen' }]);
+    mockUseQuery.mockReturnValue({
+      google: false,
+      apple: false,
+      personas: [{ id: 'kari', name: 'Kari Hansen' }],
+    });
     await render(<SignInScreen />);
     expect(screen.getByText('Fortsett som Kari Hansen')).toBeTruthy();
   });
 
-  test('says sign-in is coming when test users are off', async () => {
+  test('offers Google and no test users when they are off', async () => {
     await i18n.changeLanguage('en');
-    mockUseQuery.mockReturnValue([]);
+    mockUseQuery.mockReturnValue({ google: true, apple: true, personas: [] });
     await render(<SignInScreen />);
-    expect(screen.getByText(/coming soon/)).toBeTruthy();
+    expect(screen.getByText('Continue with Google')).toBeTruthy();
+    expect(screen.queryByText('Test users')).toBeNull();
   });
 });
 

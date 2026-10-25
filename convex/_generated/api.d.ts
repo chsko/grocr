@@ -9,6 +9,7 @@
  */
 
 import type * as account from "../account.js";
+import type * as appleTokens from "../appleTokens.js";
 import type * as auth from "../auth.js";
 import type * as classify from "../classify.js";
 import type * as devSignIn from "../devSignIn.js";
@@ -18,6 +19,10 @@ import type * as http from "../http.js";
 import type * as ingredients from "../ingredients.js";
 import type * as invites from "../invites.js";
 import type * as lib_access from "../lib/access.js";
+import type * as lib_apple from "../lib/apple.js";
+import type * as lib_appleSignIn from "../lib/appleSignIn.js";
+import type * as lib_authRedirect from "../lib/authRedirect.js";
+import type * as lib_authUsers from "../lib/authUsers.js";
 import type * as lib_catalog from "../lib/catalog.js";
 import type * as lib_devSignIn from "../lib/devSignIn.js";
 import type * as lib_groceryRows from "../lib/groceryRows.js";
@@ -29,6 +34,7 @@ import type * as lib_units from "../lib/units.js";
 import type * as lib_week from "../lib/week.js";
 import type * as mealPlan from "../mealPlan.js";
 import type * as recipes from "../recipes.js";
+import type * as signInOptions from "../signInOptions.js";
 import type * as users from "../users.js";
 
 import type {
@@ -39,6 +45,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   account: typeof account;
+  appleTokens: typeof appleTokens;
   auth: typeof auth;
   classify: typeof classify;
   devSignIn: typeof devSignIn;
@@ -48,6 +55,10 @@ declare const fullApi: ApiFromModules<{
   ingredients: typeof ingredients;
   invites: typeof invites;
   "lib/access": typeof lib_access;
+  "lib/apple": typeof lib_apple;
+  "lib/appleSignIn": typeof lib_appleSignIn;
+  "lib/authRedirect": typeof lib_authRedirect;
+  "lib/authUsers": typeof lib_authUsers;
   "lib/catalog": typeof lib_catalog;
   "lib/devSignIn": typeof lib_devSignIn;
   "lib/groceryRows": typeof lib_groceryRows;
@@ -59,6 +70,7 @@ declare const fullApi: ApiFromModules<{
   "lib/week": typeof lib_week;
   mealPlan: typeof mealPlan;
   recipes: typeof recipes;
+  signInOptions: typeof signInOptions;
   users: typeof users;
 }>;
 

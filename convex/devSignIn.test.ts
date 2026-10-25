@@ -65,3 +65,25 @@ describe('dev sign-in', () => {
     ).rejects.toThrow(/UNKNOWN_PERSONA/);
   });
 });
+
+describe('signInOptions.get', () => {
+  test('offers each provider only once it is configured', async () => {
+    vi.stubEnv('GROCR_DEV_SIGN_IN', undefined);
+    vi.stubEnv('AUTH_GOOGLE_ID', undefined);
+    vi.stubEnv('APPLE_AUDIENCES', undefined);
+    const t = setup();
+    expect(await t.query(api.signInOptions.get, {})).toEqual({
+      google: false,
+      apple: false,
+      personas: [],
+    });
+    vi.stubEnv('AUTH_GOOGLE_ID', 'id');
+    vi.stubEnv('AUTH_GOOGLE_SECRET', 'secret');
+    vi.stubEnv('APPLE_AUDIENCES', 'com.grocr.app, io.grocr.web');
+    vi.stubEnv('GROCR_DEV_SIGN_IN', 'enabled');
+    const options = await t.query(api.signInOptions.get, {});
+    expect(options.google).toBe(true);
+    expect(options.apple).toBe(true);
+    expect(options.personas.map((p) => p.id)).toContain('kari');
+  });
+});

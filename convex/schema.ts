@@ -32,6 +32,13 @@ export default defineSchema({
     .index('email', ['email'])
     .index('phone', ['phone']),
 
+  // Apple refresh tokens, kept only so account deletion can revoke Sign in with Apple.
+  appleTokens: defineTable({
+    userId: v.id('users'),
+    clientId: v.string(),
+    refreshToken: v.string(),
+  }).index('by_user', ['userId']),
+
   groups: defineTable({
     name: v.string(),
     ownerId: v.id('users'),

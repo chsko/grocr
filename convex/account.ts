@@ -1,3 +1,4 @@
+import { internal } from './_generated/api';
 import { mutation } from './_generated/server';
 import { leaveFamily } from './groups';
 import { requireUserId } from './lib/access';
@@ -6,7 +7,7 @@ import { requireUserId } from './lib/access';
  * Deletes the signed-in user's account (App Store and Play require this in-app). They leave
  * every family, with ownership passing on and a last-member family deleted; their name is
  * removed from what stays behind (recipes, dinners, grocery lines); and their user, sign-in
- * accounts and sessions are deleted, which signs them out.
+ * accounts and sessions are deleted, which signs them out. Apple tokens are revoked afterwards.
  */
 export const deleteAccount = mutation({
   args: {},
@@ -94,6 +95,13 @@ export const deleteAccount = mutation({
         .collect();
       for (const token of tokens) await ctx.db.delete('authRefreshTokens', token._id);
       await ctx.db.delete('authSessions', session._id);
+    }
+    const appleTokens = await ctx.db
+      .query('appleTokens')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .first();
+    if (appleTokens !== null) {
+      await ctx.scheduler.runAfter(0, internal.appleTokens.revokeForUser, { userId });
     }
     await ctx.db.delete('users', userId);
   },

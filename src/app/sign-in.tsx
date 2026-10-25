@@ -1,34 +1,50 @@
 import { useAuthActions } from '@convex-dev/auth/react';
 import { useQuery } from 'convex/react';
-import { useState } from 'react';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, View } from 'react-native';
+import { Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Logo } from '@/components/icons';
+import { GoogleLogo, Logo } from '@/components/icons';
 import { Button, Text } from '@/components/ui';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
-import { makeStyles, useColors } from '@/lib/appearance';
+import { makeStyles, useColors, useResolvedScheme } from '@/lib/appearance';
 import { showError } from '@/lib/errors';
+import { appleSignInAvailable, signInWithApple, signInWithGoogle } from '@/lib/socialSignIn';
 
 /**
- * Sign-in. Google and Apple are parked (GRO-20/21), so for now this lists the backend's test
- * users, the same way Hubbr does. The list is empty unless the deployment enables them.
+ * Sign-in with Apple (iPhone) and Google (GRO-20/21). Below them the dev deployment lists its
+ * test users, the same way Hubbr does; the list is empty unless the deployment enables them.
  */
 export default function SignInScreen() {
   const colors = useColors();
   const styles = useStyles();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const personas = useQuery(api.devSignIn.personas);
+  const options = useQuery(api.signInOptions.get);
+  const personas = options?.personas;
   const { signIn } = useAuthActions();
+  const scheme = useResolvedScheme();
   const [pending, setPending] = useState<string | null>(null);
+  const [appleAvailable, setAppleAvailable] = useState(false);
 
-  async function signInAs(persona: string) {
-    setPending(persona);
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    let live = true;
+    void appleSignInAvailable().then((available) => {
+      if (live) setAppleAvailable(available);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  async function run(key: string, action: () => Promise<unknown>) {
+    setPending(key);
     try {
-      await signIn('dev', { persona });
+      await action();
     } catch (error) {
       showError(t, error);
     } finally {
@@ -58,9 +74,36 @@ export default function SignInScreen() {
         <Text color={colors.muted}>{t('signIn.pitch')}</Text>
       </View>
       <View style={styles.actions}>
+        {appleAvailable && options?.apple ? (
+          <AppleAuthentication.AppleAuthenticationButton
+            testID="sign-in-apple"
+            buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+            buttonStyle={
+              scheme === 'dark'
+                ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+                : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+            }
+            cornerRadius={Radius.button}
+            style={[styles.appleButton, pending !== null && { opacity: 0.45 }]}
+            onPress={() => {
+              if (pending === null) void run('apple', () => signInWithApple(signIn));
+            }}
+          />
+        ) : null}
+        {options?.google ? (
+          <Button
+            testID="sign-in-google"
+            kind="secondary"
+            title={t('signIn.google')}
+            icon={<GoogleLogo size={20} />}
+            loading={pending === 'google'}
+            disabled={pending !== null && pending !== 'google'}
+            onPress={() => void run('google', () => signInWithGoogle(signIn))}
+          />
+        ) : null}
         {personas !== undefined && personas.length > 0 ? (
           <>
-            <Text variant="section" color={colors.muted}>
+            <Text variant="section" color={colors.muted} style={{ marginTop: 12 }}>
               {t('signIn.testUsers')}
             </Text>
             {personas.map((p, index) => (
@@ -71,14 +114,10 @@ export default function SignInScreen() {
                 title={t('signIn.continueAs', { name: p.name })}
                 loading={pending === p.id}
                 disabled={pending !== null && pending !== p.id}
-                onPress={() => void signInAs(p.id)}
+                onPress={() => void run(p.id, () => signIn('dev', { persona: p.id }))}
               />
             ))}
           </>
-        ) : personas !== undefined ? (
-          <Text color={colors.muted} style={{ textAlign: 'center' }}>
-            {t('signIn.comingSoon')}
-          </Text>
         ) : null}
       </View>
     </ScrollView>
@@ -108,4 +147,5 @@ const useStyles = makeStyles((colors) => ({
   },
   body: { paddingHorizontal: Spacing.four, paddingTop: 32, gap: 12 },
   actions: { paddingHorizontal: Spacing.four, paddingTop: 32, gap: 12, marginTop: 'auto' },
+  appleButton: { height: 54 },
 }));

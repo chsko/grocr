@@ -30,7 +30,7 @@
     "pitch": "Your family's recipes, one shared menu, one list to tick off in the store.",
     "testUsers": "Test users",
     "continueAs": "Continue as {{name}}",
-    "comingSoon": "Sign-in with Apple and Google is coming soon."
+    "google": "Continue with Google"
   },
   "account": {
     "signOut": "Sign out",

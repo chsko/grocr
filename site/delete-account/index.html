@@ -3,14 +3,17 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
     <title>Delete account · Grocr</title>
-    <meta name="description" content="How to delete your Grocr account." />
+    <meta name="description" content="Sign in and delete your Grocr account." />
     <link rel="icon" href="/favicon.png" />
     <link rel="stylesheet" href="/style.css" />
     <script src="/lang.js" defer></script>
+    <script src="/config.js" defer></script>
+    <script src="/delete-account/app.js" defer></script>
   </head>
   <body>
-    <main>
+    <main data-state="loading">
       <header>
         <a href="/"><img src="/icon.png" alt="" /><strong>Grocr</strong></a>
         <nav class="lang" aria-label="Språk / Language">
@@ -18,18 +21,113 @@
           <button type="button" data-set="en">English</button>
         </nav>
       </header>
-      <section lang="nb">
-        <h1>Slett Grocr-kontoen din</h1>
-        <p>Du kan slette kontoen din direkte i appen:</p>
-        <ol>
-          <li>Åpne Grocr og gå til fanen <strong>Familie</strong>.</li>
-          <li>Trykk <strong>Slett konto</strong> nederst og bekreft.</li>
-        </ol>
+
+      <h1>
+        <span lang="nb">Slett Grocr-kontoen din</span>
+        <span lang="en">Delete your Grocr account</span>
+      </h1>
+
+      <div class="card" data-show="signed-out loading">
         <p>
-          Kommer du ikke inn i appen, send en e-post til
-          <a href="mailto:support@grocr.io?subject=Slett%20kontoen%20min">support@grocr.io</a> fra
-          e-postadressen du logger inn med, så sletter vi kontoen innen 30 dager.
+          <span lang="nb"
+            >Logg inn med samme konto som du bruker i appen, så kan du slette kontoen her.</span
+          >
+          <span lang="en"
+            >Sign in with the same account you use in the app, and you can delete it here.</span
+          >
         </p>
+        <button type="button" class="signin apple" data-action="apple">
+          <svg viewBox="0 0 17 20" aria-hidden="true">
+            <path
+              fill="currentColor"
+              d="M14.1 10.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.4-.9C3.6 4.8 2 5.8 1.1 7.4c-1.8 3.2-.5 7.9 1.3 10.4.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9 0 0-2.7-1-2.7-4.4zM11.6 3c.7-.9 1.2-2 1.1-3.2-1 0-2.3.7-3 1.6-.7.8-1.3 2-1.1 3.1 1.1.1 2.3-.6 3-1.5z" />
+          </svg>
+          <span lang="nb">Fortsett med Apple</span><span lang="en">Continue with Apple</span>
+        </button>
+        <button type="button" class="signin google" data-action="google">
+          <svg viewBox="0 0 48 48" aria-hidden="true">
+            <path
+              fill="#EA4335"
+              d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+            <path
+              fill="#4285F4"
+              d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+            <path
+              fill="#FBBC05"
+              d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+            <path
+              fill="#34A853"
+              d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+          </svg>
+          <span lang="nb">Fortsett med Google</span><span lang="en">Continue with Google</span>
+        </button>
+        <p class="muted small">
+          <span lang="nb"
+            >Du kan også slette kontoen i appen: <strong>Familie</strong> &gt;
+            <strong>Slett konto</strong>.</span
+          >
+          <span lang="en"
+            >You can also delete it in the app: <strong>Family</strong> &gt;
+            <strong>Delete account</strong>.</span
+          >
+        </p>
+      </div>
+
+      <div class="card" data-show="signed-in">
+        <p>
+          <span lang="nb">Logget inn som <strong data-field="who"></strong>.</span>
+          <span lang="en">Signed in as <strong data-field="who"></strong>.</span>
+          <span data-show-if="family">
+            <span lang="nb">Familie: <strong data-field="family"></strong>.</span>
+            <span lang="en">Family: <strong data-field="family"></strong>.</span>
+          </span>
+        </p>
+        <p class="muted small" data-show-if="no-family" hidden>
+          <span lang="nb"
+            >Denne kontoen er ikke med i noen familie. Brukte du en annen innlogging i appen, logg
+            ut og prøv den.</span
+          >
+          <span lang="en"
+            >This account isn't in a family. If you used a different sign-in in the app, sign out
+            and try that one.</span
+          >
+        </p>
+        <label class="confirm">
+          <input type="checkbox" data-field="confirm" />
+          <span lang="nb">Jeg forstår at kontoen slettes for godt og ikke kan gjenopprettes.</span>
+          <span lang="en">I understand the account is deleted for good and can't be restored.</span>
+        </label>
+        <button type="button" class="danger" data-action="delete" disabled>
+          <span lang="nb">Slett kontoen min</span><span lang="en">Delete my account</span>
+        </button>
+        <button type="button" class="link" data-action="sign-out">
+          <span lang="nb">Logg ut</span><span lang="en">Sign out</span>
+        </button>
+      </div>
+
+      <div class="card" data-show="deleted" role="status">
+        <p>
+          <strong
+            ><span lang="nb">Kontoen din er slettet.</span
+            ><span lang="en">Your account is deleted.</span></strong
+          >
+          <span lang="nb">Takk for at du brukte Grocr.</span>
+          <span lang="en">Thanks for using Grocr.</span>
+        </p>
+      </div>
+
+      <p class="error" role="alert" hidden>
+        <span lang="nb"
+          >Noe gikk galt. Prøv igjen, eller skriv til
+          <a href="mailto:support@grocr.io">support@grocr.io</a>.</span
+        >
+        <span lang="en"
+          >Something went wrong. Please try again, or write to
+          <a href="mailto:support@grocr.io">support@grocr.io</a>.</span
+        >
+      </p>
+
+      <section lang="nb">
         <h2>Hva som slettes</h2>
         <ul>
           <li>Kontoen din: navn, e-postadresse og innloggingsdata.</li>
@@ -45,17 +143,6 @@
         </p>
       </section>
       <section lang="en">
-        <h1>Delete your Grocr account</h1>
-        <p>You can delete your account right in the app:</p>
-        <ol>
-          <li>Open Grocr and go to the <strong>Family</strong> tab.</li>
-          <li>Tap <strong>Delete account</strong> at the bottom and confirm.</li>
-        </ol>
-        <p>
-          If you can't get into the app, email
-          <a href="mailto:support@grocr.io?subject=Delete%20my%20account">support@grocr.io</a> from
-          the address you sign in with, and we'll delete the account within 30 days.
-        </p>
         <h2>What is deleted</h2>
         <ul>
           <li>Your account: name, email address and sign-in data.</li>

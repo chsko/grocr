@@ -30,7 +30,7 @@
     "pitch": "Familiens oppskrifter, én felles meny og én liste å krysse av i butikken.",
     "testUsers": "Testbrukere",
     "continueAs": "Fortsett som {{name}}",
-    "comingSoon": "Innlogging med Apple og Google kommer snart."
+    "google": "Fortsett med Google"
   },
   "account": {
     "signOut": "Logg ut",

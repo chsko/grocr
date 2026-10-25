@@ -135,3 +135,87 @@ html[data-lang='nb'] [lang='en'],
 html[data-lang='en'] [lang='nb'] {
   display: none;
 }
+
+/* Delete-account sign-in: one card shows per state (main[data-state]). */
+[data-show] {
+  display: none;
+}
+main[data-state='loading'] [data-show~='loading'],
+main[data-state='signed-out'] [data-show~='signed-out'],
+main[data-state='signed-in'] [data-show~='signed-in'],
+main[data-state='deleted'] [data-show~='deleted'] {
+  display: block;
+}
+main[data-state='loading'] [data-show~='loading'] button,
+main.busy button {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.small {
+  font-size: 15px;
+}
+button.signin,
+button.danger {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 52px;
+  margin-top: 12px;
+  border-radius: 14px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+button.signin svg {
+  width: 20px;
+  height: 20px;
+}
+button.apple {
+  background: #000;
+  color: #fff;
+  border: 0;
+}
+button.google {
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--divider);
+}
+button.danger {
+  background: var(--tomato);
+  color: #fff;
+  border: 0;
+}
+button.danger:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+button.link {
+  display: block;
+  margin: 14px auto 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+.confirm {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 8px;
+}
+.confirm input {
+  width: 20px;
+  height: 20px;
+  margin-top: 4px;
+  accent-color: var(--tomato);
+  flex: none;
+}
+.error {
+  color: var(--tomato);
+  font-weight: 600;
+}
