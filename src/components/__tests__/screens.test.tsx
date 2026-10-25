@@ -2,6 +2,7 @@ import { fireEvent, render as rtlRender, screen } from '@testing-library/react-n
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import WeekScreen from '@/app/(tabs)/week';
+import { slideFrom } from '@/components/ui';
 import SignInScreen from '@/app/sign-in';
 import { Palettes } from '@/constants/theme';
 import { SchemeContext } from '@/lib/appearance';
@@ -171,7 +172,7 @@ describe('week', () => {
 });
 
 describe('tab switch', () => {
-  test('fades a tab in after switching away and back, not after a pushed screen', async () => {
+  test('slides a tab in after switching away and back, not after a pushed screen', async () => {
     await i18n.changeLanguage('en');
     mockUseQuery.mockReturnValue({ dinners: [], openLines: 0 });
     await render(
@@ -186,12 +187,19 @@ describe('tab switch', () => {
     mockNav.emit('blur');
     expect(content).toHaveStyle({ opacity: 1 });
 
-    // Switching to Groceries hides Week, and coming back fades it in again.
+    // Switching to Groceries hides Week, and coming back slides it in again.
     mockNav.index = 1;
     mockNav.emit('blur');
     expect(content).toHaveStyle({ opacity: 0 });
     mockNav.index = 0;
     mockNav.emit('focus');
-    expect(content).toHaveStyle({ opacity: 1 });
+    expect(content).toHaveStyle({ opacity: 1, transform: [{ translateX: 0 }] });
+  });
+
+  test('slides in from the side of the tab you came from', () => {
+    expect(slideFrom(0, 2)).toBe(40);
+    expect(slideFrom(3, 1)).toBe(-40);
+    expect(slideFrom(1, 1)).toBe(0);
+    expect(slideFrom(-1, 2)).toBe(0);
   });
 });
