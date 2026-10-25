@@ -1,5 +1,4 @@
 {
   "cleanUrls": true,
-  "trailingSlash": true,
   "rewrites": [{ "source": "/join/:code", "destination": "/join/index.html" }]
 }
