@@ -17,7 +17,7 @@ import {
   useColors,
 } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
-import { dayMonth } from '@/lib/format';
+import { accountLabel, dayMonth } from '@/lib/format';
 import { setLanguagePreference, useLanguagePreference } from '@/lib/i18n/preference';
 import { useMe } from '@/lib/session';
 
@@ -231,7 +231,7 @@ export default function FamilyScreen() {
       <View style={styles.setting}>
         <Text>{t('family.account')}</Text>
         <Text color={colors.muted} numberOfLines={1} style={{ flexShrink: 1 }}>
-          {user.email ?? user.name}
+          {accountLabel(user, t('account.hiddenAppleEmail'))}
         </Text>
       </View>
       <Pressable accessibilityRole="button" onPress={() => void signOut()} style={styles.setting}>

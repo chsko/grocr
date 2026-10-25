@@ -33,6 +33,7 @@
     "google": "Fortsett med Google"
   },
   "account": {
+    "hiddenAppleEmail": "Apple-ID med skjult e-post",
     "signOut": "Logg ut",
     "delete": "Slett konto",
     "deleteTitle": "Slette kontoen din?",

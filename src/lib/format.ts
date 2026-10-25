@@ -60,3 +60,15 @@ export function formatAmounts(t: TFunction, language: string, amounts: Amount[])
     })
     .join(' + ');
 }
+
+/**
+ * How to show who is signed in. Apple's "Hide My Email" relay addresses mean nothing to people,
+ * so those show as `hiddenAppleEmail` instead.
+ */
+export function accountLabel(
+  user: { email?: string; name: string },
+  hiddenAppleEmail: string,
+): string {
+  if (user.email?.endsWith('@privaterelay.appleid.com')) return hiddenAppleEmail;
+  return user.email ?? user.name;
+}

@@ -13,6 +13,7 @@ import { Radius, Spacing } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
+import { accountLabel } from '@/lib/format';
 import { useMe } from '@/lib/session';
 
 /** "Kari Hansen" -> "Hansen family" / "Familien Hansen"; empty without a last name. */
@@ -55,10 +56,7 @@ export default function WelcomeScreen() {
           styles.container,
           { paddingTop: insets.top + 48, paddingBottom: insets.bottom + 24 },
         ]}>
-        <Text variant="label" color={colors.tomato} style={{ fontSize: 15 }}>
-          {t('welcome.signedInAs', { who: user.email ?? user.name })}
-        </Text>
-        <Text variant="title" style={{ marginTop: 10, fontSize: 32 }}>
+        <Text variant="title" style={{ fontSize: 32 }}>
           {firstName ? t('welcome.titleNamed', { name: firstName }) : t('welcome.title')}
         </Text>
         <Text color={colors.muted} style={{ marginTop: 12 }}>
@@ -116,6 +114,9 @@ export default function WelcomeScreen() {
         <Text variant="small" color={colors.muted} style={styles.footer}>
           {t('welcome.next')}
         </Text>
+        <Text variant="small" color={colors.muted} style={styles.signedIn}>
+          {t('welcome.signedInAs', { who: accountLabel(user, t('account.hiddenAppleEmail')) })}
+        </Text>
         <Button
           kind="ghost"
           title={t('account.signOut')}
@@ -148,4 +149,5 @@ const useStyles = makeStyles((colors) => ({
     justifyContent: 'center',
   },
   footer: { marginTop: 'auto', paddingTop: 24, textAlign: 'center', fontSize: 14 },
+  signedIn: { marginTop: 16, textAlign: 'center', fontSize: 13 },
 }));

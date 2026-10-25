@@ -33,6 +33,7 @@
     "google": "Continue with Google"
   },
   "account": {
+    "hiddenAppleEmail": "Apple ID with hidden email",
     "signOut": "Sign out",
     "delete": "Delete account",
     "deleteTitle": "Delete your account?",
