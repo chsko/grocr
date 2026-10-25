@@ -1,4 +1,4 @@
 {
   "cleanUrls": true,
-  "rewrites": [{ "source": "/join/:code", "destination": "/join/index.html" }]
+  "rewrites": [{ "source": "/join/:code", "destination": "/join" }]
 }
