@@ -13,6 +13,7 @@ import { guessIcon, isRecipeIcon, RECIPE_ICONS, type RecipeIcon } from '@/convex
 import { formatQty, isUnit, parseQty, UNITS, type Unit } from '@/convex/lib/units';
 import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
+import { useSectionName } from '@/lib/sections';
 import { useFamily } from '@/lib/session';
 
 type Row = {
@@ -33,6 +34,7 @@ export default function RecipeEditScreen() {
   const styles = useStyles();
   const { t, i18n } = useTranslation();
   const family = useFamily();
+  const sectionName = useSectionName();
   const { id } = useLocalSearchParams<{ id?: Id<'recipes'> }>();
   const existing = useQuery(api.recipes.get, id ? { recipeId: id } : 'skip');
   const saveRecipe = useMutation(api.recipes.save);
@@ -219,7 +221,7 @@ export default function RecipeEditScreen() {
                         {s.name}
                       </Text>
                       <Text variant="small" color={colors.muted} style={{ fontSize: 12 }}>
-                        {t(`sections.${s.section as 'other'}`, { defaultValue: s.section })}
+                        {sectionName(s.section)}
                       </Text>
                     </Pressable>
                   ))}

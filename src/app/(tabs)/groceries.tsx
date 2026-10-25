@@ -15,6 +15,7 @@ import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
 import { dayShort, formatAmounts, weekSpan, weekTitle } from '@/lib/format';
 import { parseItemInput } from '@/lib/parse-item';
+import { useSectionName } from '@/lib/sections';
 import { useFamily } from '@/lib/session';
 import { addDays, defaultGroceryWeek, startOfWeek, todayIn, type Weekday } from '@/lib/week';
 
@@ -27,6 +28,7 @@ export default function GroceriesScreen() {
   const styles = useStyles();
   const { t, i18n } = useTranslation();
   const family = useFamily();
+  const sectionName = useSectionName();
   const { start } = useLocalSearchParams<{ start?: string }>();
   const weekStartsOn = family.weekStartsOn as Weekday;
   const thisWeek = startOfWeek(todayIn(family.timezone), weekStartsOn);
@@ -192,7 +194,7 @@ export default function GroceriesScreen() {
       {sections.map(({ section, lines: sectionLines }) => (
         <View key={section} style={{ marginTop: 14 }}>
           <Text variant="section" color={colors.muted} style={{ marginBottom: 4 }}>
-            {t(`sections.${section as 'other'}`, { defaultValue: section })}
+            {sectionName(section)}
           </Text>
           {sectionLines.map((line) => (
             <Pressable

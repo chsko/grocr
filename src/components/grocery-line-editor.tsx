@@ -15,11 +15,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Chip, Field, Text } from '@/components/ui';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
-import { SECTIONS } from '@/convex/lib/catalog';
 import type { GroceryLine } from '@/convex/lib/merge';
 import { formatQty, parseQty, UNITS, type Unit } from '@/convex/lib/units';
 import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
+import { sectionName } from '@/lib/sections';
 import { useFamily } from '@/lib/session';
 
 /**
@@ -117,16 +117,16 @@ export function GroceryLineEditor({ line, onClose }: { line: GroceryLine; onClos
                 {t('groceries.section')}
               </Text>
               <View style={styles.sections}>
-                {SECTIONS.map((s) => (
+                {family.sections.map((s) => (
                   <Chip
-                    key={s}
-                    title={t(`sections.${s}`)}
-                    selected={line.section === s}
+                    key={s.key}
+                    title={sectionName(t, s)}
+                    selected={line.section === s.key}
                     onPress={() =>
                       void attempt(t, () =>
                         setSection({
                           ingredientId: line.ingredientId as Id<'ingredients'>,
-                          section: s,
+                          section: s.key,
                         }),
                       )
                     }

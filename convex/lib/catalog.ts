@@ -1,7 +1,8 @@
 /**
- * Store sections and name handling for the family ingredient catalog (GRO-28). The section is
- * guessed from a small built-in word list in English and Norwegian; anything unknown goes to
- * "other". Smarter matching with jev is v1.1 (GRO-41).
+ * Store sections and name handling for the family ingredient catalog (GRO-28). Every family starts
+ * with the built-in sections below and can rename, delete, add and reorder them (GRO-51). The
+ * section is first guessed from a small built-in word list in English and Norwegian, then jev
+ * sorts it into the family's own sections (convex/classify.ts). "other" always exists.
  */
 
 export const SECTIONS = [
@@ -22,8 +23,71 @@ export function isSection(value: string): value is Section {
 }
 
 /**
- * A family's store order: their sections in the order they gave, then any they left out in the
- * default order. Unknown or repeated entries are dropped.
+ * One of a family's sections. Built-in sections keep their key ("dairy") and show the app's
+ * translated label until the family gives them a `name`; the family's own sections always have one.
+ */
+export type FamilySection = { key: string; name?: string };
+
+/**
+ * The app's English and Norwegian names for the built-in sections, as in the locale files (a test
+ * keeps them in step), so the server can refuse a new section named like one of them.
+ */
+export const BUILT_IN_NAMES: Record<Section, [string, string]> = {
+  produce: ['Produce', 'Frukt og grønt'],
+  meat: ['Meat & fish', 'Kjøtt og fisk'],
+  dairy: ['Dairy & eggs', 'Meieri og egg'],
+  bakery: ['Bakery', 'Bakeri'],
+  dry: ['Dry goods', 'Tørrvarer'],
+  frozen: ['Frozen', 'Frysevarer'],
+  household: ['Household', 'Husholdning'],
+  other: ['Other', 'Annet'],
+};
+
+/** Every name a section shows as: its own, or both translations of a built-in one. */
+export function shownNames(section: FamilySection): string[] {
+  if (section.name !== undefined) return [section.name];
+  return isSection(section.key) ? BUILT_IN_NAMES[section.key] : [];
+}
+
+/** Most sections a family can have, and the longest section name. */
+export const MAX_SECTIONS = 30;
+export const MAX_SECTION_NAME = 40;
+
+/**
+ * The family's sections in store order. Families that never edited them get the built-in ones,
+ * in the store order they set before GRO-51 (`sectionOrder`). "other" is always there.
+ */
+export function familySections(group: {
+  sections?: readonly FamilySection[];
+  sectionOrder?: readonly string[];
+}): FamilySection[] {
+  if (group.sections === undefined) return sectionOrder(group.sectionOrder).map((key) => ({ key }));
+  const seen = new Set<string>();
+  const sections = group.sections.filter((s) => !seen.has(s.key) && seen.add(s.key));
+  return seen.has('other') ? sections : [...sections, { key: 'other' }];
+}
+
+/** The section to use for `section` in a family: itself if the family has it, else "other". */
+export function placeSection(section: string, keys: readonly string[]): string {
+  return keys.includes(section) ? section : 'other';
+}
+
+/**
+ * The family's sections in the given order: the keys they gave, then any they left out (say, one
+ * another member just added) in their current order. Unknown or repeated keys are dropped.
+ */
+export function reorderSections(
+  sections: readonly FamilySection[],
+  keys: readonly string[],
+): FamilySection[] {
+  const byKey = new Map(sections.map((s) => [s.key, s]));
+  const picked = [...new Set(keys)].flatMap((k) => byKey.get(k) ?? []);
+  return [...picked, ...sections.filter((s) => !picked.includes(s))];
+}
+
+/**
+ * A built-in store order (before GRO-51): the sections in the order given, then any left out in
+ * the default order. Unknown or repeated entries are dropped.
  */
 export function sectionOrder(order?: readonly string[]): Section[] {
   const picked = [...new Set((order ?? []).filter(isSection))];

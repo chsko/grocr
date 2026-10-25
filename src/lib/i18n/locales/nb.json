@@ -22,7 +22,9 @@
     "ALREADY_IN_FAMILY": "Du er allerede med i en familie. Forlat den først for å bli med i en annen.",
     "FORBIDDEN": "Bare familiens eier kan gjøre det.",
     "NOT_FOUND": "Det finnes ikke lenger.",
-    "INVALID_SERVINGS": "Porsjoner må være mellom 1 og 50."
+    "INVALID_SERVINGS": "Porsjoner må være mellom 1 og 50.",
+    "SECTION_EXISTS": "Det finnes allerede en avdeling med det navnet.",
+    "TOO_MANY_SECTIONS": "En familie kan ha høyst 30 avdelinger."
   },
   "signIn": {
     "headline": "Velg ukens middager.",
@@ -242,7 +244,7 @@
     "appearanceLight": "Lyst",
     "appearanceDark": "Mørkt",
     "account": "Konto",
-    "storeOrder": "Rekkefølge i butikken"
+    "storeOrder": "Avdelinger"
   },
   "invite": {
     "title": "Inviter til {{family}}",
@@ -294,11 +296,21 @@
     }
   },
   "storeOrder": {
-    "title": "Rekkefølge i butikken",
-    "intro": "Sett avdelingene i den rekkefølgen du går gjennom butikken. Handlelisten følger den.",
+    "title": "Avdelinger",
+    "intro": "Sett avdelingene i den rekkefølgen du går gjennom butikken. Handlelisten følger den. Trykk på en avdeling for å gi den nytt navn eller slette den.",
     "up": "Flytt {{section}} opp",
     "down": "Flytt {{section}} ned",
-    "reset": "Tilbakestill"
+    "edit": "Gi nytt navn til eller slett {{section}}",
+    "newLabel": "Ny avdeling",
+    "newPlaceholder": "F.eks. Tacohylla",
+    "add": "Legg til",
+    "jevNote": "Grocr sorterer varene inn i avdelingene deres selv, også dem dere legger til. Flytter du en vare selv, gjelder ditt valg.",
+    "nameLabel": "Navn",
+    "standardName": "Bruk standardnavnet ({{name}})",
+    "delete": "Slett avdeling",
+    "deleteTitle": "Slette {{section}}?",
+    "deleteBody": "Varene sorteres inn i de andre avdelingene, eller Annet hvis ingen passer.",
+    "otherStays": "Varer som ikke passer noe annet sted, havner her, så denne avdelingen kan ikke slettes."
   },
   "tour": {
     "open": "Kom i gang",

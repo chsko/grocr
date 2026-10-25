@@ -6,7 +6,7 @@ import { resolveIngredient } from './ingredients';
 import { getMembership, requireMemberOf, requireMembership, requireUserId } from './lib/access';
 import { findList, getOrCreateList } from './lib/groceryRows';
 import { isUnit } from './lib/units';
-import { sectionOrder } from './lib/catalog';
+import { familySections, placeSection } from './lib/catalog';
 import { addDays, isLocalDate, startOfWeek, type Weekday } from './lib/week';
 
 /**
@@ -67,17 +67,19 @@ export const listForWeek = query({
       if (ingredient?.groupId === groupId) sections.set(item.ingredientId, ingredient.section);
     }
     const group = (await ctx.db.get('groups', groupId))!;
+    // Lines of a section the family deleted show under "other" until they are sorted again.
+    const keys = familySections(group).map((s) => s.key);
 
     return {
       listId: list?._id ?? null,
-      sectionOrder: sectionOrder(group.sectionOrder),
+      sectionOrder: keys,
       items: items.map((i) => ({
         _id: i._id,
         ingredientId: i.ingredientId ?? null,
         name: i.name,
         qty: i.qty,
         unit: i.unit,
-        section: (i.ingredientId && sections.get(i.ingredientId)) ?? i.section,
+        section: placeSection((i.ingredientId && sections.get(i.ingredientId)) ?? i.section, keys),
         checked: i.checked,
         edited: i.edited,
         source: i.source,

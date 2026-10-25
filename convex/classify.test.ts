@@ -1,8 +1,20 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import { api, internal } from './_generated/api';
-import { JEV_DAILY_LIMIT } from './ingredients';
-import { groupWithMembers, setup, signedInUser } from './test.setup';
+import { JEV_DAILY_LIMIT, SORT_BATCH } from './classify';
+import {
+  addItem,
+  fakeJev,
+  groupWithMembers,
+  ingredient,
+  setup,
+  signedInUser,
+  type JevRequest,
+} from './test.setup';
+
+function jevPicks(picks: Record<string, string>, confidence = 0.9) {
+  return vi.fn(fakeJev(picks, confidence));
+}
 
 const MONDAY = '2026-10-26';
 
@@ -11,12 +23,6 @@ async function family() {
   const ada = await signedInUser(t, 'Ada');
   const groupId = await groupWithMembers(t, [ada.userId]);
   return { t, ada, groupId };
-}
-
-function jevAnswers(choice: string, confidence: number) {
-  return vi.fn(async () =>
-    Response.json({ answers: { answer: { type: 'choice', choice, confidence } } }),
-  );
 }
 
 afterEach(() => {
@@ -29,7 +35,7 @@ describe('ingredient sections', () => {
   test('jev refines the keyword guess for a new item, and lists follow at once', async () => {
     vi.useFakeTimers();
     vi.stubEnv('TYPESAFE_API_KEY', 'test-key');
-    const fetchMock = jevAnswers('dairy', 0.9);
+    const fetchMock = jevPicks({ Halloumi: 'Milk, cheese' });
     vi.stubGlobal('fetch', fetchMock);
     const { t, ada, groupId } = await family();
     await ada.as.mutation(api.grocery.addManual, { groupId, startDate: MONDAY, name: 'Halloumi' });
@@ -42,74 +48,93 @@ describe('ingredient sections', () => {
     expect(list.items[0].section).toBe('dairy');
   });
 
+  test('jev is offered the family’s own sections, by name', async () => {
+    vi.useFakeTimers();
+    vi.stubEnv('TYPESAFE_API_KEY', 'test-key');
+    const fetchMock = jevPicks({ 'Taco shells': 'Taco shelf' });
+    vi.stubGlobal('fetch', fetchMock);
+    const { t, ada, groupId } = await family();
+    const key = await ada.as.mutation(api.sections.add, { groupId, name: 'Taco shelf' });
+    await ada.as.mutation(api.sections.rename, { groupId, key: 'dry', name: 'Hermetikk' });
+    const id = await addItem(ada, groupId, 'Taco shells');
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    expect(await ingredient(t, id)).toEqual([key, 'jev']);
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as JevRequest;
+    const criteria = Object.values(body.questions.i0.criteria);
+    expect(criteria).toContain('Taco shelf (a section this family made themselves)');
+    expect(criteria.some((c) => c.startsWith('Hermetikk (renamed by the family; Pasta'))).toBe(
+      true,
+    );
+    expect(criteria).toHaveLength(9);
+  });
+
   test('an unsure or invalid jev answer keeps the guess', async () => {
     const { t, ada, groupId } = await family();
-    await ada.as.mutation(api.grocery.addManual, { groupId, startDate: MONDAY, name: 'Halloumi' });
-    const [item] = (await ada.as.query(api.grocery.listForWeek, { groupId, startDate: MONDAY }))
-      .items;
-    const ingredientId = item.ingredientId!;
+    const id = await addItem(ada, groupId, 'Halloumi');
     vi.stubEnv('TYPESAFE_API_KEY', 'test-key');
-    vi.stubGlobal('fetch', jevAnswers('dairy', 0.3));
-    await t.action(internal.classify.section, { ingredientId });
-    vi.stubGlobal('fetch', jevAnswers('spaceship', 0.99));
-    await t.action(internal.classify.section, { ingredientId });
-    const doc = await t.run((ctx) => ctx.db.get('ingredients', ingredientId));
-    expect([doc?.section, doc?.sectionSource]).toEqual(['other', 'guess']);
+    vi.stubGlobal('fetch', jevPicks({ Halloumi: 'Milk, cheese' }, 0.3));
+    await t.action(internal.classify.sort, { groupId, ingredientIds: [id] });
+    vi.stubGlobal('fetch', jevPicks({}, 0.99));
+    await t.action(internal.classify.sort, { groupId, ingredientIds: [id] });
+    expect(await ingredient(t, id)).toEqual(['other', 'guess']);
   });
 
   test("a member's choice wins over jev, even one that arrives later", async () => {
     const { t, ada, groupId } = await family();
-    await ada.as.mutation(api.grocery.addManual, { groupId, startDate: MONDAY, name: 'Halloumi' });
-    const [item] = (await ada.as.query(api.grocery.listForWeek, { groupId, startDate: MONDAY }))
-      .items;
-    const ingredientId = item.ingredientId!;
-    await ada.as.mutation(api.ingredients.setSection, { ingredientId, section: 'meat' });
-    await t.mutation(internal.classify.applySection, { ingredientId, section: 'dairy' });
+    const id = await addItem(ada, groupId, 'Halloumi');
+    await ada.as.mutation(api.ingredients.setSection, { ingredientId: id, section: 'meat' });
+    await t.mutation(internal.classify.applySections, {
+      groupId,
+      moves: [{ ingredientId: id, section: 'dairy' }],
+    });
     const list = await ada.as.query(api.grocery.listForWeek, { groupId, startDate: MONDAY });
     expect(list.items[0].section).toBe('meat');
+  });
+
+  test('a jev answer for a section deleted in the meantime is dropped', async () => {
+    const { t, ada, groupId } = await family();
+    const id = await addItem(ada, groupId, 'Halloumi');
+    await ada.as.mutation(api.sections.remove, { groupId, key: 'dairy' });
+    await t.mutation(internal.classify.applySections, {
+      groupId,
+      moves: [{ ingredientId: id, section: 'dairy' }],
+    });
+    expect(await ingredient(t, id)).toEqual(['other', 'guess']);
+  });
+
+  test('jev never moves another family’s item', async () => {
+    const { t, ada, groupId } = await family();
+    const bo = await signedInUser(t, 'Bo');
+    const boGroup = await groupWithMembers(t, [bo.userId]);
+    const id = await addItem(ada, groupId, 'Halloumi');
+    await t.mutation(internal.classify.applySections, {
+      groupId: boGroup,
+      moves: [{ ingredientId: id, section: 'dairy' }],
+    });
+    expect(await ingredient(t, id)).toEqual(['other', 'guess']);
+    expect(
+      await t.query(internal.classify.sortInput, { groupId: boGroup, ingredientIds: [id] }),
+    ).toMatchObject({ items: [] });
+  });
+
+  test('a member can move an item into the family’s own section, not an unknown one', async () => {
+    const { ada, groupId } = await family();
+    const id = await addItem(ada, groupId, 'Halloumi');
+    const key = await ada.as.mutation(api.sections.add, { groupId, name: 'Grill' });
+    await ada.as.mutation(api.ingredients.setSection, { ingredientId: id, section: key });
+    await expect(
+      ada.as.mutation(api.ingredients.setSection, { ingredientId: id, section: 'spaceship' }),
+    ).rejects.toThrow(/INVALID_SECTION/);
   });
 
   test("moving an item checks the family; another family's item is not found", async () => {
     const { t, ada, groupId } = await family();
     const bo = await signedInUser(t, 'Bo');
     await groupWithMembers(t, [bo.userId]);
-    await ada.as.mutation(api.grocery.addManual, { groupId, startDate: MONDAY, name: 'Halloumi' });
-    const [item] = (await ada.as.query(api.grocery.listForWeek, { groupId, startDate: MONDAY }))
-      .items;
+    const id = await addItem(ada, groupId, 'Halloumi');
     await expect(
-      bo.as.mutation(api.ingredients.setSection, {
-        ingredientId: item.ingredientId!,
-        section: 'meat',
-      }),
+      bo.as.mutation(api.ingredients.setSection, { ingredientId: id, section: 'meat' }),
     ).rejects.toThrow(/NOT_FOUND/);
-  });
-});
-
-describe('store order', () => {
-  test('a member sets the order; it is cleaned up and drives the list order', async () => {
-    const { t, ada, groupId } = await family();
-    const bo = await signedInUser(t, 'Bo');
-    await groupWithMembers(t, [bo.userId]);
-    await ada.as.mutation(api.groups.setSectionOrder, {
-      groupId,
-      order: ['dairy', 'nope', 'dairy', 'produce'],
-    });
-    const me = await ada.as.query(api.users.me, {});
-    expect(me?.family?.sectionOrder).toEqual([
-      'dairy',
-      'produce',
-      'meat',
-      'bakery',
-      'dry',
-      'frozen',
-      'household',
-      'other',
-    ]);
-    const list = await ada.as.query(api.grocery.listForWeek, { groupId, startDate: MONDAY });
-    expect(list.sectionOrder.slice(0, 2)).toEqual(['dairy', 'produce']);
-    await expect(
-      bo.as.mutation(api.groups.setSectionOrder, { groupId, order: [] }),
-    ).rejects.toThrow();
   });
 });
 
@@ -117,20 +142,19 @@ describe('jev off or failing', () => {
   test('without a key nothing is scheduled or fetched', async () => {
     vi.useFakeTimers();
     vi.stubEnv('TYPESAFE_API_KEY', '');
-    const fetchMock = jevAnswers('dairy', 0.9);
+    const fetchMock = jevPicks({ Halloumi: 'Milk, cheese' });
     vi.stubGlobal('fetch', fetchMock);
     const { t, ada, groupId } = await family();
     await ada.as.mutation(api.grocery.addManual, { groupId, startDate: MONDAY, name: 'Halloumi' });
+    await ada.as.mutation(api.sections.add, { groupId, name: 'Grill' });
     await t.finishAllScheduledFunctions(vi.runAllTimers);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   test('a failing jev keeps the guess; a jev section a member changed stays theirs', async () => {
     const { t, ada, groupId } = await family();
-    await ada.as.mutation(api.grocery.addManual, { groupId, startDate: MONDAY, name: 'Halloumi' });
-    const [item] = (await ada.as.query(api.grocery.listForWeek, { groupId, startDate: MONDAY }))
-      .items;
-    const ingredientId = item.ingredientId!;
+    const id = await addItem(ada, groupId, 'Halloumi');
+    const sort = { groupId, ingredientIds: [id] };
     vi.stubEnv('TYPESAFE_API_KEY', 'test-key');
     vi.stubGlobal(
       'fetch',
@@ -138,21 +162,20 @@ describe('jev off or failing', () => {
         throw new Error('down');
       }),
     );
-    await t.action(internal.classify.section, { ingredientId });
+    await t.action(internal.classify.sort, sort);
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => new Response('nope', { status: 500 })),
     );
-    await t.action(internal.classify.section, { ingredientId });
-    let doc = await t.run((ctx) => ctx.db.get('ingredients', ingredientId));
-    expect(doc?.sectionSource).toBe('guess');
+    await t.action(internal.classify.sort, sort);
+    expect(await ingredient(t, id)).toEqual(['other', 'guess']);
 
-    vi.stubGlobal('fetch', jevAnswers('dairy', 0.9));
-    await t.action(internal.classify.section, { ingredientId });
-    await ada.as.mutation(api.ingredients.setSection, { ingredientId, section: 'produce' });
-    await t.action(internal.classify.section, { ingredientId });
-    doc = await t.run((ctx) => ctx.db.get('ingredients', ingredientId));
-    expect([doc?.section, doc?.sectionSource]).toEqual(['produce', 'user']);
+    vi.stubGlobal('fetch', jevPicks({ Halloumi: 'Milk, cheese' }));
+    await t.action(internal.classify.sort, sort);
+    expect(await ingredient(t, id)).toEqual(['dairy', 'jev']);
+    await ada.as.mutation(api.ingredients.setSection, { ingredientId: id, section: 'produce' });
+    await t.action(internal.classify.sort, sort);
+    expect(await ingredient(t, id)).toEqual(['produce', 'user']);
   });
 
   test('a family gets at most JEV_DAILY_LIMIT sorting calls a day', async () => {
@@ -164,9 +187,28 @@ describe('jev off or failing', () => {
     );
     await ada.as.mutation(api.grocery.addManual, { groupId, startDate: MONDAY, name: 'Halloumi' });
     await ada.as.mutation(api.grocery.addManual, { groupId, startDate: MONDAY, name: 'Sriracha' });
+    await ada.as.mutation(api.sections.add, { groupId, name: 'Grill' });
     const group = await t.run((ctx) => ctx.db.get('groups', groupId));
     expect(group?.jevUsage).toEqual({ day, count: JEV_DAILY_LIMIT });
     const scheduled = await t.run((ctx) => ctx.db.system.query('_scheduled_functions').collect());
     expect(scheduled).toHaveLength(1);
+  });
+
+  test(`items are sorted ${SORT_BATCH} to a call`, async () => {
+    const { t, ada, groupId } = await family();
+    const names = Array.from({ length: SORT_BATCH + 5 }, (_, i) => `Item ${i}`);
+    vi.stubEnv('TYPESAFE_API_KEY', '');
+    for (const name of names) {
+      await ada.as.mutation(api.grocery.addManual, { groupId, startDate: MONDAY, name });
+    }
+    vi.useFakeTimers();
+    vi.stubEnv('TYPESAFE_API_KEY', 'test-key');
+    const fetchMock = jevPicks({});
+    vi.stubGlobal('fetch', fetchMock);
+    await ada.as.mutation(api.sections.add, { groupId, name: 'Grill' });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const group = await t.run((ctx) => ctx.db.get('groups', groupId));
+    expect(group?.jevUsage?.count).toBe(2);
   });
 });

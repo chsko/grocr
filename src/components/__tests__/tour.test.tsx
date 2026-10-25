@@ -39,7 +39,8 @@ const me = (tourDone: boolean): Me => ({
     role: 'owner',
     weekStartsOn: 1,
     timezone: 'Europe/Oslo',
-    sectionOrder: [],
+    sections: [{ key: 'other' }],
+    sectionOrder: ['other'],
   },
 });
 

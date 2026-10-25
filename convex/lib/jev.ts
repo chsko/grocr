@@ -5,19 +5,25 @@ const JEV_URL = 'https://api.typesafe.ai/v1/systemone';
 
 export type JevChoice = { choice: string; confidence: number };
 
+export type JevQuestion = { instructions: string; criteria: Record<string, string> };
+
 export function jevEnabled() {
   return Boolean(process.env.TYPESAFE_API_KEY);
 }
 
-/** Asks jev to pick one of `criteria` for `state`. Null when jev is off, down or unsure. */
-export async function askJevChoice(
+/**
+ * Asks jev several choice questions about one `state` in a single call. Each answer is null when
+ * jev picked something outside that question's criteria; all are null when jev is off or down.
+ */
+export async function askJevChoices<K extends string>(
   state: unknown,
-  instructions: string,
-  criteria: Record<string, string>,
+  questions: Record<K, JevQuestion>,
   fetchImpl: typeof fetch = fetch,
-): Promise<JevChoice | null> {
+): Promise<Record<K, JevChoice | null>> {
+  const names = Object.keys(questions) as K[];
+  const none = Object.fromEntries(names.map((name) => [name, null])) as Record<K, JevChoice | null>;
   const apiKey = process.env.TYPESAFE_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey || names.length === 0) return none;
   try {
     const response = await fetchImpl(JEV_URL, {
       method: 'POST',
@@ -25,29 +31,35 @@ export async function askJevChoice(
       body: JSON.stringify({
         model: 'jev-latest',
         state,
-        questions: { answer: { type: 'choice', instructions, criteria } },
+        questions: Object.fromEntries(
+          names.map((name) => [name, { type: 'choice', ...questions[name] }]),
+        ),
       }),
-      signal: AbortSignal.timeout(20_000),
+      signal: AbortSignal.timeout(30_000),
     });
     if (!response.ok) {
       console.warn(`jev returned HTTP ${response.status}`);
-      return null;
+      return none;
     }
     const body = (await response.json()) as {
-      answers?: { answer?: { choice?: unknown; confidence?: unknown } };
+      answers?: Record<string, { choice?: unknown; confidence?: unknown } | undefined>;
     };
-    const answer = body.answers?.answer;
-    if (
-      typeof answer?.choice !== 'string' ||
-      typeof answer.confidence !== 'number' ||
-      !Object.prototype.hasOwnProperty.call(criteria, answer.choice)
-    ) {
-      console.warn('jev gave an answer outside the choices');
-      return null;
+    const result = { ...none };
+    for (const name of names) {
+      const answer = body.answers?.[name];
+      if (
+        typeof answer?.choice !== 'string' ||
+        typeof answer.confidence !== 'number' ||
+        !Object.prototype.hasOwnProperty.call(questions[name].criteria, answer.choice)
+      ) {
+        console.warn('jev gave an answer outside the choices');
+        continue;
+      }
+      result[name] = { choice: answer.choice, confidence: answer.confidence };
     }
-    return { choice: answer.choice, confidence: answer.confidence };
+    return result;
   } catch (error) {
     console.warn(`jev is unreachable: ${(error as Error).name}`);
-    return null;
+    return none;
   }
 }

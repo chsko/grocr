@@ -9,7 +9,7 @@ import {
   requireOwner,
   requireUserId,
 } from './lib/access';
-import { cleanName, sectionOrder } from './lib/catalog';
+import { cleanName, familySections, reorderSections } from './lib/catalog';
 
 function validName(name: string) {
   const clean = cleanName(name).slice(0, 60);
@@ -55,12 +55,14 @@ export const rename = mutation({
   },
 });
 
-/** Sets the family's grocery list section order, to match the route through their store. */
+/** Store order from app versions before GRO-51; newer ones call sections.reorder. */
 export const setSectionOrder = mutation({
   args: { groupId: v.id('groups'), order: v.array(v.string()) },
   handler: async (ctx, { groupId, order }) => {
     await requireMembership(ctx, groupId);
-    await ctx.db.patch('groups', groupId, { sectionOrder: sectionOrder(order) });
+    const group = (await ctx.db.get('groups', groupId))!;
+    const sections = reorderSections(familySections(group), order);
+    await ctx.db.patch('groups', groupId, { sections, sectionOrder: undefined });
   },
 });
 

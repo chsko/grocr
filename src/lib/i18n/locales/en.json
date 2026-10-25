@@ -22,7 +22,9 @@
     "ALREADY_IN_FAMILY": "You're already in a family. Leave it first to join another.",
     "FORBIDDEN": "Only the family's owner can do that.",
     "NOT_FOUND": "That no longer exists.",
-    "INVALID_SERVINGS": "Servings must be between 1 and 50."
+    "INVALID_SERVINGS": "Servings must be between 1 and 50.",
+    "SECTION_EXISTS": "There is already a section with that name.",
+    "TOO_MANY_SECTIONS": "A family can have at most 30 sections."
   },
   "signIn": {
     "headline": "Pick the week's dinners.",
@@ -242,7 +244,7 @@
     "appearanceLight": "Light",
     "appearanceDark": "Dark",
     "account": "Account",
-    "storeOrder": "Store order"
+    "storeOrder": "Sections"
   },
   "invite": {
     "title": "Invite to {{family}}",
@@ -294,11 +296,21 @@
     }
   },
   "storeOrder": {
-    "title": "Store order",
-    "intro": "Put the sections in the order you walk through your store. The grocery list follows it.",
+    "title": "Sections",
+    "intro": "Put the sections in the order you walk through your store. The grocery list follows it. Tap a section to rename or delete it.",
     "up": "Move {{section}} up",
     "down": "Move {{section}} down",
-    "reset": "Reset to default"
+    "edit": "Rename or delete {{section}}",
+    "newLabel": "New section",
+    "newPlaceholder": "E.g. Taco shelf",
+    "add": "Add",
+    "jevNote": "Grocr sorts items into your sections by itself, including ones you add. Moving an item yourself always wins.",
+    "nameLabel": "Name",
+    "standardName": "Use the standard name ({{name}})",
+    "delete": "Delete section",
+    "deleteTitle": "Delete {{section}}?",
+    "deleteBody": "Its items are sorted into your other sections, or Other if nothing fits.",
+    "otherStays": "Items that fit nowhere else go here, so this section can’t be deleted."
   },
   "tour": {
     "open": "Get started",

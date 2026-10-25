@@ -34,6 +34,7 @@ import type * as lib_units from "../lib/units.js";
 import type * as lib_week from "../lib/week.js";
 import type * as mealPlan from "../mealPlan.js";
 import type * as recipes from "../recipes.js";
+import type * as sections from "../sections.js";
 import type * as signInOptions from "../signInOptions.js";
 import type * as users from "../users.js";
 
@@ -70,6 +71,7 @@ declare const fullApi: ApiFromModules<{
   "lib/week": typeof lib_week;
   mealPlan: typeof mealPlan;
   recipes: typeof recipes;
+  sections: typeof sections;
   signInOptions: typeof signInOptions;
   users: typeof users;
 }>;

@@ -1,6 +1,15 @@
 import { describe, expect, test } from 'vitest';
 
-import { cleanName, guessSection, normalizeName, sectionRank } from './catalog';
+import en from '../../src/lib/i18n/locales/en.json';
+import nb from '../../src/lib/i18n/locales/nb.json';
+import {
+  BUILT_IN_NAMES,
+  cleanName,
+  guessSection,
+  normalizeName,
+  SECTIONS,
+  sectionRank,
+} from './catalog';
 
 describe('guessSection', () => {
   test.each([
@@ -31,4 +40,10 @@ test('names are cleaned and normalized', () => {
 test('unknown sections sort last', () => {
   expect(sectionRank('produce')).toBe(0);
   expect(sectionRank('nope')).toBeGreaterThan(sectionRank('other'));
+});
+
+test("the server's built-in section names match the app's", () => {
+  for (const key of SECTIONS) {
+    expect(BUILT_IN_NAMES[key]).toEqual([en.sections[key], nb.sections[key]]);
+  }
 });

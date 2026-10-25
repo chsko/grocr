@@ -1,11 +1,16 @@
 import { ConvexError, v } from 'convex/values';
 
-import { internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import { mutation, query, type MutationCtx } from './_generated/server';
+import { scheduleSort } from './classify';
 import { accessError, loadForMember, requireMembership } from './lib/access';
-import { cleanName, guessSection, isSection, normalizeName } from './lib/catalog';
-import { jevEnabled } from './lib/jev';
+import {
+  cleanName,
+  familySections,
+  guessSection,
+  normalizeName,
+  placeSection,
+} from './lib/catalog';
 
 /** Catalog matches for autocomplete: names starting with the text first, then containing it. */
 export const search = query({
@@ -36,7 +41,10 @@ export const setSection = mutation({
   args: { ingredientId: v.id('ingredients'), section: v.string() },
   handler: async (ctx, { ingredientId, section }) => {
     const { doc } = await loadForMember(ctx, 'ingredients', ingredientId);
-    if (!isSection(section)) throw new ConvexError({ code: 'INVALID_SECTION' });
+    const group = (await ctx.db.get('groups', doc.groupId))!;
+    if (!familySections(group).some((s) => s.key === section)) {
+      throw new ConvexError({ code: 'INVALID_SECTION' });
+    }
     await ctx.db.patch('ingredients', doc._id, { section, sectionSource: 'user' });
   },
 });
@@ -155,29 +163,16 @@ export async function resolveIngredient(
     .first();
   const aliased = alias && (await ctx.db.get('ingredients', alias.ingredientId));
   if (aliased) return aliased;
+  const group = (await ctx.db.get('groups', groupId))!;
+  const keys = familySections(group).map((s) => s.key);
   const id = await ctx.db.insert('ingredients', {
     groupId,
     name,
     normalizedName,
-    section: guessSection(name),
+    section: placeSection(guessSection(name), keys),
     sectionSource: 'guess',
     aliases: [],
   });
-  if (jevEnabled() && (await takeJevCall(ctx, groupId))) {
-    await ctx.scheduler.runAfter(0, internal.classify.section, { ingredientId: id });
-  }
+  await scheduleSort(ctx, groupId, [id]);
   return (await ctx.db.get('ingredients', id))!;
-}
-
-/** Most jev sorting calls one family can trigger per day; past it, items keep the keyword guess. */
-export const JEV_DAILY_LIMIT = 200;
-
-async function takeJevCall(ctx: MutationCtx, groupId: Id<'groups'>) {
-  const group = await ctx.db.get('groups', groupId);
-  if (group === null) return false;
-  const day = new Date().toISOString().slice(0, 10);
-  const count = group.jevUsage?.day === day ? group.jevUsage.count : 0;
-  if (count >= JEV_DAILY_LIMIT) return false;
-  await ctx.db.patch('groups', groupId, { jevUsage: { day, count: count + 1 } });
-  return true;
 }

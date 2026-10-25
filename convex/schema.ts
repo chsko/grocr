@@ -48,7 +48,10 @@ export default defineSchema({
     weekStartsOn: v.number(),
     // IANA timezone, e.g. "Europe/Oslo". Server-side "today" is computed from this.
     timezone: v.string(),
-    // Grocery list section order, matching the family's store. Missing = default order.
+    // The family's grocery list sections in store order (GRO-51). Missing = the built-in ones,
+    // in `sectionOrder` if set. See familySections in lib/catalog.ts.
+    sections: v.optional(v.array(v.object({ key: v.string(), name: v.optional(v.string()) }))),
+    // Store order of the built-in sections from before GRO-51; cleared once `sections` is saved.
     sectionOrder: v.optional(v.array(v.string())),
     // jev calls made for this family today (UTC), to cap spend.
     jevUsage: v.optional(v.object({ day: v.string(), count: v.number() })),

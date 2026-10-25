@@ -2,9 +2,11 @@ import { fireEvent, render as rtlRender, screen } from '@testing-library/react-n
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import WeekScreen from '@/app/(tabs)/week';
+import SectionsScreen from '@/app/sections';
 import { slideFrom } from '@/components/ui';
 import SignInScreen from '@/app/sign-in';
 import { Palettes } from '@/constants/theme';
+import { SECTIONS } from '@/convex/lib/catalog';
 import { SchemeContext } from '@/lib/appearance';
 import i18n from '@/lib/i18n';
 import { SessionContext, type Me } from '@/lib/session';
@@ -61,7 +63,8 @@ const me: Me = {
     role: 'owner',
     weekStartsOn: 1,
     timezone: 'Europe/Oslo',
-    sectionOrder: ['produce', 'meat', 'dairy', 'bakery', 'dry', 'frozen', 'household', 'other'],
+    sections: SECTIONS.map((key) => ({ key })),
+    sectionOrder: [...SECTIONS],
   },
 };
 
@@ -95,6 +98,49 @@ describe('sign-in', () => {
     await render(<SignInScreen />);
     expect(screen.getByText('Continue with Google')).toBeTruthy();
     expect(screen.queryByText('Test users')).toBeNull();
+  });
+});
+
+describe('sections', () => {
+  const family = {
+    ...me.family!,
+    sections: [
+      { key: 'dry', name: 'Hermetikk' },
+      { key: 'produce' },
+      { key: 'ctaco', name: 'Tacohylla' },
+      { key: 'other' },
+    ],
+  };
+
+  test("lists the family's own, renamed and built-in sections in Norwegian", async () => {
+    await i18n.changeLanguage('nb');
+    await render(
+      <SchemeContext.Provider value="dark">
+        <SessionContext.Provider value={{ ...me, family }}>
+          <SectionsScreen />
+        </SessionContext.Provider>
+      </SchemeContext.Provider>,
+    );
+    for (const name of ['Hermetikk', 'Frukt og grønt', 'Tacohylla', 'Annet']) {
+      expect(screen.getByText(name)).toHaveStyle({ color: Palettes.dark.ink });
+    }
+    expect(screen.getByLabelText('Ny avdeling')).toBeTruthy();
+  });
+
+  test('a renamed built-in section offers its standard name; Other cannot be deleted', async () => {
+    await i18n.changeLanguage('en');
+    await render(
+      <SessionContext.Provider value={{ ...me, family }}>
+        <SectionsScreen />
+      </SessionContext.Provider>,
+    );
+    await fireEvent.press(screen.getByLabelText('Rename or delete Hermetikk'));
+    expect(screen.getByText('Use the standard name (Dry goods)')).toBeTruthy();
+    expect(screen.getByText('Delete section')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('Close'));
+    await fireEvent.press(screen.getByLabelText('Rename or delete Other'));
+    expect(screen.queryByText('Delete section')).toBeNull();
+    expect(screen.getByText(/can’t be deleted/)).toBeTruthy();
   });
 });
 
