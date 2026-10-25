@@ -31,6 +31,8 @@ void restoreLanguage();
 void restoreAppearance();
 
 void SplashScreen.preventAutoHideAsync();
+// The splash is saffron and light screens are white, so fade rather than cut between them.
+SplashScreen.setOptions({ fade: true, duration: 250 });
 
 const themes = {
   light: {
