@@ -299,5 +299,46 @@
     "up": "Flytt {{section}} opp",
     "down": "Flytt {{section}} ned",
     "reset": "Tilbakestill"
+  },
+  "tour": {
+    "open": "Kom i gang",
+    "skip": "Hopp over",
+    "next": "Neste",
+    "back": "Tilbake",
+    "page": "Side {{page}} av {{count}}",
+    "addFirstRecipe": "Legg inn første oppskrift",
+    "planWeek": "Planlegg denne uka",
+    "lookAround": "Se meg rundt først",
+    "loop": {
+      "title": "Velkommen til Grocr",
+      "body": "Middagsplanlegging i tre steg: lagre oppskriftene, legg dem på uka, og handlelista fyller seg selv."
+    },
+    "recipes": {
+      "title": "Lagre middagene dere liker",
+      "body": "Legg inn familiens oppskrifter under Oppskrifter, med ingrediensene til hver. Du skriver dem bare inn én gang."
+    },
+    "week": {
+      "title": "Planlegg uka",
+      "body": "På Uke trykker du på en dag og velger middag. Fra fredag åpner den på neste uke, klar for helgehandelen."
+    },
+    "groceries": {
+      "title": "Lista skriver seg selv",
+      "body": "Hver planlagte middag legger ingrediensene sine på Handleliste, lagt sammen og sortert slik du går i butikken. Kryss av mens du handler."
+    },
+    "family": {
+      "title": "Planlegg og handle sammen",
+      "body": "Alle i familien deler samme uke og liste, og ser endringer med en gang. Inviter dem fra Familie-fanen, der finner du også denne omvisningen igjen."
+    },
+    "sample": {
+      "tacos": "Taco",
+      "fishSoup": "Fiskesuppe",
+      "beef": "Kjøttdeig",
+      "tomatoes": "Tomater",
+      "tortillas": "Tortillalefser",
+      "cheese": "Revet ost",
+      "ticked": "Ola krysset av Tortillalefser",
+      "ingredients_one": "{{count}} ingrediens",
+      "ingredients_other": "{{count}} ingredienser"
+    }
   }
 }

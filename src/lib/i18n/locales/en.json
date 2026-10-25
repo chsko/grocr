@@ -299,5 +299,46 @@
     "up": "Move {{section}} up",
     "down": "Move {{section}} down",
     "reset": "Reset to default"
+  },
+  "tour": {
+    "open": "Get started",
+    "skip": "Skip",
+    "next": "Next",
+    "back": "Back",
+    "page": "Page {{page}} of {{count}}",
+    "addFirstRecipe": "Add your first recipe",
+    "planWeek": "Plan this week",
+    "lookAround": "Look around first",
+    "loop": {
+      "title": "Welcome to Grocr",
+      "body": "Dinner planning in three steps: save your recipes, put them on the week, and the grocery list fills itself."
+    },
+    "recipes": {
+      "title": "Save the dinners you love",
+      "body": "Add your family's recipes under Recipes, with the ingredients for each. You only type them once."
+    },
+    "week": {
+      "title": "Plan the week",
+      "body": "On Week, tap a day and pick a dinner. From Friday it opens on next week, ready for the weekend shop."
+    },
+    "groceries": {
+      "title": "The list writes itself",
+      "body": "Every planned dinner puts its ingredients on Groceries, added up and sorted the way you walk the store. Tick things off as you shop."
+    },
+    "family": {
+      "title": "Plan and shop together",
+      "body": "Everyone in the family shares the same week and list, and sees changes right away. Invite them from the Family tab, where you'll also find this tour again."
+    },
+    "sample": {
+      "tacos": "Tacos",
+      "fishSoup": "Fish soup",
+      "beef": "Minced beef",
+      "tomatoes": "Tomatoes",
+      "tortillas": "Tortillas",
+      "cheese": "Grated cheese",
+      "ticked": "Ola ticked off Tortillas",
+      "ingredients_one": "{{count}} ingredient",
+      "ingredients_other": "{{count}} ingredients"
+    }
   }
 }

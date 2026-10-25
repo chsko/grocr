@@ -22,7 +22,12 @@ export const me = query({
     const membership = await currentMembership(ctx, userId);
     const group = membership ? await ctx.db.get('groups', membership.groupId) : null;
     return {
-      user: { _id: user._id, name: user.name ?? '', email: user.email },
+      user: {
+        _id: user._id,
+        name: user.name ?? '',
+        email: user.email,
+        tourDone: user.tourDoneAt !== undefined,
+      },
       family:
         membership && group
           ? {
@@ -45,5 +50,17 @@ export const setName = mutation({
     const clean = cleanName(name).slice(0, 60);
     if (clean === '') throw new ConvexError({ code: 'NAME_REQUIRED' });
     await ctx.db.patch('users', userId, { name: clean });
+  },
+});
+
+/** Marks the get-started tour as seen, so it no longer opens by itself on any device. */
+export const finishTour = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireUserId(ctx);
+    const user = await ctx.db.get('users', userId);
+    if (user && user.tourDoneAt === undefined) {
+      await ctx.db.patch('users', userId, { tourDoneAt: Date.now() });
+    }
   },
 });

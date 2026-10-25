@@ -126,6 +126,7 @@ function AppStack() {
         </Stack.Protected>
         <Stack.Protected guard={hasFamily}>
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="tour" options={{ animation: 'fade', gestureEnabled: false }} />
           <Stack.Screen name="recipe/[id]" options={{ ...header, title: '' }} />
           <Stack.Screen
             name="recipe/edit"

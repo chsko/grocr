@@ -48,7 +48,12 @@ jest.mock('@/convex/_generated/api', () => ({
 }));
 
 const me: Me = {
-  user: { _id: 'u1' as Me['user']['_id'], name: 'Kari Hansen', email: 'kari@example.no' },
+  user: {
+    _id: 'u1' as Me['user']['_id'],
+    name: 'Kari Hansen',
+    email: 'kari@example.no',
+    tourDone: true,
+  },
   family: {
     groupId: 'g1' as NonNullable<Me['family']>['groupId'],
     name: 'Hansen family',

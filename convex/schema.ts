@@ -28,6 +28,8 @@ export default defineSchema({
     phone: v.optional(v.string()),
     phoneVerificationTime: v.optional(v.number()),
     isAnonymous: v.optional(v.boolean()),
+    // When they finished or skipped the get-started tour; missing shows it (GRO-49).
+    tourDoneAt: v.optional(v.number()),
   })
     .index('email', ['email'])
     .index('phone', ['phone']),
