@@ -246,7 +246,9 @@
     "appearanceLight": "Light",
     "appearanceDark": "Dark",
     "account": "Account",
-    "storeOrder": "Sections"
+    "storeOrder": "Sections",
+    "name": "Family name",
+    "rename": "Rename family"
   },
   "invite": {
     "title": "Invite to {{family}}",

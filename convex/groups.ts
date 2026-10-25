@@ -47,10 +47,11 @@ export const create = mutation({
   },
 });
 
+/** Any member can rename the family, like its grocery sections. */
 export const rename = mutation({
   args: { groupId: v.id('groups'), name: v.string() },
   handler: async (ctx, { groupId, name }) => {
-    await requireOwner(ctx, groupId);
+    await requireMembership(ctx, groupId);
     await ctx.db.patch('groups', groupId, { name: validName(name) });
   },
 });

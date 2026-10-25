@@ -34,6 +34,18 @@ describe('users.me and groups.create', () => {
       kari.as.mutation(api.groups.create, { name: '   ', timezone: 'Europe/Oslo' }),
     ).rejects.toThrow(/NAME_REQUIRED/);
   });
+
+  test('any member can rename the family, but not to nothing', async () => {
+    const t = setup();
+    const kari = await signedInUser(t, 'Kari');
+    const ola = await signedInUser(t, 'Ola');
+    const groupId = await groupWithMembers(t, [kari.userId, ola.userId]);
+    await ola.as.mutation(api.groups.rename, { groupId, name: '  familien berg ' });
+    expect((await kari.as.query(api.users.me, {}))?.family?.name).toBe('Familien berg');
+    await expect(ola.as.mutation(api.groups.rename, { groupId, name: '  ' })).rejects.toThrow(
+      /NAME_REQUIRED/,
+    );
+  });
 });
 
 describe('members and ownership', () => {

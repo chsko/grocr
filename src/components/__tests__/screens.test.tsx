@@ -2,6 +2,7 @@ import { act, fireEvent, render as rtlRender, screen } from '@testing-library/re
 import * as Haptics from 'expo-haptics';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import FamilyScreen from '@/app/(tabs)/family';
 import GroceriesScreen from '@/app/(tabs)/groceries';
 import WeekScreen from '@/app/(tabs)/week';
 import SectionsScreen from '@/app/sections';
@@ -39,12 +40,15 @@ const mockNavigation = {
 
 const mockUseQuery = jest.fn();
 const mockAddManual = jest.fn();
+const mockRename = jest.fn(() => Promise.resolve(null));
 jest.mock('convex/react', () => ({
   useQuery: (...args: unknown[]) => mockUseQuery(...args),
   useMutation: (name: string) =>
     name === 'grocery.addManual'
       ? mockAddManual
-      : Object.assign(jest.fn(), { withOptimisticUpdate: () => jest.fn() }),
+      : name === 'groups.rename'
+        ? mockRename
+        : Object.assign(jest.fn(), { withOptimisticUpdate: () => jest.fn() }),
 }));
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(() => Promise.resolve()),
@@ -152,6 +156,25 @@ describe('sections', () => {
     await fireEvent.press(screen.getByLabelText('Rename or delete Other'));
     expect(screen.queryByText('Delete section')).toBeNull();
     expect(screen.getByText(/can’t be deleted/)).toBeTruthy();
+  });
+});
+
+describe('family', () => {
+  test('a member renames the family from the Family tab', async () => {
+    await i18n.changeLanguage('nb');
+    mockUseQuery.mockReturnValue(undefined);
+    await render(
+      <SessionContext.Provider value={{ ...me, family: { ...me.family!, role: 'member' } }}>
+        <FamilyScreen />
+      </SessionContext.Provider>,
+    );
+    await fireEvent.press(screen.getByText('Familienavn'));
+    const field = screen.getByLabelText('Familienavn');
+    expect(field.props.value).toBe('Hansen family');
+    await fireEvent.changeText(field, 'Familien Hansen');
+    await fireEvent.press(screen.getByText('Lagre'));
+    expect(mockRename).toHaveBeenCalledWith({ groupId: 'g1', name: 'Familien Hansen' });
+    expect(screen.queryByLabelText('Familienavn')).toBeNull();
   });
 });
 

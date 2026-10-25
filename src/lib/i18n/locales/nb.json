@@ -246,7 +246,9 @@
     "appearanceLight": "Lyst",
     "appearanceDark": "Mørkt",
     "account": "Konto",
-    "storeOrder": "Avdelinger"
+    "storeOrder": "Avdelinger",
+    "name": "Familienavn",
+    "rename": "Endre familienavn"
   },
   "invite": {
     "title": "Inviter til {{family}}",

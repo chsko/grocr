@@ -3,10 +3,11 @@ import { useMutation, useQuery } from 'convex/react';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChevronRight, Clock, More, Plus } from '@/components/icons';
-import { Avatar, Button, IconButton, TabScreen, Text } from '@/components/ui';
+import { Avatar, Button, Field, IconButton, TabScreen, Text } from '@/components/ui';
 import { Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -41,6 +42,7 @@ export default function FamilyScreen() {
   const deleteAccount = useMutation(api.account.deleteAccount);
   const { signOut } = useAuthActions();
   const [now] = useState(() => Date.now());
+  const [renaming, setRenaming] = useState(false);
   const language = useLanguagePreference();
   const appearance = useAppearancePreference();
   const appearanceNames = {
@@ -140,7 +142,12 @@ export default function FamilyScreen() {
         <Text variant="label" color={colors.muted}>
           {t('family.title')}
         </Text>
-        <Text variant="title">{family!.name}</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityHint={t('family.rename')}
+          onPress={() => setRenaming(true)}>
+          <Text variant="title">{family!.name}</Text>
+        </Pressable>
       </View>
 
       <View style={styles.sectionHead}>
@@ -207,6 +214,15 @@ export default function FamilyScreen() {
       <Text variant="section" color={colors.muted} style={{ marginTop: 28, marginBottom: 4 }}>
         {t('family.settings')}
       </Text>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => setRenaming(true)}
+        style={styles.setting}>
+        <Text>{t('family.name')}</Text>
+        <Text color={colors.muted} numberOfLines={1} style={{ flexShrink: 1 }}>
+          {family!.name}
+        </Text>
+      </Pressable>
       <View style={styles.setting}>
         <Text>{t('family.weekStarts')}</Text>
         <Text color={colors.muted}>{t('dates.dayLong.mon')}</Text>
@@ -253,7 +269,69 @@ export default function FamilyScreen() {
         style={[styles.setting, { borderBottomWidth: 0 }]}>
         <Text color={colors.danger}>{t('account.delete')}</Text>
       </Pressable>
+      {renaming ? (
+        <FamilyNameEditor
+          groupId={groupId}
+          current={family!.name}
+          onClose={() => setRenaming(false)}
+        />
+      ) : null}
     </TabScreen>
+  );
+}
+
+/** Rename the family; any member can. */
+function FamilyNameEditor({
+  groupId,
+  current,
+  onClose,
+}: {
+  groupId: Id<'groups'>;
+  current: string;
+  onClose: () => void;
+}) {
+  const styles = useStyles();
+  const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const rename = useMutation(api.groups.rename);
+  const [name, setName] = useState(current);
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    if (name.trim() === '') return;
+    if (name.trim() !== current) {
+      setBusy(true);
+      const saved = await attempt(t, () => rename({ groupId, name }).then(() => true));
+      setBusy(false);
+      if (!saved) return;
+    }
+    onClose();
+  }
+
+  return (
+    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={styles.backdrop} accessibilityLabel={t('common.close')} onPress={onClose} />
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
+          <Text variant="heading">{t('family.rename')}</Text>
+          <Field
+            label={t('family.name')}
+            value={name}
+            onChangeText={setName}
+            maxLength={60}
+            autoFocus
+            returnKeyType="done"
+            onSubmitEditing={() => void save()}
+          />
+          <Button
+            title={t('common.save')}
+            loading={busy}
+            disabled={name.trim() === ''}
+            onPress={() => void save()}
+          />
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 }
 
@@ -292,6 +370,14 @@ const useStyles = makeStyles((colors) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  backdrop: { flex: 1, backgroundColor: colors.overlay },
+  sheet: {
+    backgroundColor: colors.raised,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    gap: 14,
   },
   setting: {
     minHeight: 52,
