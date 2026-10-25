@@ -1,4 +1,4 @@
-import { render as rtlRender, screen } from '@testing-library/react-native';
+import { fireEvent, render as rtlRender, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import WeekScreen from '@/app/(tabs)/week';
@@ -91,6 +91,37 @@ describe('week', () => {
     expect(screen.getAllByText('+ Add dinner')).toHaveLength(6);
     expect(screen.getByText('3 items on the grocery list')).toBeTruthy();
     expect(screen.getByText(/^Week \d+$/)).toBeTruthy();
+  });
+
+  test('shows blank days, not "Add dinner", while a week loads', async () => {
+    await i18n.changeLanguage('en');
+    mockUseQuery.mockReturnValue(undefined);
+    await render(
+      <SessionContext.Provider value={me}>
+        <WeekScreen />
+      </SessionContext.Provider>,
+    );
+    expect(screen.queryByText('+ Add dinner')).toBeNull();
+  });
+
+  test('keeps the weeks either side subscribed and steps to them', async () => {
+    await i18n.changeLanguage('en');
+    mockUseQuery.mockReturnValue({ dinners: [], openLines: 0 });
+    await render(
+      <SessionContext.Provider value={me}>
+        <WeekScreen />
+      </SessionContext.Provider>,
+    );
+    const starts = () =>
+      mockUseQuery.mock.calls.map((c) => (c[1] as { startDate: string }).startDate);
+    const shown = starts()[0];
+    const week = (s: string) => Math.round(Date.parse(s) / (7 * 24 * 3600 * 1000));
+    expect(new Set(starts().map((s) => week(s) - week(shown)))).toEqual(new Set([-1, 0, 1]));
+    const title = screen.getByText(/^Week \d+$/).props.children as string;
+    mockUseQuery.mockClear();
+    await fireEvent.press(screen.getByLabelText('Next week'));
+    expect(week(starts()[0]) - week(shown)).toBe(1);
+    expect(screen.getByText(/^Week \d+$/).props.children).not.toBe(title);
   });
 
   test('draws in dark mode', async () => {

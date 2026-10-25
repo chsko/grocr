@@ -111,7 +111,14 @@ export default function RecipesScreen() {
 
 const useStyles = makeStyles((colors) => ({
   header: { paddingHorizontal: 20, paddingTop: 24, gap: 14, paddingBottom: 8 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  // minHeight keeps the row as tall when the New button is hidden (archived view), and matches
+  // the Groceries title row.
+  titleRow: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   search: {
     flexDirection: 'row',
     alignItems: 'center',

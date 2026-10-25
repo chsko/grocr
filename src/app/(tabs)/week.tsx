@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
+import Animated, { FadeInLeft, FadeInRight } from 'react-native-reanimated';
 
 import { Basket, ChevronLeft, ChevronRight } from '@/components/icons';
 import { IconButton, IconTile, TabScreen, Text } from '@/components/ui';
@@ -28,6 +29,19 @@ export default function WeekScreen() {
     () => defaultGroceryWeek(today, weekStartsOn).startDate,
   );
   const week = useQuery(api.mealPlan.week, { groupId: family.groupId, startDate });
+  // Keep the neighbouring weeks subscribed so stepping to them shows data at once instead of
+  // a frame of empty days.
+  useQuery(api.mealPlan.week, { groupId: family.groupId, startDate: addDays(startDate, -7) });
+  useQuery(api.mealPlan.week, { groupId: family.groupId, startDate: addDays(startDate, 7) });
+  // Which way the last step went, so the new week slides in from that side. None on first show.
+  const [direction, setDirection] = useState<-1 | 1 | null>(null);
+  const step = (by: -1 | 1) => {
+    setDirection(by);
+    setStartDate(addDays(startDate, 7 * by));
+  };
+  // A short fade and nudge; Reanimated skips it when the system asks for reduced motion.
+  const entering =
+    direction === null ? undefined : (direction > 0 ? FadeInRight : FadeInLeft).duration(220);
 
   const offset = Math.round(
     (Date.parse(startDate) - Date.parse(thisWeek)) / (7 * 24 * 3600 * 1000),
@@ -45,34 +59,31 @@ export default function WeekScreen() {
   return (
     <TabScreen>
       <View style={styles.header}>
-        <View style={{ gap: 4, flex: 1 }}>
+        <Animated.View key={startDate} entering={entering} style={{ gap: 4, flex: 1 }}>
+          {/* The pill's line is always there so the header keeps its height on far weeks. */}
           {relative ? (
             <Text variant="label" color={colors.saffronInk} style={styles.pill}>
               {relative}
             </Text>
-          ) : null}
+          ) : (
+            <View style={styles.pillSpace} />
+          )}
           <Text variant="display">{weekTitle(t, startDate)}</Text>
           <Text color={colors.muted} style={{ fontSize: 15 }}>
             {weekSpan(t, startDate)}
           </Text>
-        </View>
+        </Animated.View>
         <View style={{ flexDirection: 'row', gap: 6 }}>
-          <IconButton
-            outlined
-            label={t('week.previous')}
-            onPress={() => setStartDate(addDays(startDate, -7))}>
+          <IconButton outlined label={t('week.previous')} onPress={() => step(-1)}>
             <ChevronLeft size={20} />
           </IconButton>
-          <IconButton
-            outlined
-            label={t('week.next')}
-            onPress={() => setStartDate(addDays(startDate, 7))}>
+          <IconButton outlined label={t('week.next')} onPress={() => step(1)}>
             <ChevronRight size={20} />
           </IconButton>
         </View>
       </View>
 
-      <View style={{ gap: 8 }}>
+      <Animated.View key={startDate} entering={entering} style={{ gap: 8 }}>
         {days.map((date, index) => {
           const dinner = week?.dinners.find((d) => d.date === date);
           const [, , dd] = date.split('-');
@@ -83,7 +94,7 @@ export default function WeekScreen() {
               accessibilityRole="button"
               style={({ pressed }) => [
                 styles.day,
-                dinner ? null : styles.dayEmpty,
+                dinner || !week ? null : styles.dayEmpty,
                 date === today && styles.dayToday,
                 pressed && { opacity: 0.7 },
               ]}>
@@ -118,15 +129,15 @@ export default function WeekScreen() {
                     />
                   )}
                 </>
-              ) : (
+              ) : week ? (
                 <Text variant="item" color={colors.tomato} style={{ flex: 1, fontSize: 16 }}>
                   {t('week.addDinner')}
                 </Text>
-              )}
+              ) : null}
             </Pressable>
           );
         })}
-      </View>
+      </Animated.View>
 
       {week && week.openLines > 0 ? (
         <Pressable
@@ -161,6 +172,10 @@ const useStyles = makeStyles((colors) => ({
     overflow: 'hidden',
     fontSize: 13,
   },
+  // Same height as the pill: label line height plus its vertical padding.
+  pillSpace: { height: 24 },
+  // The three day styles differ in border width, so each trims its padding by the extra
+  // border to keep the date tile and text in the same place whichever style a day has.
   day: {
     minHeight: 62,
     borderRadius: 16,
@@ -173,8 +188,22 @@ const useStyles = makeStyles((colors) => ({
     alignItems: 'center',
     gap: 12,
   },
-  dayEmpty: { borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.dashed },
-  dayToday: { borderWidth: 2, borderStyle: 'solid', borderColor: colors.tomato },
+  dayEmpty: {
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: colors.dashed,
+    paddingVertical: 6.5,
+    paddingLeft: 6.5,
+    paddingRight: 13.5,
+  },
+  dayToday: {
+    borderWidth: 2,
+    borderStyle: 'solid',
+    borderColor: colors.tomato,
+    paddingVertical: 6,
+    paddingLeft: 6,
+    paddingRight: 13,
+  },
   dateTile: {
     width: 46,
     height: 46,

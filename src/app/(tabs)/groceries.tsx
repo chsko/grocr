@@ -272,9 +272,12 @@ export default function GroceriesScreen() {
 
 const useStyles = makeStyles((colors) => ({
   header: { paddingHorizontal: 20, paddingTop: 24, gap: 12, paddingBottom: 4 },
+  // Same height and alignment as the Recipes title row (which has a 44pt button), so the
+  // title does not jump when switching between the two tabs.
   titleRow: {
+    minHeight: 44,
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
   },
