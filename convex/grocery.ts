@@ -53,7 +53,7 @@ export const listForWeek = query({
           .withIndex('by_list', (q) => q.eq('listId', previous._id))
           .filter((q) => q.eq(q.field('checked'), false))
           .collect();
-        const visible = open.filter((r) => !r.removed).length;
+        const visible = open.filter((r) => !r.removed && !r.atHome).length;
         if (visible > 0) carryOver = { count: visible };
       }
     }
@@ -81,6 +81,7 @@ export const listForWeek = query({
         unit: i.unit,
         section: placeSection((i.ingredientId && sections.get(i.ingredientId)) ?? i.section, keys),
         checked: i.checked,
+        atHome: i.atHome ?? false,
         edited: i.edited,
         source: i.source,
       })),
@@ -169,6 +170,8 @@ export const editMerged = mutation({
       qty: qty !== undefined && Number.isFinite(qty) && qty > 0 ? qty : undefined,
       unit: unit !== undefined && isUnit(unit) ? unit : undefined,
       edited: true,
+      // The edited line is one to buy, even if the row kept was marked as at home meanwhile.
+      atHome: undefined,
     });
     for (const row of rest) await removeRow(ctx, row);
   },
@@ -180,7 +183,12 @@ export const editMerged = mutation({
  */
 async function removeRow(ctx: MutationCtx, row: Doc<'groceryItems'>) {
   if (row.source.kind === 'meal') {
-    await ctx.db.patch('groceryItems', row._id, { removed: true, edited: true, checked: false });
+    await ctx.db.patch('groceryItems', row._id, {
+      removed: true,
+      edited: true,
+      checked: false,
+      atHome: undefined,
+    });
   } else {
     await ctx.db.delete('groceryItems', row._id);
   }
@@ -215,7 +223,7 @@ export const clearChecked = mutation({
 });
 
 /**
- * Moves last week's unchecked rows to this week's list as manual items, or (with `move` false)
+ * Moves last week's unchecked rows (not the ones someone had at home) to this week's list as manual items, or (with `move` false)
  * just stops offering to. Either way the offer is gone for this week.
  */
 export const carryOver = mutation({
@@ -232,7 +240,8 @@ export const carryOver = mutation({
         .filter((q) => q.eq(q.field('checked'), false))
         .collect();
       for (const row of open) {
-        if (row.removed) continue;
+        // Things someone had at home were never needed, so they stay behind.
+        if (row.removed || row.atHome) continue;
         // Meal rows keep their dinner but count as edited, so syncing that dinner later
         // neither duplicates them nor pulls them back.
         await ctx.db.patch('groceryItems', row._id, { listId, edited: true });
@@ -245,41 +254,71 @@ export const carryOver = mutation({
 });
 
 /**
+ * Patches the given rows of the caller's families, skipping rows that are gone and rows of other
+ * families alike, so the result never reveals whether another family's id exists. `patchFor`
+ * returns null for a row already in the wanted state, which is left untouched. Returns how many
+ * rows changed.
+ */
+async function patchOwnRows(
+  ctx: MutationCtx,
+  itemIds: Id<'groceryItems'>[],
+  patchFor: (item: Doc<'groceryItems'>, userId: Id<'users'>) => Partial<Doc<'groceryItems'>> | null,
+) {
+  const userId = await requireUserId(ctx);
+  if (itemIds.length > 100) throw new ConvexError({ code: 'TOO_MANY_ITEMS' });
+
+  const memberOf = new Map<Id<'groups'>, boolean>();
+  const isMember = async (groupId: Id<'groups'>) => {
+    if (!memberOf.has(groupId)) {
+      memberOf.set(groupId, (await getMembership(ctx, groupId, userId)) !== null);
+    }
+    return memberOf.get(groupId)!;
+  };
+
+  let changed = 0;
+  for (const itemId of new Set(itemIds)) {
+    const item = await ctx.db.get('groceryItems', itemId);
+    if (item === null || item.removed || !(await isMember(item.groupId))) continue;
+    const patch = patchFor(item, userId);
+    if (patch === null) continue;
+    await ctx.db.patch('groceryItems', item._id, patch);
+    changed++;
+  }
+  return changed;
+}
+
+/**
  * Sets (never toggles) the checked state of every row behind a merged line, so a resent
  * mutation after reconnect is harmless. Rows already in the requested state are left untouched,
- * which keeps the original `checkedBy`/`checkedAt`. Rows that are gone (e.g. "clear checked" ran
- * while this client was offline) and rows in a family the user is not a member of are skipped
- * alike, so the result never reveals whether another family's id exists. Returns how many rows
- * changed.
+ * which keeps the original `checkedBy`/`checkedAt`. Ticking a row someone marked as at home
+ * makes it bought instead. Rows that are gone (e.g. "clear checked" ran while this client was
+ * offline) and rows in a family the user is not a member of are skipped alike. Returns how many
+ * rows changed.
  */
 export const setChecked = mutation({
   args: { itemIds: v.array(v.id('groceryItems')), checked: v.boolean() },
   handler: async (ctx, { itemIds, checked }) => {
-    const userId = await requireUserId(ctx);
-    if (itemIds.length > 100) throw new ConvexError({ code: 'TOO_MANY_ITEMS' });
-
-    const memberOf = new Map<Id<'groups'>, boolean>();
-    const isMember = async (groupId: Id<'groups'>) => {
-      if (!memberOf.has(groupId)) {
-        memberOf.set(groupId, (await getMembership(ctx, groupId, userId)) !== null);
-      }
-      return memberOf.get(groupId)!;
-    };
-
-    let changed = 0;
     const now = Date.now();
-    for (const itemId of new Set(itemIds)) {
-      const item = await ctx.db.get('groceryItems', itemId);
-      if (item === null || !(await isMember(item.groupId)) || item.checked === checked) continue;
-      await ctx.db.patch(
-        'groceryItems',
-        item._id,
-        checked
-          ? { checked, checkedBy: userId, checkedAt: now }
-          : { checked, checkedBy: undefined, checkedAt: undefined },
-      );
-      changed++;
-    }
-    return changed;
+    return await patchOwnRows(ctx, itemIds, (item, userId) => {
+      if (item.checked === checked) return null;
+      return checked
+        ? { checked, checkedBy: userId, checkedAt: now, atHome: undefined }
+        : { checked, checkedBy: undefined, checkedAt: undefined };
+    });
+  },
+});
+
+/**
+ * Marks the rows behind a line as already at home ("we have milk in the fridge"), or puts them
+ * back on the list. Like `setChecked` it sets absolute state. Rows someone already bought are
+ * left alone, so a tap from a screen that has not caught up does not undo a purchase.
+ */
+export const setAtHome = mutation({
+  args: { itemIds: v.array(v.id('groceryItems')), atHome: v.boolean() },
+  handler: async (ctx, { itemIds, atHome }) => {
+    return await patchOwnRows(ctx, itemIds, (item) => {
+      if ((item.atHome ?? false) === atHome || (atHome && item.checked)) return null;
+      return atHome ? { atHome: true } : { atHome: undefined };
+    });
   },
 });

@@ -7,7 +7,8 @@ import { isUnit, roundQty, scaleQty, type Unit } from './units';
 // writes one row per recipe ingredient onto the list of the week it is planned in. The rules for
 // keeping them in sync live here so planning, servings changes and recipe edits share them:
 // - unchecked, unedited rows follow the recipe and servings;
-// - checked rows count as bought: if servings go up, a new row holds the extra amount;
+// - checked rows count as bought, and rows someone has at home count the same: if servings go
+//   up, a new row holds the extra amount;
 // - once a line is edited, removed or carried over by hand, sync leaves that dinner's ingredient
 //   alone, whatever unit the edit used.
 
@@ -114,8 +115,8 @@ export async function syncEntry(ctx: MutationCtx, entry: Doc<'mealPlanEntries'>)
     const existing = byKey.get(key) ?? [];
     byKey.delete(key);
     if (rows.some((r) => r.ingredientId === want.ingredient._id && r.edited)) continue;
-    const open = existing.filter((r) => !r.checked);
-    const bought = existing.filter((r) => r.checked);
+    const open = existing.filter((r) => !r.checked && !r.atHome);
+    const bought = existing.filter((r) => r.checked || r.atHome);
 
     let qty: number | undefined;
     let needed: boolean;
@@ -158,17 +159,19 @@ export async function syncEntry(ctx: MutationCtx, entry: Doc<'mealPlanEntries'>)
     }
   }
 
-  // Ingredients the recipe no longer has: open, unedited rows go; bought or edited ones stay.
+  // Ingredients the recipe no longer has: open, unedited rows go; bought, at-home or edited ones
+  // stay (so an at-home mark survives a recipe edit that changes the unit).
   for (const rest of byKey.values()) {
     for (const row of rest) {
-      if (!row.checked && !row.edited) await ctx.db.delete('groceryItems', row._id);
+      if (!row.checked && !row.atHome && !row.edited) await ctx.db.delete('groceryItems', row._id);
     }
   }
 }
 
 /**
  * Before an entry is deleted: its open, unedited rows leave the list, and rows someone checked
- * or edited stay as manual items (Product plan §4.6).
+ * or edited stay as manual items (Product plan §4.6). Unedited at-home rows leave too: nobody
+ * needs to buy them, and keeping them would only clutter the at-home group.
  */
 export async function detachEntry(ctx: MutationCtx, entry: Doc<'mealPlanEntries'>) {
   for (const row of await rowsForEntry(ctx, entry._id)) {

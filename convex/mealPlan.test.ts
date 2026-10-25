@@ -114,6 +114,30 @@ describe('planning a dinner', () => {
     ]);
   });
 
+  test('lines someone has at home count as covered, and are not open lines on the week', async () => {
+    const { t, kari, groupId, recipeId } = await family();
+    const entryId = await kari.as.mutation(api.mealPlan.set, { groupId, date: TUESDAY, recipeId });
+    await kari.as.mutation(api.grocery.setAtHome, {
+      itemIds: [await rowId(t, 'Onion'), await rowId(t, 'Salt')],
+      atHome: true,
+    });
+    const week = await kari.as.query(api.mealPlan.week, { groupId, startDate: MONDAY });
+    expect(week.openLines).toBe(1);
+    // More servings: only the extra onion goes on the list, and salt stays at home.
+    await kari.as.mutation(api.mealPlan.setServings, { entryId, servings: 6 });
+    const items = await t.run((ctx) => ctx.db.query('groceryItems').collect());
+    expect(
+      items
+        .filter((i) => i.name !== 'Minced beef')
+        .map((i) => [i.name, i.qty, i.atHome ?? false])
+        .sort((a, b) => String(a[0]).localeCompare(String(b[0])) || Number(a[2]) - Number(b[2])),
+    ).toEqual([
+      ['Onion', 1, false],
+      ['Onion', 2, true],
+      ['Salt', undefined, true],
+    ]);
+  });
+
   test('editing the recipe re-syncs planned dinners but leaves edited lines alone', async () => {
     const { t, kari, groupId, recipeId } = await family();
     await kari.as.mutation(api.mealPlan.set, { groupId, date: TUESDAY, recipeId });

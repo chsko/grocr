@@ -167,6 +167,9 @@ export default defineSchema({
     checked: v.boolean(),
     checkedBy: v.optional(v.id('users')),
     checkedAt: v.optional(v.number()),
+    // Someone has it at home already (ticked off before going shopping), so it is not bought.
+    // Never set together with `checked`.
+    atHome: v.optional(v.boolean()),
     edited: v.boolean(),
     // A meal row someone removed or merged away. Hidden from the list, but it tells sync that
     // this dinner's ingredient was handled by hand, so it is not added back.

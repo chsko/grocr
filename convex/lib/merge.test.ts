@@ -24,6 +24,7 @@ test('rows of one ingredient merge with all their sources', () => {
       name: 'Onion',
       section: 'produce',
       checked: false,
+      atHome: false,
       itemIds: ['1', '2', '3'],
       amounts: [{ qty: 4, unit: 'pcs' }],
       entryIds: ['tacos', 'soup'],
@@ -61,4 +62,16 @@ test('lines follow a family store order', () => {
   const rows = [row('a', 'Milk', 'dairy'), row('b', 'Apples', 'produce')];
   expect(mergeRows(rows).map((l) => l.name)).toEqual(['Apples', 'Milk']);
   expect(mergeRows(rows, ['dairy', 'produce']).map((l) => l.name)).toEqual(['Milk', 'Apples']);
+});
+
+test('rows someone has at home merge on their own line', () => {
+  const lines = mergeRows([
+    row({ _id: '1', qty: 2, unit: 'pcs', atHome: true }),
+    row({ _id: '2', qty: 1, unit: 'pcs' }),
+    row({ _id: '3', qty: 1, unit: 'pcs', atHome: true }),
+  ]);
+  expect(lines.map((l) => [l.key, l.atHome, l.itemIds, l.amounts])).toEqual([
+    ['home|onion', true, ['1', '3'], [{ qty: 3, unit: 'pcs' }]],
+    ['open|onion', false, ['2'], [{ qty: 1, unit: 'pcs' }]],
+  ]);
 });

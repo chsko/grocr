@@ -58,7 +58,7 @@ export const week = query({
         .collect();
       openLines = new Set(
         items
-          .filter((i) => !i.checked && !i.removed)
+          .filter((i) => !i.checked && !i.atHome && !i.removed)
           .map((i) => i.ingredientId ?? normalizeName(i.name)),
       ).size;
     }

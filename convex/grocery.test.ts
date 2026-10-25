@@ -256,3 +256,99 @@ describe('manual items and list upkeep', () => {
     ).rejects.toThrow(/NOT_FOUND/);
   });
 });
+
+describe('grocery.setAtHome', () => {
+  test('marks rows as at home and back, and is idempotent when resent', async () => {
+    const t = setup();
+    const ada = await signedInUser(t, 'ada');
+    const bob = await signedInUser(t, 'bob');
+    const groupId = await groupWithMembers(t, [ada.userId, bob.userId]);
+    const { itemIds } = await listWithItems(t, groupId, MONDAY, ['Milk', 'Onion']);
+
+    expect(await ada.as.mutation(api.grocery.setAtHome, { itemIds, atHome: true })).toBe(2);
+    expect(await bob.as.mutation(api.grocery.setAtHome, { itemIds, atHome: true })).toBe(0);
+    let list = await ada.as.query(api.grocery.listForWeek, { groupId, startDate: MONDAY });
+    expect(list.items.map((i) => [i.name, i.atHome, i.checked])).toEqual([
+      ['Milk', true, false],
+      ['Onion', true, false],
+    ]);
+
+    expect(
+      await bob.as.mutation(api.grocery.setAtHome, { itemIds: [itemIds[0]], atHome: false }),
+    ).toBe(1);
+    list = await ada.as.query(api.grocery.listForWeek, { groupId, startDate: MONDAY });
+    expect(list.items.map((i) => i.atHome)).toEqual([false, true]);
+  });
+
+  test('at home and bought exclude each other; a bought row is not marked at home', async () => {
+    const t = setup();
+    const ada = await signedInUser(t, 'ada');
+    const groupId = await groupWithMembers(t, [ada.userId]);
+    const { itemIds } = await listWithItems(t, groupId, MONDAY, ['Milk', 'Eggs']);
+
+    // Ada bought milk; Bob's screen had not caught up and he marks both as at home.
+    await ada.as.mutation(api.grocery.setChecked, { itemIds: [itemIds[0]], checked: true });
+    expect(await ada.as.mutation(api.grocery.setAtHome, { itemIds, atHome: true })).toBe(1);
+    expect(await t.run((ctx) => ctx.db.get(itemIds[0]))).toMatchObject({ checked: true });
+    expect(await t.run((ctx) => ctx.db.get(itemIds[1]))).toMatchObject({ atHome: true });
+
+    // Ticking an at-home row in the store makes it bought instead.
+    await ada.as.mutation(api.grocery.setChecked, { itemIds: [itemIds[1]], checked: true });
+    const row = await t.run((ctx) => ctx.db.get(itemIds[1]));
+    expect(row).toMatchObject({ checked: true, checkedBy: ada.userId });
+    expect(row?.atHome).toBeUndefined();
+  });
+
+  test('at-home items are not carried over, cleared or counted as to buy', async () => {
+    const t = setup();
+    const ada = await signedInUser(t, 'Ada');
+    const groupId = await groupWithMembers(t, [ada.userId]);
+    const lastWeek = '2026-10-19';
+    const { itemIds } = await listWithItems(t, groupId, lastWeek, ['Milk', 'Bread']);
+    await ada.as.mutation(api.grocery.setAtHome, { itemIds: [itemIds[0]], atHome: true });
+
+    expect(await ada.as.mutation(api.grocery.clearChecked, { groupId, startDate: lastWeek })).toBe(
+      0,
+    );
+    let list = await ada.as.query(api.grocery.listForWeek, { groupId, startDate: MONDAY });
+    expect(list.carryOver).toEqual({ count: 1 });
+    expect(
+      await ada.as.mutation(api.grocery.carryOver, { groupId, startDate: MONDAY, move: true }),
+    ).toBe(1);
+    list = await ada.as.query(api.grocery.listForWeek, { groupId, startDate: MONDAY });
+    expect(list.items.map((i) => i.name)).toEqual(['Bread']);
+  });
+
+  test("another family's rows are skipped exactly like deleted ones", async () => {
+    const t = setup();
+    const ada = await signedInUser(t, 'ada');
+    const eve = await signedInUser(t, 'eve');
+    const groupId = await groupWithMembers(t, [ada.userId]);
+    await groupWithMembers(t, [eve.userId]);
+    const { itemIds } = await listWithItems(t, groupId, MONDAY, ['Milk', 'Gone']);
+    await t.run((ctx) => ctx.db.delete(itemIds[1]));
+
+    expect(
+      await eve.as.mutation(api.grocery.setAtHome, { itemIds: [itemIds[0]], atHome: true }),
+    ).toBe(0);
+    expect(
+      await eve.as.mutation(api.grocery.setAtHome, { itemIds: [itemIds[1]], atHome: true }),
+    ).toBe(0);
+    const row = await t.run((ctx) => ctx.db.get(itemIds[0]));
+    expect(row?.atHome).toBeUndefined();
+    await expect(t.mutation(api.grocery.setAtHome, { itemIds, atHome: true })).rejects.toThrow(
+      /UNAUTHENTICATED/,
+    );
+  });
+});
+
+test('editing a merged line puts a row marked at home meanwhile back on the list', async () => {
+  const t = setup();
+  const ada = await signedInUser(t, 'ada');
+  const groupId = await groupWithMembers(t, [ada.userId]);
+  const { itemIds } = await listWithItems(t, groupId, MONDAY, ['Onion', 'Onion']);
+  await ada.as.mutation(api.grocery.setAtHome, { itemIds: [itemIds[0]], atHome: true });
+  await ada.as.mutation(api.grocery.editMerged, { itemIds, qty: 1, unit: 'pcs' });
+  const list = await ada.as.query(api.grocery.listForWeek, { groupId, startDate: MONDAY });
+  expect(list.items.map((i) => [i.name, i.qty, i.atHome])).toEqual([['Onion', 1, false]]);
+});

@@ -106,6 +106,14 @@ export const Home = (p: IconProps) => (
     <Path d="M12 13v5M9.5 15.5h5" />
   </Stroke>
 );
+/** A house with a tick: "we have this at home". */
+export const AtHome = (p: IconProps) => (
+  <Stroke {...p}>
+    <Path d="M3 11l9-7 9 7" />
+    <Path d="M5 10v10h14V10" />
+    <Path d="M9 15l2 2 4-4" />
+  </Stroke>
+);
 export const Mail = (p: IconProps) => (
   <Stroke {...p}>
     <Path d="M4 7h16v10H4z" />

@@ -41,6 +41,7 @@ const mockNavigation = {
 const mockUseQuery = jest.fn();
 const mockAddManual = jest.fn();
 const mockRename = jest.fn(() => Promise.resolve(null));
+const mockSetAtHome = jest.fn((_args: unknown) => Promise.resolve(1));
 jest.mock('convex/react', () => ({
   useQuery: (...args: unknown[]) => mockUseQuery(...args),
   useMutation: (name: string) =>
@@ -48,10 +49,13 @@ jest.mock('convex/react', () => ({
       ? mockAddManual
       : name === 'groups.rename'
         ? mockRename
-        : Object.assign(jest.fn(), { withOptimisticUpdate: () => jest.fn() }),
+        : name === 'grocery.setAtHome'
+          ? { withOptimisticUpdate: () => mockSetAtHome }
+          : Object.assign(jest.fn(), { withOptimisticUpdate: () => jest.fn() }),
 }));
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(() => Promise.resolve()),
+  selectionAsync: jest.fn(() => Promise.resolve()),
   ImpactFeedbackStyle: { Light: 'light' },
 }));
 jest.mock('@convex-dev/auth/react', () => ({
@@ -292,12 +296,13 @@ describe('groceries', () => {
     jest.useRealTimers();
   });
 
-  const row = (id: string, name: string) => ({
+  const row = (id: string, name: string, atHome = false) => ({
     _id: id,
     ingredientId: `ing-${name}`,
     name,
     section: 'dairy',
     checked: false,
+    atHome,
     source: { kind: 'manual' as const },
   });
   const list = (items: ReturnType<typeof row>[]) => ({
@@ -346,5 +351,25 @@ describe('groceries', () => {
     // The flash is let go after a moment, so unticking the item later does not flash it again.
     await act(() => jest.runOnlyPendingTimers());
     expect(screen.queryByTestId('added-flash')).toBeNull();
+  });
+
+  test('the house button marks a line as at home, and the at-home group puts it back', async () => {
+    await i18n.changeLanguage('nb');
+    mockSetAtHome.mockClear();
+    mockUseQuery.mockReturnValue(list([row('i0', 'Smør'), row('i1', 'Melk', true)]));
+    await render(
+      <SessionContext.Provider value={me}>
+        <GroceriesScreen />
+      </SessionContext.Provider>,
+    );
+    await fireEvent.press(screen.getByLabelText('Har hjemme: Smør'));
+    expect(mockSetAtHome).toHaveBeenCalledWith({ itemIds: ['i0'], atHome: true });
+
+    // Melk is not on the shopping part of the list, only in the collapsed group.
+    expect(screen.queryByLabelText('Har hjemme: Melk')).toBeNull();
+    expect(screen.queryByText('Melk')).toBeNull();
+    await fireEvent.press(screen.getByText('Har hjemme · 1'));
+    await fireEvent.press(screen.getByLabelText('Sett Melk på listen igjen'));
+    expect(mockSetAtHome).toHaveBeenCalledWith({ itemIds: ['i1'], atHome: false });
   });
 });

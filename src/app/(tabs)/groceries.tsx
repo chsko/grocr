@@ -21,7 +21,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { GroceryLineEditor } from '@/components/grocery-line-editor';
-import { Check, ChevronDown, ChevronRight, Plus } from '@/components/icons';
+import { AtHome, Check, ChevronDown, ChevronRight, Plus } from '@/components/icons';
 import { Button, TabScreen, Text } from '@/components/ui';
 import { Fonts, Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
@@ -37,7 +37,9 @@ import { addDays, defaultGroceryWeek, startOfWeek, todayIn, type Weekday } from 
 
 /**
  * The week's shared grocery list (GRO-36, GRO-37): lines of the same ingredient merged, grouped
- * by store section, tap to tick. Opens on next week's list Fri-Sun (the family shops then).
+ * by store section, tap to tick. The house button on a line marks it as already at home (checked
+ * in the fridge before going out), which moves it to its own group instead of the cart. Opens on
+ * next week's list Fri-Sun (the family shops then).
  */
 export default function GroceriesScreen() {
   const colors = useColors();
@@ -70,7 +72,22 @@ export default function GroceriesScreen() {
       const ids = new Set<string>(itemIds);
       store.setQuery(api.grocery.listForWeek, args, {
         ...current,
-        items: current.items.map((i) => (ids.has(i._id) ? { ...i, checked } : i)),
+        items: current.items.map((i) =>
+          ids.has(i._id) ? { ...i, checked, atHome: checked ? false : i.atHome } : i,
+        ),
+      });
+    },
+  );
+  const setAtHome = useMutation(api.grocery.setAtHome).withOptimisticUpdate(
+    (store, { itemIds, atHome }) => {
+      const current = store.getQuery(api.grocery.listForWeek, args);
+      if (!current) return;
+      const ids = new Set<string>(itemIds);
+      store.setQuery(api.grocery.listForWeek, args, {
+        ...current,
+        items: current.items.map((i) =>
+          ids.has(i._id) && !(atHome && i.checked) ? { ...i, atHome } : i,
+        ),
       });
     },
   );
@@ -80,6 +97,7 @@ export default function GroceriesScreen() {
 
   const [text, setText] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
+  const [homeOpen, setHomeOpen] = useState(false);
   // The line being edited, by key, so it picks up rows added while the editor is open.
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const inputRef = useRef<TextInputInstance>(null);
@@ -94,7 +112,8 @@ export default function GroceriesScreen() {
   const revealed = useRef<string | null>(null);
 
   const lines = useMemo(() => mergeRows(data?.items ?? [], data?.sectionOrder), [data]);
-  const open = lines.filter((l) => !l.checked);
+  const open = lines.filter((l) => !l.checked && !l.atHome);
+  const home = lines.filter((l) => l.atHome);
   const editing = lines.find((l) => l.key === editingKey) ?? null;
   const cart = lines.filter((l) => l.checked);
   const sections = useMemo(() => {
@@ -123,6 +142,11 @@ export default function GroceriesScreen() {
     void attempt(t, () =>
       setChecked({ itemIds: line.itemIds as Id<'groceryItems'>[], checked: !line.checked }),
     );
+  }
+
+  function markAtHome(line: GroceryLine, atHome: boolean) {
+    if (atHome) void Haptics.selectionAsync().catch(() => {});
+    void attempt(t, () => setAtHome({ itemIds: line.itemIds as Id<'groceryItems'>[], atHome }));
   }
 
   async function add() {
@@ -290,6 +314,13 @@ export default function GroceriesScreen() {
               key={line.key}
               accessibilityRole="checkbox"
               accessibilityState={{ checked: false }}
+              // The row is one element to VoiceOver, so the house button is offered as an action.
+              accessibilityActions={[
+                { name: 'atHome', label: t('groceries.markAtHome', { name: line.name }) },
+              ]}
+              onAccessibilityAction={(e) => {
+                if (e.nativeEvent.actionName === 'atHome') markAtHome(line, true);
+              }}
               onPress={() => toggle(line)}
               onLongPress={() => setEditingKey(line.key)}
               onLayout={(e) => {
@@ -311,10 +342,55 @@ export default function GroceriesScreen() {
               <Text variant="item" style={{ fontSize: 16 }}>
                 {formatAmounts(t, i18n.language, line.amounts)}
               </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('groceries.markAtHome', { name: line.name })}
+                onPress={() => markAtHome(line, true)}
+                hitSlop={{ top: 6, bottom: 6, left: 4, right: 8 }}
+                style={({ pressed }) => [styles.homeButton, pressed && { opacity: 0.5 }]}>
+                <AtHome color={colors.muted} size={20} strokeWidth={1.8} />
+              </Pressable>
             </Pressable>
           ))}
         </View>
       ))}
+
+      {home.length > 0 ? (
+        <View style={styles.cart}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ expanded: homeOpen }}
+            onPress={() => setHomeOpen(!homeOpen)}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 }}>
+            {homeOpen ? (
+              <ChevronDown size={16} strokeWidth={2.2} />
+            ) : (
+              <ChevronRight size={16} strokeWidth={2.2} />
+            )}
+            <Text variant="item" style={{ fontSize: 15, fontFamily: Fonts.bold }}>
+              {t('groceries.atHome', { count: home.length })}
+            </Text>
+          </Pressable>
+          {homeOpen
+            ? home.map((line) => (
+                <Pressable
+                  key={line.key}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('groceries.backOnList', { name: line.name })}
+                  onPress={() => markAtHome(line, false)}
+                  style={styles.cartLine}>
+                  <AtHome color={colors.muted} size={22} strokeWidth={1.8} />
+                  <Text color={colors.muted} style={{ flex: 1, fontSize: 16 }}>
+                    {line.name}
+                  </Text>
+                  <Text color={colors.muted} style={{ fontSize: 15 }}>
+                    {formatAmounts(t, i18n.language, line.amounts)}
+                  </Text>
+                </Pressable>
+              ))
+            : null}
+        </View>
+      ) : null}
 
       {cart.length > 0 ? (
         <View style={styles.cart}>
@@ -438,6 +514,15 @@ const useStyles = makeStyles((colors) => ({
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: colors.divider,
+  },
+  // Pulls the 44pt target to the row's edge so it lines up with the amounts above and below.
+  homeButton: {
+    width: 36,
+    minHeight: 44,
+    marginLeft: -6,
+    marginRight: -8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   box: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: colors.checkbox },
   boxOn: {

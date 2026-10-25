@@ -13,6 +13,7 @@ export type GroceryRow = {
   unit?: string;
   section: string;
   checked: boolean;
+  atHome?: boolean;
   source: { kind: 'meal'; mealPlanEntryId: string } | { kind: 'manual'; addedBy?: string };
 };
 
@@ -22,6 +23,8 @@ export type GroceryLine = {
   name: string;
   section: string;
   checked: boolean;
+  /** Someone has it at home, so it is not on the shopping part of the list. */
+  atHome: boolean;
   itemIds: string[];
   amounts: Amount[];
   /** Meal entries the rows came from, in first-seen order. */
@@ -34,7 +37,8 @@ export function mergeRows(rows: GroceryRow[], order?: readonly string[]): Grocer
   const lines = new Map<string, GroceryLine & { raw: Amount[] }>();
   for (const row of rows) {
     const ingredientKey = row.ingredientId ?? `name:${normalizeName(row.name)}`;
-    const key = `${row.checked ? 'checked' : 'open'}|${ingredientKey}`;
+    const atHome = !row.checked && row.atHome === true;
+    const key = `${row.checked ? 'checked' : atHome ? 'home' : 'open'}|${ingredientKey}`;
     let line = lines.get(key);
     if (line === undefined) {
       line = {
@@ -43,6 +47,7 @@ export function mergeRows(rows: GroceryRow[], order?: readonly string[]): Grocer
         name: row.name,
         section: row.section,
         checked: row.checked,
+        atHome,
         itemIds: [],
         amounts: [],
         entryIds: [],
