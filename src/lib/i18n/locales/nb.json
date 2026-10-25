@@ -250,7 +250,7 @@
     "share": "Del invitasjon",
     "copy": "Kopier kode",
     "copied": "Kopiert",
-    "shareMessage": "Bli med i {{family}} på Grocr for å planlegge middager og dele handlelisten. Invitasjonskoden din: {{code}}",
+    "shareMessage": "Bli med i {{family}} på Grocr for å planlegge middager og dele handlelisten. Invitasjonskoden din: {{code}}\nhttps://grocr.io/join/{{code}}",
     "factExpiry": "Virker én gang og utløper om 48 timer.",
     "factMembers": "Du ser hvem som ble med under Familie, og kan fjerne dem.",
     "factEdit": "Nye medlemmer kan redigere oppskrifter, ukemenyen og handlelister."

@@ -6,7 +6,7 @@ import { accessError, currentMembership, requireOwner, requireUserId } from './l
 import { CODE_LENGTH, normalizeCode } from './lib/inviteCode';
 
 // Invite codes (GRO-25): single use, 48 hours, one active code per family. The code is what
-// people type, so it avoids look-alike characters. Links on grocr.com come with GRO-39.
+// people type, so it avoids look-alike characters. Shared invites also link to grocr.io/join/<code> (site/join).
 
 export const INVITE_TTL_MS = 48 * 60 * 60 * 1000;
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';

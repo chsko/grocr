@@ -250,7 +250,7 @@
     "share": "Share invite",
     "copy": "Copy code",
     "copied": "Copied",
-    "shareMessage": "Join {{family}} on Grocr to plan dinners and share the grocery list. Your invite code: {{code}}",
+    "shareMessage": "Join {{family}} on Grocr to plan dinners and share the grocery list. Your invite code: {{code}}\nhttps://grocr.io/join/{{code}}",
     "factExpiry": "Works once and expires in 48 hours.",
     "factMembers": "You'll see who joined on the Family tab and can remove them.",
     "factEdit": "New members can edit recipes, the week menu and grocery lists."
