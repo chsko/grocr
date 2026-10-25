@@ -86,7 +86,10 @@ export default function PickDinnerScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+      <ScrollView
+        automaticallyAdjustKeyboardInsets
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.content}>
         <View style={styles.titleRow}>
           <Text variant="heading" style={{ flex: 1 }}>
             {t('pick.title', { day: dayLabel(t, date) })}

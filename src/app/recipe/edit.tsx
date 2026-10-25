@@ -2,15 +2,7 @@ import { useMutation, useQuery } from 'convex/react';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  TextInput,
-  View,
-} from 'react-native';
+import { Modal, Pressable, ScrollView, TextInput, View } from 'react-native';
 
 import { Close } from '@/components/icons';
 import { Button, Chip, Field, IconButton, IconTile, Loading, Stepper, Text } from '@/components/ui';
@@ -118,10 +110,7 @@ export default function RecipeEditScreen() {
   if (id && existing === undefined) return <Loading />;
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={100}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <Stack.Screen
         options={{
           title: id ? t('recipeEdit.editTitle') : t('recipeEdit.newTitle'),
@@ -139,8 +128,11 @@ export default function RecipeEditScreen() {
           ),
         }}
       />
+      {/* iOS insets the scroll view by exactly what the keyboard covers. A KeyboardAvoidingView
+          guessed the sheet's offset and left a blank strip above the keyboard. */}
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
+        automaticallyAdjustKeyboardInsets
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.content}>
         <View style={styles.titleRow}>
@@ -348,7 +340,7 @@ export default function RecipeEditScreen() {
           </View>
         </Pressable>
       </Modal>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 

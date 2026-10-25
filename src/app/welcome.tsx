@@ -4,7 +4,7 @@ import { getCalendars } from 'expo-localization';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChevronRight, Home, Mail } from '@/components/icons';
@@ -46,85 +46,82 @@ export default function WelcomeScreen() {
 
   const firstName = user.name.split(' ')[0];
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView
-        style={{ backgroundColor: colors.background }}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={[
-          styles.container,
-          { paddingTop: insets.top + 48, paddingBottom: insets.bottom + 24 },
-        ]}>
-        <Text variant="title" style={{ fontSize: 32 }}>
-          {firstName ? t('welcome.titleNamed', { name: firstName }) : t('welcome.title')}
-        </Text>
-        <Text color={colors.muted} style={{ marginTop: 12 }}>
-          {t('welcome.intro')}
-        </Text>
+    <ScrollView
+      automaticallyAdjustKeyboardInsets
+      style={{ backgroundColor: colors.background }}
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={[
+        styles.container,
+        { paddingTop: insets.top + 48, paddingBottom: insets.bottom + 24 },
+      ]}>
+      <Text variant="title" style={{ fontSize: 32 }}>
+        {firstName ? t('welcome.titleNamed', { name: firstName }) : t('welcome.title')}
+      </Text>
+      <Text color={colors.muted} style={{ marginTop: 12 }}>
+        {t('welcome.intro')}
+      </Text>
 
-        <View style={[styles.card, styles.cardActive]}>
-          <View style={styles.cardHead}>
-            <View style={[styles.cardIcon, { backgroundColor: colors.saffronSoft }]}>
-              <Home color={colors.tomato} strokeWidth={1.8} size={24} />
-            </View>
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text variant="item" style={{ fontSize: 18 }}>
-                {t('welcome.createTitle')}
-              </Text>
-              <Text variant="small" color={colors.muted} style={{ fontSize: 14 }}>
-                {t('welcome.createHint')}
-              </Text>
-            </View>
-          </View>
-          <Field
-            label={t('welcome.familyName')}
-            value={name}
-            onChangeText={setName}
-            placeholder={t('welcome.familyNamePlaceholder')}
-            returnKeyType="done"
-            onSubmitEditing={() => void create()}
-          />
-          <Button
-            title={t('welcome.createButton')}
-            loading={busy}
-            disabled={name.trim() === ''}
-            onPress={() => void create()}
-          />
-        </View>
-
-        <Pressable
-          onPress={() => router.push('/join')}
-          accessibilityRole="link"
-          style={({ pressed }) => [styles.card, styles.row, pressed && { opacity: 0.7 }]}>
-          <View style={[styles.cardIcon, { backgroundColor: colors.surface }]}>
-            <Mail strokeWidth={1.8} size={24} />
+      <View style={[styles.card, styles.cardActive]}>
+        <View style={styles.cardHead}>
+          <View style={[styles.cardIcon, { backgroundColor: colors.saffronSoft }]}>
+            <Home color={colors.tomato} strokeWidth={1.8} size={24} />
           </View>
           <View style={{ flex: 1, gap: 2 }}>
             <Text variant="item" style={{ fontSize: 18 }}>
-              {t('welcome.joinTitle')}
+              {t('welcome.createTitle')}
             </Text>
             <Text variant="small" color={colors.muted} style={{ fontSize: 14 }}>
-              {t('welcome.joinHint')}
+              {t('welcome.createHint')}
             </Text>
           </View>
-          <ChevronRight color={colors.muted} size={20} />
-        </Pressable>
-
-        <Text variant="small" color={colors.muted} style={styles.footer}>
-          {t('welcome.next')}
-        </Text>
-        <Text variant="small" color={colors.muted} style={styles.signedIn}>
-          {t('welcome.signedInAs', { who: accountLabel(user, t('account.hiddenAppleEmail')) })}
-        </Text>
-        <Button
-          kind="ghost"
-          title={t('account.signOut')}
-          style={{ alignSelf: 'center' }}
-          onPress={() => void signOut()}
+        </View>
+        <Field
+          label={t('welcome.familyName')}
+          value={name}
+          onChangeText={setName}
+          placeholder={t('welcome.familyNamePlaceholder')}
+          returnKeyType="done"
+          onSubmitEditing={() => void create()}
         />
-      </ScrollView>
-    </KeyboardAvoidingView>
+        <Button
+          title={t('welcome.createButton')}
+          loading={busy}
+          disabled={name.trim() === ''}
+          onPress={() => void create()}
+        />
+      </View>
+
+      <Pressable
+        onPress={() => router.push('/join')}
+        accessibilityRole="link"
+        style={({ pressed }) => [styles.card, styles.row, pressed && { opacity: 0.7 }]}>
+        <View style={[styles.cardIcon, { backgroundColor: colors.surface }]}>
+          <Mail strokeWidth={1.8} size={24} />
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text variant="item" style={{ fontSize: 18 }}>
+            {t('welcome.joinTitle')}
+          </Text>
+          <Text variant="small" color={colors.muted} style={{ fontSize: 14 }}>
+            {t('welcome.joinHint')}
+          </Text>
+        </View>
+        <ChevronRight color={colors.muted} size={20} />
+      </Pressable>
+
+      <Text variant="small" color={colors.muted} style={styles.footer}>
+        {t('welcome.next')}
+      </Text>
+      <Text variant="small" color={colors.muted} style={styles.signedIn}>
+        {t('welcome.signedInAs', { who: accountLabel(user, t('account.hiddenAppleEmail')) })}
+      </Text>
+      <Button
+        kind="ghost"
+        title={t('account.signOut')}
+        style={{ alignSelf: 'center' }}
+        onPress={() => void signOut()}
+      />
+    </ScrollView>
   );
 }
 

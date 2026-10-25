@@ -2,7 +2,7 @@ import { useMutation } from 'convex/react';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar, Button, Field, Text } from '@/components/ui';
@@ -67,69 +67,66 @@ export default function JoinScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={{ backgroundColor: colors.background }}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + 24 }]}>
-        <Text variant="title">{t('join.title')}</Text>
-        <Text color={colors.muted} style={{ marginTop: 10 }}>
-          {t('join.intro')}
+    <ScrollView
+      automaticallyAdjustKeyboardInsets
+      contentInsetAdjustmentBehavior="automatic"
+      style={{ backgroundColor: colors.background }}
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + 24 }]}>
+      <Text variant="title">{t('join.title')}</Text>
+      <Text color={colors.muted} style={{ marginTop: 10 }}>
+        {t('join.intro')}
+      </Text>
+      <Field
+        label={t('join.codeLabel')}
+        value={code}
+        onChangeText={setCode}
+        autoCapitalize="characters"
+        autoCorrect={false}
+        autoFocus={!params.code}
+        maxLength={9}
+        style={{ marginTop: 28 }}
+        inputStyle={styles.codeInput}
+      />
+      {problem ? (
+        <Text color={colors.danger} style={{ marginTop: 10 }}>
+          {problem === 'invalid' ? t('join.invalid') : t('join.rateLimited')}
         </Text>
-        <Field
-          label={t('join.codeLabel')}
-          value={code}
-          onChangeText={setCode}
-          autoCapitalize="characters"
-          autoCorrect={false}
-          autoFocus={!params.code}
-          maxLength={9}
-          style={{ marginTop: 28 }}
-          inputStyle={styles.codeInput}
-        />
-        {problem ? (
-          <Text color={colors.danger} style={{ marginTop: 10 }}>
-            {problem === 'invalid' ? t('join.invalid') : t('join.rateLimited')}
-          </Text>
-        ) : null}
+      ) : null}
 
-        {preview ? (
-          <View style={styles.preview}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-              <Avatar name={preview.inviterName} color={colors.tomatoFill} size={48} />
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text variant="small" color={colors.muted} style={{ fontSize: 15 }}>
-                  {t('join.invitedYou', { name: preview.inviterName })}
-                </Text>
-                <Text variant="heading" style={{ fontSize: 20 }}>
-                  {preview.familyName}
-                </Text>
-              </View>
-            </View>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <Text variant="label" style={styles.pill}>
-                {t('join.members', { count: preview.memberCount })}
+      {preview ? (
+        <View style={styles.preview}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+            <Avatar name={preview.inviterName} color={colors.tomatoFill} size={48} />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text variant="small" color={colors.muted} style={{ fontSize: 15 }}>
+                {t('join.invitedYou', { name: preview.inviterName })}
               </Text>
-              <Text variant="label" style={styles.pill}>
-                {t('join.recipes', { count: preview.recipeCount })}
+              <Text variant="heading" style={{ fontSize: 20 }}>
+                {preview.familyName}
               </Text>
             </View>
-            <Button
-              title={t('join.joinButton', { name: preview.familyName })}
-              loading={busy}
-              onPress={() => void join()}
-            />
           </View>
-        ) : null}
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Text variant="label" style={styles.pill}>
+              {t('join.members', { count: preview.memberCount })}
+            </Text>
+            <Text variant="label" style={styles.pill}>
+              {t('join.recipes', { count: preview.recipeCount })}
+            </Text>
+          </View>
+          <Button
+            title={t('join.joinButton', { name: preview.familyName })}
+            loading={busy}
+            onPress={() => void join()}
+          />
+        </View>
+      ) : null}
 
-        <Text variant="small" color={colors.muted} style={styles.footer}>
-          {t('join.footer')}
-        </Text>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      <Text variant="small" color={colors.muted} style={styles.footer}>
+        {t('join.footer')}
+      </Text>
+    </ScrollView>
   );
 }
 
