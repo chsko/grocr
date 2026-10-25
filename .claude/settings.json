@@ -5,9 +5,16 @@
         "source": "github",
         "repo": "anthropics/claude-plugins-official"
       }
+    },
+    "impeccable": {
+      "source": {
+        "source": "github",
+        "repo": "pbakaus/impeccable"
+      }
     }
   },
   "enabledPlugins": {
-    "convex@claude-plugins-official": true
+    "convex@claude-plugins-official": true,
+    "impeccable@impeccable": true
   }
 }
