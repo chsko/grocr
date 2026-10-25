@@ -29,5 +29,6 @@ jest.mock('react-native-reanimated', () => {
     useSharedValue: (v) => useRef({ value: v }).current,
     useAnimatedStyle: live,
     withTiming: (v) => v,
+    withDelay: (_, v) => v,
   };
 });

@@ -162,6 +162,8 @@
     "empty": "Nothing on this list yet. Plan dinners on the Week tab, or add items above.",
     "addPlaceholder": "Add an item, e.g. 2 l milk",
     "addLabel": "Add an item",
+    "done": "Done",
+    "added": "Added {{name}}",
     "addedBy": "Added by {{name}}",
     "clearTitle": "Clear checked items?",
     "clearBody_one": "{{count}} checked item will be removed from the list.",

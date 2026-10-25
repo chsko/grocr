@@ -1,8 +1,24 @@
 import { useMutation, useQuery } from 'convex/react';
+import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, TextInput, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  Alert,
+  Keyboard,
+  Pressable,
+  type ScrollViewInstance,
+  TextInput,
+  type TextInputInstance,
+  View,
+} from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withDelay,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { GroceryLineEditor } from '@/components/grocery-line-editor';
 import { Check, ChevronDown, ChevronRight, Plus } from '@/components/icons';
@@ -66,6 +82,16 @@ export default function GroceriesScreen() {
   const [cartOpen, setCartOpen] = useState(false);
   // The line being edited, by key, so it picks up rows added while the editor is open.
   const [editingKey, setEditingKey] = useState<string | null>(null);
+  const inputRef = useRef<TextInputInstance>(null);
+  const [typing, setTyping] = useState(false);
+  // The row just added from the field: its line flashes and is scrolled into view.
+  const [added, setAdded] = useState<string | null>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
+  const scrollY = useRef(0);
+  const viewHeight = useRef(0);
+  const sectionY = useRef(new Map<string, number>());
+  const lineLayout = useRef(new Map<string, { y: number; height: number }>());
+  const revealed = useRef<string | null>(null);
 
   const lines = useMemo(() => mergeRows(data?.items ?? [], data?.sectionOrder), [data]);
   const open = lines.filter((l) => !l.checked);
@@ -103,8 +129,40 @@ export default function GroceriesScreen() {
     const parsed = parseItemInput(text);
     if (!parsed.name) return;
     setText('');
-    await attempt(t, () => addManual({ ...args, ...parsed }));
+    const id = await attempt(t, () => addManual({ ...args, ...parsed }));
+    if (!id) return;
+    setAdded(id);
+    setTimeout(() => setAdded((current) => (current === id ? null : current)), 2500);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    AccessibilityInfo.announceForAccessibility(t('groceries.added', { name: parsed.name }));
   }
+
+  /** Leaves typing mode; anything still in the field is added first. */
+  function done() {
+    if (text.trim()) void add();
+    inputRef.current?.blur();
+    Keyboard.dismiss();
+  }
+
+  /** Scrolls the just-added line into view once both it and its section have a position. */
+  function reveal(line: GroceryLine) {
+    if (!added || revealed.current === added || !line.itemIds.includes(added)) return;
+    const top = sectionY.current.get(line.section);
+    const box = lineLayout.current.get(line.key);
+    if (top === undefined || !box) return;
+    revealed.current = added;
+    const y = top + box.y;
+    const keyboard = Keyboard.isVisible() ? (Keyboard.metrics()?.height ?? 0) : 0;
+    const visible = viewHeight.current - keyboard;
+    if (y >= scrollY.current && y + box.height <= scrollY.current + visible) return;
+    scrollRef.current?.scrollTo({ y: Math.max(0, y - 24), animated: true });
+  }
+
+  // The new line often renders before the mutation resolves, so look for it after each render
+  // too, not only when it lays out.
+  useEffect(() => {
+    open.forEach(reveal);
+  });
 
   function confirmClear() {
     Alert.alert(t('groceries.clearTitle'), t('groceries.clearBody', { count: cart.length }), [
@@ -142,25 +200,50 @@ export default function GroceriesScreen() {
           </Pressable>
         ))}
       </View>
-      <View style={styles.add}>
-        <Plus color={colors.muted} size={20} />
-        <TextInput
-          value={text}
-          onChangeText={setText}
-          placeholder={t('groceries.addPlaceholder')}
-          placeholderTextColor={colors.checkbox}
-          accessibilityLabel={t('groceries.addLabel')}
-          returnKeyType="done"
-          submitBehavior="submit"
-          onSubmitEditing={() => void add()}
-          style={styles.addInput}
-        />
+      <View style={styles.addRow}>
+        <View style={[styles.add, typing && styles.addTyping]}>
+          <Plus color={typing ? colors.tomato : colors.muted} size={20} />
+          <TextInput
+            ref={inputRef}
+            value={text}
+            onChangeText={setText}
+            onFocus={() => setTyping(true)}
+            onBlur={() => setTyping(false)}
+            placeholder={t('groceries.addPlaceholder')}
+            placeholderTextColor={colors.checkbox}
+            accessibilityLabel={t('groceries.addLabel')}
+            // Return adds the item and keeps the keyboard up for the next one; Done puts it away.
+            returnKeyType="next"
+            submitBehavior="submit"
+            onSubmitEditing={() => void add()}
+            style={styles.addInput}
+          />
+        </View>
+        {typing ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={done}
+            hitSlop={8}
+            style={({ pressed }) => [styles.done, pressed && { opacity: 0.6 }]}>
+            <Text variant="item" color={colors.tomato} style={{ fontFamily: Fonts.bold }}>
+              {t('groceries.done')}
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );
 
   return (
-    <TabScreen header={header}>
+    <TabScreen
+      header={header}
+      scrollRef={scrollRef}
+      onScroll={(e) => {
+        scrollY.current = e.nativeEvent.contentOffset.y;
+      }}
+      onLayout={(e) => {
+        viewHeight.current = e.nativeEvent.layout.height;
+      }}>
       {startDate === thisWeek && data?.carryOver ? (
         <View style={styles.carry}>
           <Text style={{ fontSize: 15 }}>
@@ -192,7 +275,13 @@ export default function GroceriesScreen() {
       ) : null}
 
       {sections.map(({ section, lines: sectionLines }) => (
-        <View key={section} style={{ marginTop: 14 }}>
+        <View
+          key={section}
+          style={{ marginTop: 14 }}
+          onLayout={(e) => {
+            sectionY.current.set(section, e.nativeEvent.layout.y);
+            sectionLines.forEach(reveal);
+          }}>
           <Text variant="section" color={colors.muted} style={{ marginBottom: 4 }}>
             {sectionName(section)}
           </Text>
@@ -203,7 +292,13 @@ export default function GroceriesScreen() {
               accessibilityState={{ checked: false }}
               onPress={() => toggle(line)}
               onLongPress={() => setEditingKey(line.key)}
+              onLayout={(e) => {
+                const { y, height } = e.nativeEvent.layout;
+                lineLayout.current.set(line.key, { y, height });
+                reveal(line);
+              }}
               style={({ pressed }) => [styles.line, pressed && { opacity: 0.6 }]}>
+              {added && line.itemIds.includes(added) ? <AddedFlash key={added} /> : null}
               <View style={styles.box} />
               <View style={{ flex: 1, gap: 2 }}>
                 <Text variant="item">{line.name}</Text>
@@ -272,6 +367,17 @@ export default function GroceriesScreen() {
   );
 }
 
+/** A saffron wash behind a just-added line that fades away, so the eye finds the new item. */
+function AddedFlash() {
+  const styles = useStyles();
+  const opacity = useSharedValue(1);
+  useEffect(() => {
+    opacity.value = withDelay(700, withTiming(0, { duration: 900 }));
+  }, [opacity]);
+  const fade = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  return <Animated.View testID="added-flash" pointerEvents="none" style={[styles.flash, fade]} />;
+}
+
 const useStyles = makeStyles((colors) => ({
   header: { paddingHorizontal: 20, paddingTop: 24, gap: 12, paddingBottom: 4 },
   // Same height and alignment as the Recipes title row (which has a 44pt button), so the
@@ -292,7 +398,9 @@ const useStyles = makeStyles((colors) => ({
   },
   switch: { flex: 1, height: 38, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   switchOn: { backgroundColor: colors.raised },
+  addRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   add: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
@@ -301,6 +409,17 @@ const useStyles = makeStyles((colors) => ({
     borderRadius: Radius.field,
     borderWidth: 1.5,
     borderColor: colors.border,
+  },
+  addTyping: { borderColor: colors.tomato },
+  done: { minHeight: 44, justifyContent: 'center' },
+  flash: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: -10,
+    right: -10,
+    borderRadius: 10,
+    backgroundColor: colors.saffronSoft,
   },
   addInput: { flex: 1, fontFamily: Fonts.medium, fontSize: 16, color: colors.ink, height: '100%' },
   carry: {

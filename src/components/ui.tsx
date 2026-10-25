@@ -7,6 +7,8 @@ import {
   View,
   StyleSheet,
   type PressableProps,
+  type ScrollViewInstance,
+  type ScrollViewProps,
   type StyleProp,
   type TextInputProps,
   type TextProps,
@@ -417,10 +419,16 @@ export function TabScreen({
   children,
   header,
   contentStyle,
+  scrollRef,
+  onScroll,
+  onLayout,
 }: {
   children: React.ReactNode;
   header?: React.ReactNode;
   contentStyle?: StyleProp<ViewStyle>;
+  scrollRef?: React.Ref<ScrollViewInstance>;
+  onScroll?: ScrollViewProps['onScroll'];
+  onLayout?: ScrollViewProps['onLayout'];
 }) {
   const colors = useColors();
   const slide = useTabSlideIn();
@@ -429,9 +437,15 @@ export function TabScreen({
       <Animated.View testID="tab-content" style={[{ flex: 1 }, slide]}>
         {header}
         <ScrollView
+          ref={scrollRef}
+          onScroll={onScroll}
+          onLayout={onLayout}
+          scrollEventThrottle={onScroll ? 32 : undefined}
           contentInsetAdjustmentBehavior="automatic"
           automaticallyAdjustKeyboardInsets
           keyboardShouldPersistTaps="handled"
+          // Scrolling the list puts the keyboard away, like Notes and Reminders.
+          keyboardDismissMode="on-drag"
           contentContainerStyle={[{ paddingHorizontal: 20, paddingBottom: 32 }, contentStyle]}>
           {children}
         </ScrollView>

@@ -162,6 +162,8 @@
     "empty": "Ingenting på listen ennå. Planlegg middager under Uke, eller legg til varer over.",
     "addPlaceholder": "Legg til en vare, f.eks. 2 l melk",
     "addLabel": "Legg til en vare",
+    "done": "Ferdig",
+    "added": "{{name}} er lagt til",
     "addedBy": "Lagt til av {{name}}",
     "clearTitle": "Fjerne avkryssede varer?",
     "clearBody_one": "{{count}} avkrysset vare fjernes fra listen.",

@@ -1,6 +1,8 @@
-import { fireEvent, render as rtlRender, screen } from '@testing-library/react-native';
+import { act, fireEvent, render as rtlRender, screen } from '@testing-library/react-native';
+import * as Haptics from 'expo-haptics';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import GroceriesScreen from '@/app/(tabs)/groceries';
 import WeekScreen from '@/app/(tabs)/week';
 import SectionsScreen from '@/app/sections';
 import { slideFrom } from '@/components/ui';
@@ -36,9 +38,17 @@ const mockNavigation = {
 };
 
 const mockUseQuery = jest.fn();
+const mockAddManual = jest.fn();
 jest.mock('convex/react', () => ({
   useQuery: (...args: unknown[]) => mockUseQuery(...args),
-  useMutation: () => Object.assign(jest.fn(), { withOptimisticUpdate: () => jest.fn() }),
+  useMutation: (name: string) =>
+    name === 'grocery.addManual'
+      ? mockAddManual
+      : Object.assign(jest.fn(), { withOptimisticUpdate: () => jest.fn() }),
+}));
+jest.mock('expo-haptics', () => ({
+  impactAsync: jest.fn(() => Promise.resolve()),
+  ImpactFeedbackStyle: { Light: 'light' },
 }));
 jest.mock('@convex-dev/auth/react', () => ({
   useAuthActions: () => ({ signIn: jest.fn(), signOut: jest.fn() }),
@@ -70,6 +80,7 @@ const me: Me = {
 
 beforeEach(() => {
   mockUseQuery.mockReset();
+  mockAddManual.mockReset();
   mockNav.index = 0;
 });
 
@@ -247,5 +258,70 @@ describe('tab switch', () => {
     expect(slideFrom(3, 1)).toBe(-40);
     expect(slideFrom(1, 1)).toBe(0);
     expect(slideFrom(-1, 2)).toBe(0);
+  });
+});
+
+describe('groceries', () => {
+  // Adding sets a timer that lets go of the flash; fake timers keep it from outliving the test.
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => {
+    jest.clearAllTimers();
+    jest.useRealTimers();
+  });
+
+  const row = (id: string, name: string) => ({
+    _id: id,
+    ingredientId: `ing-${name}`,
+    name,
+    section: 'dairy',
+    checked: false,
+    source: { kind: 'manual' as const },
+  });
+  const list = (items: ReturnType<typeof row>[]) => ({
+    items,
+    sources: {},
+    addedBy: {},
+    sectionOrder: undefined,
+    carryOver: null,
+  });
+
+  test('typing shows Ferdig, which adds what is typed and leaves typing mode', async () => {
+    await i18n.changeLanguage('nb');
+    mockUseQuery.mockReturnValue(list([]));
+    mockAddManual.mockResolvedValue('i1');
+    await render(
+      <SessionContext.Provider value={me}>
+        <GroceriesScreen />
+      </SessionContext.Provider>,
+    );
+    const field = screen.getByLabelText('Legg til en vare');
+    expect(screen.queryByText('Ferdig')).toBeNull();
+    await fireEvent(field, 'focus');
+    await fireEvent.changeText(field, '2 l melk');
+    await fireEvent.press(screen.getByText('Ferdig'));
+    expect(mockAddManual).toHaveBeenCalledWith(expect.objectContaining({ name: 'melk', qty: 2 }));
+    await fireEvent(field, 'blur');
+    expect(screen.queryByText('Ferdig')).toBeNull();
+  });
+
+  test('a new item flashes its line and gives a light tap', async () => {
+    await i18n.changeLanguage('en');
+    mockUseQuery.mockReturnValue(list([row('i0', 'Butter')]));
+    mockAddManual.mockResolvedValue('i1');
+    const ui = (
+      <SessionContext.Provider value={me}>
+        <GroceriesScreen />
+      </SessionContext.Provider>
+    );
+    await render(ui);
+    await fireEvent.changeText(screen.getByLabelText('Add an item'), 'milk');
+    // The list updates with the new row before the mutation resolves.
+    mockUseQuery.mockReturnValue(list([row('i0', 'Butter'), row('i1', 'Milk')]));
+    await act(() => fireEvent(screen.getByLabelText('Add an item'), 'submitEditing'));
+    expect(screen.getAllByTestId('added-flash')).toHaveLength(1);
+    expect(Haptics.impactAsync).toHaveBeenCalledWith('light');
+    // The flash is let go after a moment, so unticking the item later does not flash it again.
+    await act(() => jest.runOnlyPendingTimers());
+    expect(screen.queryByTestId('added-flash')).toBeNull();
   });
 });
