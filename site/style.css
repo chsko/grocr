@@ -1,0 +1,137 @@
+/* grocr.io: the toned-down "Market day" look of the app. */
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700&display=swap');
+
+:root {
+  --ink: #1e1a16;
+  --muted: #5c5249;
+  --tomato: #b8361e;
+  --saffron-soft: #fff6dc;
+  --surface: #f6f2ec;
+  --divider: #ece6dd;
+  --bg: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font:
+    17px/1.55 'Bricolage Grotesque',
+    system-ui,
+    sans-serif;
+}
+
+main {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+header a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: inherit;
+  text-decoration: none;
+}
+header img {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+}
+header strong {
+  font-size: 22px;
+  letter-spacing: -0.4px;
+}
+header nav {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+
+.lang button {
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.lang button[aria-pressed='true'] {
+  background: var(--saffron-soft);
+  color: var(--ink);
+}
+
+h1 {
+  font-size: 34px;
+  line-height: 1.15;
+  letter-spacing: -0.8px;
+  margin: 0 0 12px;
+}
+h2 {
+  font-size: 21px;
+  margin: 32px 0 8px;
+}
+p,
+li {
+  color: var(--ink);
+}
+.muted {
+  color: var(--muted);
+}
+a {
+  color: var(--tomato);
+  font-weight: 600;
+}
+
+.card {
+  background: var(--surface);
+  border-radius: 18px;
+  padding: 20px;
+  margin: 20px 0;
+}
+.code {
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: 6px;
+  text-align: center;
+  margin: 8px 0 4px;
+}
+.button {
+  display: block;
+  text-align: center;
+  background: var(--tomato);
+  color: #fff;
+  text-decoration: none;
+  border-radius: 999px;
+  padding: 14px 20px;
+  margin-top: 16px;
+}
+footer {
+  margin-top: 48px;
+  padding-top: 20px;
+  border-top: 1px solid var(--divider);
+  font-size: 14px;
+}
+footer a {
+  margin-right: 16px;
+}
+
+/* Bilingual pages: the visitor's language shows, the other hides. */
+html[data-lang='nb'] [lang='en'],
+html[data-lang='en'] [lang='nb'] {
+  display: none;
+}

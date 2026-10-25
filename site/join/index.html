@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="nb" data-lang="nb">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Invite · Grocr</title>
+    <meta name="description" content="Join your family on Grocr." />
+    <link rel="icon" href="/favicon.png" />
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/lang.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <a href="/"><img src="/icon.png" alt="" /><strong>Grocr</strong></a>
+        <nav class="lang" aria-label="Språk / Language">
+          <button type="button" data-set="nb">Norsk</button>
+          <button type="button" data-set="en">English</button>
+        </nav>
+      </header>
+      <section lang="nb">
+        <h1>Du er invitert til Grocr</h1>
+        <p class="muted">
+          Noen i familien din vil planlegge middager og dele handlelisten med deg.
+        </p>
+      </section>
+      <section lang="en">
+        <h1>You're invited to Grocr</h1>
+        <p class="muted">
+          Someone in your family wants to plan dinners and share the grocery list with you.
+        </p>
+      </section>
+      <div class="card" id="invite" hidden>
+        <p class="muted" style="margin: 0; text-align: center">
+          <span lang="nb">Invitasjonskoden din</span><span lang="en">Your invite code</span>
+        </p>
+        <p class="code" id="code"></p>
+        <a class="button" id="open" href="grocr://join"
+          ><span lang="nb">Åpne i Grocr</span><span lang="en">Open in Grocr</span></a
+        >
+      </div>
+      <section lang="nb">
+        <p>
+          Har du ikke appen ennå? Grocr kommer snart til iPhone og Android. Når du har installert
+          den, logger du inn, velger <strong>Bli med i en familie</strong> og skriver inn koden.
+        </p>
+      </section>
+      <section lang="en">
+        <p>
+          Don't have the app yet? Grocr is coming soon to iPhone and Android. Once it's installed,
+          sign in, choose <strong>Join a family</strong> and enter the code.
+        </p>
+      </section>
+      <script>
+        // /join/ABC234 or /join/?code=ABC234. Only invite-code characters are shown.
+        (function () {
+          var fromPath = location.pathname.split('/join/')[1] || '';
+          var raw = new URLSearchParams(location.search).get('code') || fromPath;
+          var code = decodeURIComponent(raw)
+            .toUpperCase()
+            .replace(/[^A-Z0-9]/g, '')
+            .slice(0, 6);
+          if (code.length !== 6) return;
+          document.getElementById('code').textContent = code.slice(0, 3) + ' ' + code.slice(3);
+          document.getElementById('open').href = 'grocr://join?code=' + code;
+          document.getElementById('invite').hidden = false;
+        })();
+      </script>
+      <footer>
+        <a href="/privacy/"><span lang="nb">Personvern</span><span lang="en">Privacy</span></a>
+        <a href="/delete-account/"
+          ><span lang="nb">Slett konto</span><span lang="en">Delete account</span></a
+        >
+        <a href="mailto:support@grocr.io">support@grocr.io</a>
+      </footer>
+    </main>
+  </body>
+</html>
