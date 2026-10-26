@@ -7,6 +7,7 @@ import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, View } from 'r
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChevronRight, Clock, More, Plus } from '@/components/icons';
+import { SettingPicker } from '@/components/setting-picker';
 import { Avatar, Button, Field, IconButton, TabScreen, Text } from '@/components/ui';
 import { Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
@@ -50,25 +51,6 @@ export default function FamilyScreen() {
     light: t('family.appearanceLight'),
     dark: t('family.appearanceDark'),
   };
-
-  function pickLanguage() {
-    Alert.alert(t('family.language'), undefined, [
-      { text: t('family.languageValue'), onPress: () => void setLanguagePreference('system') },
-      { text: LANGUAGE_NAMES.nb, onPress: () => void setLanguagePreference('nb') },
-      { text: LANGUAGE_NAMES.en, onPress: () => void setLanguagePreference('en') },
-      { text: t('common.cancel'), style: 'cancel' },
-    ]);
-  }
-
-  function pickAppearance() {
-    Alert.alert(t('family.appearance'), undefined, [
-      ...(['system', 'light', 'dark'] as const).map((pref) => ({
-        text: appearanceNames[pref],
-        onPress: () => void setAppearancePreference(pref),
-      })),
-      { text: t('common.cancel'), style: 'cancel' as const },
-    ]);
-  }
 
   function manage(member: { membershipId: Id<'memberships'>; name: string }) {
     Alert.alert(member.name, undefined, [
@@ -230,16 +212,31 @@ export default function FamilyScreen() {
         <Text>{t('family.storeOrder')}</Text>
         <ChevronRight color={colors.muted} size={18} />
       </Pressable>
-      <Pressable accessibilityRole="button" onPress={pickLanguage} style={styles.setting}>
+      <View style={styles.setting}>
         <Text>{t('family.language')}</Text>
-        <Text color={colors.muted}>
-          {language === 'system' ? t('family.languageValue') : LANGUAGE_NAMES[language]}
-        </Text>
-      </Pressable>
-      <Pressable accessibilityRole="button" onPress={pickAppearance} style={styles.setting}>
+        <SettingPicker
+          label={t('family.language')}
+          value={language}
+          onChange={(pref) => void setLanguagePreference(pref)}
+          options={[
+            { value: 'system', label: t('family.languageValue') },
+            { value: 'nb', label: LANGUAGE_NAMES.nb },
+            { value: 'en', label: LANGUAGE_NAMES.en },
+          ]}
+        />
+      </View>
+      <View style={styles.setting}>
         <Text>{t('family.appearance')}</Text>
-        <Text color={colors.muted}>{appearanceNames[appearance]}</Text>
-      </Pressable>
+        <SettingPicker
+          label={t('family.appearance')}
+          value={appearance}
+          onChange={(pref) => void setAppearancePreference(pref)}
+          options={(['system', 'light', 'dark'] as const).map((pref) => ({
+            value: pref,
+            label: appearanceNames[pref],
+          }))}
+        />
+      </View>
       <View style={styles.setting}>
         <Text>{t('family.account')}</Text>
         <Text color={colors.muted} numberOfLines={1} style={{ flexShrink: 1 }}>

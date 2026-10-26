@@ -1,5 +1,5 @@
-import { useQuery } from 'convex/react';
-import { router, Stack } from 'expo-router';
+import { useMutation, useQuery } from 'convex/react';
+import { Link, router, Stack } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, Pressable, TextInput, View } from 'react-native';
@@ -9,6 +9,7 @@ import { Button, IconButton, IconTile, TabScreen, Text } from '@/components/ui';
 import { Fonts, Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import { makeStyles, useColors } from '@/lib/appearance';
+import { attempt } from '@/lib/errors';
 import { dayShort } from '@/lib/format';
 import { relativeDay } from '@/lib/relative';
 import { useFamily } from '@/lib/session';
@@ -23,6 +24,7 @@ export default function RecipesScreen() {
   const [archived, setArchived] = useState(false);
   const [search, setSearch] = useState('');
   const recipes = useQuery(api.recipes.list, { groupId: family.groupId, archived });
+  const setArchivedMutation = useMutation(api.recipes.setArchived);
   const archivedCount =
     useQuery(api.recipes.list, { groupId: family.groupId, archived: true })?.length ?? 0;
 
@@ -102,29 +104,48 @@ export default function RecipesScreen() {
         const planned =
           r.nextPlanned && r.nextPlanned <= horizon ? dayShort(t, r.nextPlanned) : null;
         return (
-          <Pressable
-            key={r._id}
-            onPress={() => router.push({ pathname: '/recipes/[id]', params: { id: r._id } })}
-            accessibilityRole="link"
-            style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}>
-            <IconTile icon={r.icon} color={colors.tiles[index % colors.tiles.length]} />
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text variant="item">{r.title}</Text>
-              <Text variant="small" color={colors.muted}>
-                {[
-                  t('recipes.servings', { count: r.servings }),
-                  r.lastCooked
-                    ? t('recipes.cooked', { when: relativeDay(t, r.lastCooked, today) })
-                    : t('recipes.neverCooked'),
-                ].join(' · ')}
-              </Text>
-            </View>
-            {planned ? (
-              <Text variant="small" color={colors.tomatoDeep} style={styles.badge}>
-                {planned}
-              </Text>
-            ) : null}
-          </Pressable>
+          <Link key={r._id} href={{ pathname: '/recipes/[id]', params: { id: r._id } }} asChild>
+            <Link.Trigger>
+              <Pressable accessibilityRole="link" style={styles.row}>
+                <IconTile icon={r.icon} color={colors.tiles[index % colors.tiles.length]} />
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text variant="item">{r.title}</Text>
+                  <Text variant="small" color={colors.muted}>
+                    {[
+                      t('recipes.servings', { count: r.servings }),
+                      r.lastCooked
+                        ? t('recipes.cooked', { when: relativeDay(t, r.lastCooked, today) })
+                        : t('recipes.neverCooked'),
+                    ].join(' · ')}
+                  </Text>
+                </View>
+                {planned ? (
+                  <Text variant="small" color={colors.tomatoDeep} style={styles.badge}>
+                    {planned}
+                  </Text>
+                ) : null}
+              </Pressable>
+            </Link.Trigger>
+            {/* Long-press: a peek at the recipe with Edit and Archive under it (iOS). */}
+            <Link.Preview />
+            <Link.Menu>
+              <Link.MenuAction
+                title={t('common.edit')}
+                icon="pencil"
+                onPress={() => router.push({ pathname: '/recipe/edit', params: { id: r._id } })}
+              />
+              <Link.MenuAction
+                title={archived ? t('recipes.restore') : t('recipes.archive')}
+                icon={archived ? 'arrow.uturn.backward' : 'archivebox'}
+                destructive={!archived}
+                onPress={() =>
+                  void attempt(t, () =>
+                    setArchivedMutation({ recipeId: r._id, archived: !archived }),
+                  )
+                }
+              />
+            </Link.Menu>
+          </Link>
         );
       })}
       {archived || archivedCount > 0 ? (
