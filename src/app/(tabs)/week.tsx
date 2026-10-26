@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 import Animated, { FadeInLeft, FadeInRight } from 'react-native-reanimated';
 
-import { Basket, ChevronLeft, ChevronRight } from '@/components/icons';
+import { Basket, ChevronLeft, ChevronRight, Plus } from '@/components/icons';
 import { IconButton, IconTile, TabScreen, Text } from '@/components/ui';
 import { Fonts, Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
@@ -98,10 +98,11 @@ export default function WeekScreen() {
                 date === today && styles.dayToday,
                 pressed && { opacity: 0.7 },
               ]}>
-              <View style={styles.dateTile}>
+              <View style={[styles.dateTile, date === today && styles.dateTileToday]}>
                 <Text
                   variant="small"
-                  color={colors.muted}
+                  // Muted is too faint on the saffron tile in dark mode.
+                  color={date === today ? colors.ink : colors.muted}
                   style={{ fontFamily: Fonts.semibold, fontSize: 11 }}>
                   {dayShort(t, date).toLocaleUpperCase()}
                 </Text>
@@ -130,9 +131,13 @@ export default function WeekScreen() {
                   )}
                 </>
               ) : week ? (
-                <Text variant="item" color={colors.tomato} style={{ flex: 1, fontSize: 16 }}>
-                  {t('week.addDinner')}
-                </Text>
+                // Quiet on purpose: a mostly empty week would otherwise be a column of red.
+                <View style={styles.addDinner}>
+                  <Plus color={colors.tomato} size={18} strokeWidth={2.2} />
+                  <Text variant="item" color={colors.muted} style={{ fontSize: 16 }}>
+                    {t('week.addDinner')}
+                  </Text>
+                </View>
               ) : null}
             </Pressable>
           );
@@ -196,10 +201,11 @@ const useStyles = makeStyles((colors) => ({
     paddingLeft: 6.5,
     paddingRight: 13.5,
   },
+  // Today is marked in saffron, so tomato stays the colour of actions.
   dayToday: {
     borderWidth: 2,
     borderStyle: 'solid',
-    borderColor: colors.tomato,
+    borderColor: colors.saffronPill,
     paddingVertical: 6,
     paddingLeft: 6,
     paddingRight: 13,
@@ -212,6 +218,8 @@ const useStyles = makeStyles((colors) => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  dateTileToday: { backgroundColor: colors.saffronPill },
+  addDinner: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
   banner: {
     marginTop: 16,
     minHeight: 54,

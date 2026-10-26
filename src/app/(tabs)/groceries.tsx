@@ -126,8 +126,12 @@ export default function GroceriesScreen() {
     return groups;
   }, [open]);
 
+  // With a single dinner on the list every line would name it, so the names only show once
+  // there are two or more dinners to tell apart.
+  const dinnerCount = useMemo(() => new Set(lines.flatMap((l) => l.entryIds)).size, [lines]);
+
   function sourceText(line: GroceryLine) {
-    const meals = line.entryIds
+    const meals = (dinnerCount > 1 ? line.entryIds : [])
       .map((id) => data?.sources[id])
       .filter((s) => s !== undefined)
       .map((s) => `${s.title} (${dayShort(t, s.date)})`);

@@ -79,7 +79,7 @@
     "note": "Note",
     "serves_one": "Serves {{count}}",
     "serves_other": "Serves {{count}}",
-    "addDinner": "+ Add dinner",
+    "addDinner": "Add dinner",
     "groceryBanner_one": "{{count}} item on the grocery list",
     "groceryBanner_other": "{{count}} items on the grocery list"
   },

@@ -79,7 +79,7 @@
     "note": "Notat",
     "serves_one": "{{count}} porsjon",
     "serves_other": "{{count}} porsjoner",
-    "addDinner": "+ Legg til middag",
+    "addDinner": "Legg til middag",
     "groceryBanner_one": "{{count}} vare på handlelisten",
     "groceryBanner_other": "{{count}} varer på handlelisten"
   },

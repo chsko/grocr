@@ -222,7 +222,7 @@ describe('week', () => {
     );
     expect(screen.getByText('Tacos')).toBeTruthy();
     expect(screen.getByText('Serves 4')).toBeTruthy();
-    expect(screen.getAllByText('+ Add dinner')).toHaveLength(6);
+    expect(screen.getAllByText('Add dinner')).toHaveLength(6);
     expect(screen.getByText('3 items on the grocery list')).toBeTruthy();
     expect(screen.getByText(/^Week \d+$/)).toBeTruthy();
   });
@@ -235,7 +235,7 @@ describe('week', () => {
         <WeekScreen />
       </SessionContext.Provider>,
     );
-    expect(screen.queryByText('+ Add dinner')).toBeNull();
+    expect(screen.queryByText('Add dinner')).toBeNull();
   });
 
   test('keeps the weeks either side subscribed and steps to them', async () => {
@@ -347,6 +347,41 @@ describe('groceries', () => {
     expect(mockAddManual).toHaveBeenCalledWith(expect.objectContaining({ name: 'melk', qty: 2 }));
     await fireEvent(field, 'blur');
     expect(screen.queryByText('Ferdig')).toBeNull();
+  });
+
+  test('lines name their dinner only when the list has more than one', async () => {
+    await i18n.changeLanguage('en');
+    const meal = (id: string, name: string, entry: string) => ({
+      ...row(id, name),
+      section: 'produce',
+      source: { kind: 'meal' as const, mealPlanEntryId: entry },
+    });
+    const sources = {
+      e1: { date: '2026-10-26', title: 'Tacos' },
+      e2: { date: '2026-10-27', title: 'Soup' },
+    };
+    mockUseQuery.mockReturnValue({
+      ...list([]),
+      items: [meal('i0', 'Onion', 'e1'), meal('i1', 'Lime', 'e1')],
+      sources,
+    });
+    const ui = (
+      <SessionContext.Provider value={me}>
+        <GroceriesScreen />
+      </SessionContext.Provider>
+    );
+    await render(ui);
+    expect(screen.getByText('Onion')).toBeTruthy();
+    expect(screen.queryByText(/Tacos/)).toBeNull();
+
+    mockUseQuery.mockReturnValue({
+      ...list([]),
+      items: [meal('i0', 'Onion', 'e1'), meal('i1', 'Leek', 'e2')],
+      sources,
+    });
+    await render(ui);
+    expect(screen.getByText(/Tacos/)).toBeTruthy();
+    expect(screen.getByText(/Soup/)).toBeTruthy();
   });
 
   test('a new item flashes its line and gives a light tap', async () => {
