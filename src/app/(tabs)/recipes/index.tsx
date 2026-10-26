@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Platform, Pressable, TextInput, View } from 'react-native';
 
 import { Plus, Search } from '@/components/icons';
+import { TabTitle } from '@/components/tab-stack';
 import { Button, IconButton, IconTile, TabScreen, Text } from '@/components/ui';
 import { Fonts, Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
@@ -42,7 +43,7 @@ export default function RecipesScreen() {
   // native search field, so it keeps the field in the list.
   const header = (
     <>
-      <Stack.Title large>{title}</Stack.Title>
+      <TabTitle>{title}</TabTitle>
       {Platform.OS === 'web' ? null : (
         <Stack.SearchBar
           placeholder={searchPlaceholder}

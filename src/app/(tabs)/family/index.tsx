@@ -1,12 +1,13 @@
 import { useAuthActions } from '@convex-dev/auth/react';
 import { useMutation, useQuery } from 'convex/react';
-import { router, Stack } from 'expo-router';
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChevronRight, Clock, More, Plus } from '@/components/icons';
+import { TabTitle } from '@/components/tab-stack';
 import { SettingPicker } from '@/components/setting-picker';
 import { Avatar, Button, Field, IconButton, TabScreen, Text } from '@/components/ui';
 import { Radius } from '@/constants/theme';
@@ -120,7 +121,7 @@ export default function FamilyScreen() {
 
   return (
     <TabScreen nativeHeader>
-      <Stack.Title large>{family!.name}</Stack.Title>
+      <TabTitle>{family!.name}</TabTitle>
       <View style={styles.sectionHead}>
         <Text variant="section" color={colors.muted}>
           {t('family.members', { count: members?.length ?? 0 })}

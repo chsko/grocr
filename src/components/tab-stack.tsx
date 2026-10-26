@@ -27,12 +27,26 @@ function useLargeTitleOptions() {
     headerLargeTitleEnabled: true,
     headerShadowVisible: false,
     headerLargeTitleShadowVisible: false,
-    headerStyle: { backgroundColor: colors.background },
-    headerLargeStyle: { backgroundColor: colors.background },
+    // No header background: on iOS 26 a background color hides the large title. The bar is the
+    // system's (Liquid Glass) and the screen's own background shows through.
     headerTintColor: colors.tomato,
-    headerTitleStyle: { fontFamily: Fonts.bold, fontSize: 17, color: colors.ink },
-    headerLargeTitleStyle: { fontFamily: Fonts.bold, color: colors.ink },
   };
+}
+
+/**
+ * The large title of a tab's first screen. `Stack.Title` replaces the title styles of the
+ * layout, so the font and color are set here.
+ */
+export function TabTitle({ children }: { children: string }) {
+  const colors = useColors();
+  return (
+    <Stack.Title
+      large
+      style={{ fontFamily: Fonts.bold, fontSize: 17, color: colors.ink }}
+      largeStyle={{ fontFamily: Fonts.bold, color: colors.ink }}>
+      {children}
+    </Stack.Title>
+  );
 }
 
 /**
