@@ -98,6 +98,8 @@ const useStyles = makeStyles((colors) => ({
   section: { marginTop: 24, marginBottom: 6 },
   ingredient: {
     flexDirection: 'row',
+    // The amount and the name use different line heights; share the baseline, not the top.
+    alignItems: 'baseline',
     gap: 12,
     paddingVertical: 10,
     borderBottomWidth: 1,

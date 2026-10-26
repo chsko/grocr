@@ -105,6 +105,11 @@ describe.each(['light', 'dark'] as const)('%s palette contrast', (scheme) => {
     expect(contrast(c[fg] as string, c[bg] as string)).toBeGreaterThanOrEqual(4.5);
   });
 
+  // Empty grocery checkboxes are controls, so they need WCAG's 3:1 for non-text contrast.
+  test.each(['background', 'surface'] as const)('checkbox stands out on %s', (bg) => {
+    expect(contrast(c.checkbox, c[bg])).toBeGreaterThanOrEqual(3);
+  });
+
   test('white initials stay readable on every avatar color', () => {
     for (const color of c.avatars) expect(contrast('#FFFFFF', color)).toBeGreaterThanOrEqual(4.5);
   });

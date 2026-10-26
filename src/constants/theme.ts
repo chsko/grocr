@@ -35,7 +35,8 @@ const light = {
   borderStrong: '#E6DFD6',
   divider: '#F3EDE6',
   dashed: '#D9D2C9',
-  checkbox: '#B5ABA0',
+  /** Empty checkboxes, placeholders and disabled icons; 3:1 on background and surface. */
+  checkbox: '#958A7F',
   overlay: 'rgba(20, 24, 19, 0.45)',
   /** Soft tiles behind recipe icons, picked by position. */
   tiles: ['#FFF0C2', '#F6E3DC', '#E2EAF2', '#F3EBD6'],
