@@ -15,10 +15,18 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
+import { useNavigation, useRoute } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import Animated, {
+  Easing,
+  ReduceMotion,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useTabBarSpace } from '@/components/app-tabs';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
 import { makeStyles, useColors } from '@/lib/appearance';
 
@@ -351,6 +359,61 @@ const useStyles = makeStyles((colors) => ({
   },
 }));
 
+// The tab that was last shown, so the next one knows which side to slide in from.
+let shownTab = -1;
+
+/** How far (in points) a tab slides in from: from the right when its tab sits right of the last. */
+export function slideFrom(previousTab: number, tab: number) {
+  return previousTab < 0 || previousTab === tab ? 0 : tab > previousTab ? 40 : -40;
+}
+
+/**
+ * Slides a tab's content in from the side of the tab you came from. It only slides after the
+ * tab itself was left: coming back from a screen pushed on top (a recipe, the dinner picker)
+ * shows it at once. Reduce Motion skips the slide.
+ */
+function useTabSlideIn() {
+  const navigation = useNavigation();
+  const { key } = useRoute();
+  const [shownAtStart] = useState(() => navigation.isFocused());
+  // Hidden while another tab is selected, so the native switch never flashes the old position.
+  const visible = useSharedValue(shownAtStart ? 1 : 0);
+  const offset = useSharedValue(0);
+
+  useEffect(() => {
+    const myIndex = () => navigation.getState()?.routes.findIndex((r) => r.key === key) ?? -1;
+    const slideIn = () => {
+      const tab = myIndex();
+      const from = slideFrom(shownTab, tab);
+      shownTab = tab;
+      if (visible.value === 1) return;
+      offset.value = from;
+      visible.value = 1;
+      offset.value = withTiming(0, {
+        duration: 260,
+        easing: Easing.out(Easing.cubic),
+        reduceMotion: ReduceMotion.System,
+      });
+    };
+    const offFocus = navigation.addListener('focus', slideIn);
+    const offBlur = navigation.addListener('blur', () => {
+      // Blur also fires when a screen is pushed over the tabs; then this tab stays selected.
+      const tabs = navigation.getState();
+      if (tabs?.routes[tabs.index]?.key !== key) visible.value = 0;
+    });
+    if (navigation.isFocused()) slideIn();
+    return () => {
+      offFocus();
+      offBlur();
+    };
+  }, [navigation, key, visible, offset]);
+
+  return useAnimatedStyle(() => ({
+    opacity: visible.value,
+    transform: [{ translateX: offset.value }],
+  }));
+}
+
 /** A scrolling tab screen below the status bar; iOS insets it above the native tab bar. */
 export function TabScreen({
   children,
@@ -368,28 +431,25 @@ export function TabScreen({
   onLayout?: ScrollViewProps['onLayout'];
 }) {
   const colors = useColors();
-  // The tab bar floats over the bottom of the screen, so the list ends above it.
-  const barSpace = useTabBarSpace();
+  const slide = useTabSlideIn();
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.background }}>
-      {header}
-      <ScrollView
-        ref={scrollRef}
-        onScroll={onScroll}
-        onLayout={onLayout}
-        scrollEventThrottle={onScroll ? 32 : undefined}
-        contentInsetAdjustmentBehavior="automatic"
-        automaticallyAdjustKeyboardInsets
-        keyboardShouldPersistTaps="handled"
-        // Scrolling the list puts the keyboard away, like Notes and Reminders.
-        keyboardDismissMode="on-drag"
-        scrollIndicatorInsets={{ bottom: barSpace }}
-        contentContainerStyle={[
-          { paddingHorizontal: 20, paddingBottom: 32 + barSpace },
-          contentStyle,
-        ]}>
-        {children}
-      </ScrollView>
+      <Animated.View testID="tab-content" style={[{ flex: 1 }, slide]}>
+        {header}
+        <ScrollView
+          ref={scrollRef}
+          onScroll={onScroll}
+          onLayout={onLayout}
+          scrollEventThrottle={onScroll ? 32 : undefined}
+          contentInsetAdjustmentBehavior="automatic"
+          automaticallyAdjustKeyboardInsets
+          keyboardShouldPersistTaps="handled"
+          // Scrolling the list puts the keyboard away, like Notes and Reminders.
+          keyboardDismissMode="on-drag"
+          contentContainerStyle={[{ paddingHorizontal: 20, paddingBottom: 32 }, contentStyle]}>
+          {children}
+        </ScrollView>
+      </Animated.View>
     </SafeAreaView>
   );
 }
