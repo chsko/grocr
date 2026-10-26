@@ -359,59 +359,40 @@ const useStyles = makeStyles((colors) => ({
   },
 }));
 
-// The tab that was last shown, so the next one knows which side to slide in from.
-let shownTab = -1;
-
-/** How far (in points) a tab slides in from: from the right when its tab sits right of the last. */
-export function slideFrom(previousTab: number, tab: number) {
-  return previousTab < 0 || previousTab === tab ? 0 : tab > previousTab ? 40 : -40;
-}
-
 /**
- * Slides a tab's content in from the side of the tab you came from. It only slides after the
- * tab itself was left: coming back from a screen pushed on top (a recipe, the dinner picker)
- * shows it at once. Reduce Motion skips the slide.
+ * Fades a tab's content in when you switch to it. It only fades after the tab itself was left:
+ * coming back from a screen pushed on top (a recipe, the dinner picker) shows it at once.
+ * Reduce Motion skips the fade.
  */
-function useTabSlideIn() {
+function useTabFadeIn() {
   const navigation = useNavigation();
   const { key } = useRoute();
   const [shownAtStart] = useState(() => navigation.isFocused());
-  // Hidden while another tab is selected, so the native switch never flashes the old position.
-  const visible = useSharedValue(shownAtStart ? 1 : 0);
-  const offset = useSharedValue(0);
+  const opacity = useSharedValue(shownAtStart ? 1 : 0);
 
   useEffect(() => {
-    const myIndex = () => navigation.getState()?.routes.findIndex((r) => r.key === key) ?? -1;
-    const slideIn = () => {
-      const tab = myIndex();
-      const from = slideFrom(shownTab, tab);
-      shownTab = tab;
-      if (visible.value === 1) return;
-      offset.value = from;
-      visible.value = 1;
-      offset.value = withTiming(0, {
-        duration: 260,
-        easing: Easing.out(Easing.cubic),
+    const fadeIn = () => {
+      if (opacity.value === 1) return;
+      opacity.value = withTiming(1, {
+        duration: 200,
+        easing: Easing.out(Easing.quad),
         reduceMotion: ReduceMotion.System,
       });
     };
-    const offFocus = navigation.addListener('focus', slideIn);
+    const offFocus = navigation.addListener('focus', fadeIn);
     const offBlur = navigation.addListener('blur', () => {
       // Blur also fires when a screen is pushed over the tabs; then this tab stays selected.
       const tabs = navigation.getState();
-      if (tabs?.routes[tabs.index]?.key !== key) visible.value = 0;
+      if (tabs?.routes[tabs.index]?.key !== key) opacity.value = 0;
     });
-    if (navigation.isFocused()) slideIn();
+    if (navigation.isFocused()) fadeIn();
     return () => {
       offFocus();
       offBlur();
     };
-  }, [navigation, key, visible, offset]);
+  }, [navigation, key, opacity]);
 
-  return useAnimatedStyle(() => ({
-    opacity: visible.value,
-    transform: [{ translateX: offset.value }],
-  }));
+  return useAnimatedStyle(() => ({ opacity: opacity.value }));
 }
 
 /** A scrolling tab screen below the status bar; iOS insets it above the native tab bar. */
@@ -431,10 +412,10 @@ export function TabScreen({
   onLayout?: ScrollViewProps['onLayout'];
 }) {
   const colors = useColors();
-  const slide = useTabSlideIn();
+  const fade = useTabFadeIn();
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.background }}>
-      <Animated.View testID="tab-content" style={[{ flex: 1 }, slide]}>
+      <Animated.View testID="tab-content" style={[{ flex: 1 }, fade]}>
         {header}
         <ScrollView
           ref={scrollRef}
