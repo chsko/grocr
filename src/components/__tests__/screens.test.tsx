@@ -4,6 +4,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import FamilyScreen from '@/app/(tabs)/family';
 import GroceriesScreen from '@/app/(tabs)/groceries';
+import RecipeEditScreen from '@/app/recipe/edit';
 import WeekScreen from '@/app/(tabs)/week';
 import SectionsScreen from '@/app/sections';
 import { slideFrom } from '@/components/ui';
@@ -27,6 +28,8 @@ jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   useRoute: () => ({ key: 'week' }),
   useNavigation: () => mockNavigation,
+  // Header options need a real stack; the screens under test render fine without one.
+  Stack: { Screen: () => null },
 }));
 const mockNavigation = {
   isFocused: () => mockNav.index === 0,
@@ -385,5 +388,40 @@ describe('groceries', () => {
     await fireEvent.press(screen.getByText('Har hjemme · 1'));
     await fireEvent.press(screen.getByLabelText('Sett Melk på listen igjen'));
     expect(mockSetAtHome).toHaveBeenCalledWith({ itemIds: ['i1'], atHome: false });
+  });
+});
+
+describe('recipe edit', () => {
+  const editor = async () => {
+    await i18n.changeLanguage('en');
+    mockUseQuery.mockReturnValue(undefined);
+    await render(
+      <SessionContext.Provider value={me}>
+        <RecipeEditScreen />
+      </SessionContext.Provider>,
+    );
+  };
+  const names = () => screen.getAllByLabelText('Ingredient');
+
+  test('Return on the last ingredient adds a row, but not after a blank one', async () => {
+    await editor();
+    expect(names()).toHaveLength(1);
+    // A blank last row puts the keyboard away rather than adding another blank row.
+    await fireEvent(names()[0], 'submitEditing');
+    expect(names()).toHaveLength(1);
+
+    await fireEvent.changeText(names()[0], 'milk');
+    await fireEvent(names()[0], 'submitEditing');
+    expect(names()).toHaveLength(2);
+    await fireEvent(names()[1], 'submitEditing');
+    expect(names()).toHaveLength(2);
+  });
+
+  test('Return in the qty field goes on to the name, even when empty', async () => {
+    await editor();
+    const qty = screen.getByLabelText('Qty');
+    expect(qty.props.returnKeyType).toBe('next');
+    await fireEvent(qty, 'submitEditing');
+    expect(names()).toHaveLength(1);
   });
 });

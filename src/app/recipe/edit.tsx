@@ -2,7 +2,16 @@ import { useMutation, useQuery } from 'convex/react';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Pressable, ScrollView, TextInput, View } from 'react-native';
+import {
+  Keyboard,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  TextInput,
+  type TextInputInstance,
+  View,
+} from 'react-native';
 
 import { Close } from '@/components/icons';
 import { Button, Chip, Field, IconButton, IconTile, Loading, Stepper, Text } from '@/components/ui';
@@ -51,6 +60,10 @@ export default function RecipeEditScreen() {
   const [unitFor, setUnitFor] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const loaded = useRef(false);
+  // Ingredient inputs by `qty-<key>` / `name-<key>`, so Return can move to the next one.
+  const fields = useRef(new Map<string, TextInputInstance>());
+  // A row added by Return focuses its qty input as soon as it mounts.
+  const focusOnMount = useRef<string | null>(null);
 
   useEffect(() => {
     if (!existing || loaded.current) return;
@@ -81,6 +94,37 @@ export default function RecipeEditScreen() {
 
   function update(key: number, patch: Partial<Row>) {
     setRows((current) => current.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  }
+
+  function fieldRef(id: string) {
+    return (input: TextInputInstance | null) => {
+      if (!input) {
+        fields.current.delete(id);
+        return;
+      }
+      fields.current.set(id, input);
+      if (focusOnMount.current === id) {
+        focusOnMount.current = null;
+        input.focus();
+      }
+    };
+  }
+
+  function addRow() {
+    const row = emptyRow();
+    focusOnMount.current = `qty-${row.key}`;
+    setRows((current) => [...current, row]);
+  }
+
+  const isBlank = (row: Row) => !row.qty.trim() && !row.unit && !row.name.trim();
+
+  /** Return in a name goes to the next row's qty, or adds a row after the last one. A blank last
+   * row puts the keyboard away instead, so holding Return never piles up empty rows. */
+  function nameSubmitted(index: number) {
+    const next = rows[index + 1];
+    if (next) fields.current.get(`qty-${next.key}`)?.focus();
+    else if (isBlank(rows[index])) Keyboard.dismiss();
+    else addRow();
   }
 
   async function save() {
@@ -181,13 +225,19 @@ export default function RecipeEditScreen() {
           {t('recipeEdit.ingredients')}
         </Text>
         <View style={{ gap: 8 }}>
-          {rows.map((row) => (
+          {rows.map((row, index) => (
             <View key={row.key} style={{ zIndex: row.key === active ? 2 : 0 }}>
               <View style={styles.ingredientRow}>
                 <TextInput
+                  ref={fieldRef(`qty-${row.key}`)}
                   value={row.qty}
                   onChangeText={(qty) => update(row.key, { qty })}
-                  keyboardType="decimal-pad"
+                  // iOS's decimal pad has no Return key; this one has, and also allows "1/2".
+                  keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'decimal-pad'}
+                  // Return skips the unit picker and goes on to the name, even with no qty.
+                  returnKeyType="next"
+                  submitBehavior="submit"
+                  onSubmitEditing={() => fields.current.get(`name-${row.key}`)?.focus()}
                   placeholder={t('recipeEdit.qtyPlaceholder')}
                   placeholderTextColor={colors.checkbox}
                   accessibilityLabel={t('recipeEdit.qty')}
@@ -203,9 +253,13 @@ export default function RecipeEditScreen() {
                   </Text>
                 </Pressable>
                 <TextInput
+                  ref={fieldRef(`name-${row.key}`)}
                   value={row.name}
                   onChangeText={(name) => update(row.key, { name, ingredientId: undefined })}
                   onFocus={() => setActive(row.key)}
+                  returnKeyType={index === rows.length - 1 && isBlank(row) ? 'done' : 'next'}
+                  submitBehavior="submit"
+                  onSubmitEditing={() => nameSubmitted(index)}
                   placeholder={t('recipeEdit.ingredientPlaceholder')}
                   placeholderTextColor={colors.checkbox}
                   accessibilityLabel={t('recipeEdit.ingredient')}
@@ -244,15 +298,7 @@ export default function RecipeEditScreen() {
               ) : null}
             </View>
           ))}
-          <Button
-            kind="ghost"
-            title={t('recipeEdit.addIngredient')}
-            onPress={() => {
-              const row = emptyRow();
-              setRows((current) => [...current, row]);
-              setActive(row.key);
-            }}
-          />
+          <Button kind="ghost" title={t('recipeEdit.addIngredient')} onPress={addRow} />
         </View>
 
         <Text variant="section" color={colors.muted}>
