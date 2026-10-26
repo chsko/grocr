@@ -1,0 +1,42 @@
+# Runs on Expo's servers on every push to main. JavaScript changes already reach TestFlight
+# builds over the air (publish-update.yml, channel main), so a new build is only needed when
+# the native side changes. This compares the iOS fingerprint with existing "preview" builds and
+# builds + submits to TestFlight only when none matches. Manual builds: testflight.yml.
+name: TestFlight on native changes
+
+on:
+  push:
+    branches: ['main']
+
+jobs:
+  fingerprint:
+    name: Fingerprint
+    type: fingerprint
+    environment: preview
+
+  get_ios_build:
+    name: Find a matching iOS build
+    needs: [fingerprint]
+    type: get-build
+    params:
+      platform: ios
+      profile: preview
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      wait_for_in_progress: true
+
+  build_ios:
+    name: Build iOS
+    needs: [get_ios_build]
+    if: ${{ !needs.get_ios_build.outputs.build_id }}
+    type: build
+    params:
+      platform: ios
+      profile: preview
+
+  submit_ios:
+    name: Submit to TestFlight
+    needs: [build_ios]
+    type: submit
+    params:
+      build_id: ${{ needs.build_ios.outputs.build_id }}
+      profile: preview
