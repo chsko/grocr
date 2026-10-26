@@ -1,9 +1,17 @@
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { SymbolView, type SFSymbol } from 'expo-symbols';
 import { Tabs, type BottomTabBarProps } from 'expo-router/tabs';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Animated, Dimensions, Easing, Platform, Pressable, Text, View } from 'react-native';
-import { useReducedMotion } from 'react-native-reanimated';
+import Reanimated, {
+  Easing as REasing,
+  ReduceMotion,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Basket, Book, Calendar, Person } from '@/components/icons';
@@ -35,9 +43,11 @@ export function forSlide({
   };
 }
 
+const SLIDE_MS = 280;
+
 const slideSpec = {
   animation: 'timing' as const,
-  config: { duration: 280, easing: Easing.out(Easing.cubic) },
+  config: { duration: SLIDE_MS, easing: Easing.out(Easing.cubic) },
 };
 
 // The same symbols the native tab bar used; the stroke icons stand in where SF Symbols don't exist.
@@ -50,6 +60,7 @@ const tabIcons: Record<string, { sf: SFSymbol; Fallback: typeof Calendar }> = {
 
 const ios = Platform.OS === 'ios';
 const BAR_HEIGHT = ios ? 62 : 80;
+const CAPSULE_PADDING = 4;
 
 /** Where the floating bar sits above the screen's bottom edge. */
 function barBottom(insetBottom: number) {
@@ -70,7 +81,45 @@ export function useTabBarSpace() {
  * iOS a floating Liquid Glass capsule (a plain frosted capsule before iOS 26), on Android a flat
  * Material bar with the saffron pill behind the selected icon.
  */
+/**
+ * The lighter capsule behind the selected tab. It slides to the tapped tab in step with the
+ * page slide; Reduce Motion moves it at once.
+ */
+function SelectedHighlight({
+  index,
+  count,
+  width,
+}: {
+  index: number;
+  count: number;
+  width: number;
+}) {
+  const styles = useStyles();
+  const itemWidth = (width - CAPSULE_PADDING * 2) / count;
+  const x = useSharedValue(index * itemWidth);
+  const placed = useRef(false);
+
+  useEffect(() => {
+    if (!itemWidth) return;
+    const to = index * itemWidth;
+    // The first measured layout puts it in place; only later tab changes slide.
+    x.value = placed.current
+      ? withTiming(to, {
+          duration: SLIDE_MS,
+          easing: REasing.out(REasing.cubic),
+          reduceMotion: ReduceMotion.System,
+        })
+      : to;
+    placed.current = true;
+  }, [index, itemWidth, x]);
+
+  const slide = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
+  if (!itemWidth) return null;
+  return <Reanimated.View style={[styles.highlight, { width: itemWidth }, slide]} />;
+}
+
 function TabBar({ state, descriptors, emitter, navigateToTab, insets }: BottomTabBarProps) {
+  const [capsuleWidth, setCapsuleWidth] = useState(0);
   const colors = useColors();
   const styles = useStyles();
   const glass = ios && isLiquidGlassAvailable();
@@ -93,7 +142,7 @@ function TabBar({ state, descriptors, emitter, navigateToTab, insets }: BottomTa
         accessibilityLabel={label}
         onPress={onPress}
         onLongPress={() => emitter.emit({ type: 'tabLongPress', target: route.key })}
-        style={[styles.item, ios && focused && styles.itemSelected]}>
+        style={styles.item}>
         <View style={[styles.iconWrap, !ios && focused && styles.pill]}>
           {icon ? (
             <SymbolView
@@ -119,17 +168,26 @@ function TabBar({ state, descriptors, emitter, navigateToTab, insets }: BottomTa
       </View>
     );
   }
+  const measure = (e: { nativeEvent: { layout: { width: number } } }) =>
+    setCapsuleWidth(e.nativeEvent.layout.width);
+  const highlight = (
+    <SelectedHighlight index={state.index} count={state.routes.length} width={capsuleWidth} />
+  );
   return (
     <View
       pointerEvents="box-none"
       style={[styles.floating, { bottom: barBottom(insets.bottom) }]}
       role="tablist">
       {glass ? (
-        <GlassView glassEffectStyle="regular" style={styles.capsule}>
+        <GlassView glassEffectStyle="regular" style={styles.capsule} onLayout={measure}>
+          {highlight}
           {items}
         </GlassView>
       ) : (
-        <View style={[styles.capsule, styles.frosted]}>{items}</View>
+        <View style={[styles.capsule, styles.frosted]} onLayout={measure}>
+          {highlight}
+          {items}
+        </View>
       )}
     </View>
   );
@@ -164,7 +222,7 @@ const useStyles = makeStyles((colors) => ({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: CAPSULE_PADDING,
     borderRadius: BAR_HEIGHT / 2,
     overflow: 'hidden',
   },
@@ -196,7 +254,14 @@ const useStyles = makeStyles((colors) => ({
     borderRadius: Radius.pill,
   },
   // The lighter capsule iOS 26 draws behind the selected tab.
-  itemSelected: { backgroundColor: colors.divider },
+  highlight: {
+    position: 'absolute',
+    left: CAPSULE_PADDING,
+    top: CAPSULE_PADDING,
+    bottom: CAPSULE_PADDING,
+    borderRadius: Radius.pill,
+    backgroundColor: colors.divider,
+  },
   iconWrap: {
     width: 64,
     height: ios ? 28 : 32,

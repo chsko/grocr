@@ -24,7 +24,7 @@ jest.mock('react-native-reanimated', () => {
     default: { View },
     FadeInLeft: builder,
     FadeInRight: builder,
-    Easing: { out: (e) => e, quad: (t) => t },
+    Easing: { out: (e) => e, quad: (t) => t, cubic: (t) => t },
     ReduceMotion: { System: 'system' },
     useSharedValue: (v) => useRef({ value: v }).current,
     useAnimatedStyle: live,
