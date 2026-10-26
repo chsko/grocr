@@ -15,6 +15,7 @@
   },
   "enabledPlugins": {
     "convex@claude-plugins-official": true,
+    "expo@claude-plugins-official": true,
     "impeccable@impeccable": true
   }
 }
