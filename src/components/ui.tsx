@@ -358,9 +358,12 @@ export function TabScreen({
   scrollRef,
   onScroll,
   onLayout,
+  nativeHeader,
 }: {
   children: React.ReactNode;
   header?: React.ReactNode;
+  /** The Stack draws the title (large title), so the screen starts below it. */
+  nativeHeader?: boolean;
   contentStyle?: StyleProp<ViewStyle>;
   scrollRef?: React.Ref<ScrollViewInstance>;
   onScroll?: ScrollViewProps['onScroll'];
@@ -368,7 +371,9 @@ export function TabScreen({
 }) {
   const colors = useColors();
   return (
-    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.background }}>
+    <SafeAreaView
+      edges={nativeHeader ? [] : ['top']}
+      style={{ flex: 1, backgroundColor: colors.background }}>
       {header}
       <ScrollView
         ref={scrollRef}

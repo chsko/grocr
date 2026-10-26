@@ -1,0 +1,15 @@
+# Runs on Expo's servers when started from expo.dev or `eas workflow:run review-update.yml`.
+# Publishes a branch's JavaScript to the "review" channel, so a change can be opened in Expo Go
+# (on a phone or the EAS cloud simulator) before it goes to main:
+# exp://u.expo.dev/597e5728-3ace-4f42-9a7a-3199f175b48e?runtime-version=exposdk:58.0.0&channel-name=review
+name: Review update
+
+jobs:
+  publish_update:
+    name: Publish update
+    type: update
+    env:
+      # Public URL of the dev Convex deployment, not a secret (same value as .env). Inlined into the bundle.
+      EXPO_PUBLIC_CONVEX_URL: https://silent-otter-909.eu-west-1.convex.cloud
+    params:
+      channel: review

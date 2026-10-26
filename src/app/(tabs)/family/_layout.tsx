@@ -9,7 +9,7 @@ export default function FamilyStack() {
   const { t } = useTranslation();
   const header = useHeaderOptions();
   return (
-    <TabStack>
+    <TabStack largeTitle>
       <Stack.Screen name="sections" options={{ ...header, title: t('storeOrder.title') }} />
     </TabStack>
   );

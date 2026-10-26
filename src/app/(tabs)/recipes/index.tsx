@@ -1,8 +1,8 @@
 import { useQuery } from 'convex/react';
-import { router } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, TextInput, View } from 'react-native';
+import { Platform, Pressable, TextInput, View } from 'react-native';
 
 import { Plus, Search } from '@/components/icons';
 import { Button, IconButton, IconTile, TabScreen, Text } from '@/components/ui';
@@ -32,36 +32,70 @@ export default function RecipesScreen() {
   const needle = search.trim().toLocaleLowerCase();
   const shown = (recipes ?? []).filter((r) => r.title.toLocaleLowerCase().includes(needle));
 
+  const title = archived ? t('recipes.archivedTitle') : t('recipes.title');
+  const searchPlaceholder = t('recipes.search', { count: recipes?.length ?? 0 });
+  const newRecipe = () => router.push('/recipe/edit');
+
+  // The native header: large title, a search field under it, and New on the right. Web has no
+  // native search field, so it keeps the field in the list.
   const header = (
-    <View style={styles.header}>
-      <View style={styles.titleRow}>
-        <Text variant="title">{archived ? t('recipes.archivedTitle') : t('recipes.title')}</Text>
-        {archived ? null : (
-          <IconButton onPress={() => router.push('/recipe/edit')} filled label={t('recipes.new')}>
-            <Plus color={colors.onTomato} strokeWidth={2.2} />
-          </IconButton>
-        )}
-      </View>
-      <View style={styles.search}>
-        <Search color={colors.muted} size={18} />
-        <TextInput
-          value={search}
-          onChangeText={setSearch}
-          placeholder={t('recipes.search', { count: recipes?.length ?? 0 })}
-          placeholderTextColor={colors.checkbox}
-          accessibilityLabel={t('recipes.searchLabel')}
-          style={styles.searchInput}
+    <>
+      <Stack.Title large>{title}</Stack.Title>
+      {Platform.OS === 'web' ? null : (
+        <Stack.SearchBar
+          placeholder={searchPlaceholder}
+          hideWhenScrolling
+          tintColor={colors.tomato}
+          onChangeText={(e) => setSearch(e.nativeEvent.text)}
+          onCancelButtonPress={() => setSearch('')}
         />
-      </View>
-    </View>
+      )}
+      {Platform.OS === 'ios' ? (
+        <Stack.Toolbar placement="right">
+          <Stack.Toolbar.Button
+            icon="plus"
+            hidden={archived}
+            accessibilityLabel={t('recipes.new')}
+            tintColor={colors.tomato}
+            onPress={newRecipe}
+          />
+        </Stack.Toolbar>
+      ) : (
+        <Stack.Screen
+          options={{
+            headerRight: archived
+              ? () => null
+              : () => (
+                  <IconButton onPress={newRecipe} filled label={t('recipes.new')}>
+                    <Plus color={colors.onTomato} strokeWidth={2.2} />
+                  </IconButton>
+                ),
+          }}
+        />
+      )}
+    </>
   );
 
   return (
-    <TabScreen header={header}>
+    <TabScreen nativeHeader>
+      {header}
+      {Platform.OS === 'web' ? (
+        <View style={styles.search}>
+          <Search color={colors.muted} size={18} />
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder={searchPlaceholder}
+            placeholderTextColor={colors.checkbox}
+            accessibilityLabel={t('recipes.searchLabel')}
+            style={styles.searchInput}
+          />
+        </View>
+      ) : null}
       {recipes && recipes.length === 0 && !archived ? (
         <View style={{ marginTop: 24, gap: 12 }}>
           <Text color={colors.muted}>{t('recipes.empty')}</Text>
-          <Button onPress={() => router.push('/recipe/edit')} title={t('recipes.addFirst')} />
+          <Button onPress={newRecipe} title={t('recipes.addFirst')} />
         </View>
       ) : null}
       {shown.map((r, index) => {
@@ -110,16 +144,8 @@ export default function RecipesScreen() {
 }
 
 const useStyles = makeStyles((colors) => ({
-  header: { paddingHorizontal: 20, paddingTop: 24, gap: 14, paddingBottom: 8 },
-  // minHeight keeps the row as tall when the New button is hidden (archived view), and matches
-  // the Groceries title row.
-  titleRow: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
   search: {
+    marginTop: 8,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,

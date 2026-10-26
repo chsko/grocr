@@ -8,7 +8,7 @@ export const unstable_settings = { anchor: 'index' };
 export default function RecipesStack() {
   const header = useHeaderOptions();
   return (
-    <TabStack>
+    <TabStack largeTitle>
       <Stack.Screen name="[id]" options={{ ...header, title: '' }} />
     </TabStack>
   );

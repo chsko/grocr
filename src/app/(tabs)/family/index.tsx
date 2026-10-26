@@ -1,6 +1,6 @@
 import { useAuthActions } from '@convex-dev/auth/react';
 import { useMutation, useQuery } from 'convex/react';
-import { router } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, View } from 'react-native';
@@ -137,19 +137,8 @@ export default function FamilyScreen() {
   const hoursLeft = invite ? Math.max(1, Math.round((invite.expiresAt - now) / 3600000)) : 0;
 
   return (
-    <TabScreen>
-      <View style={{ paddingTop: 24 }}>
-        <Text variant="label" color={colors.muted}>
-          {t('family.title')}
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityHint={t('family.rename')}
-          onPress={() => setRenaming(true)}>
-          <Text variant="title">{family!.name}</Text>
-        </Pressable>
-      </View>
-
+    <TabScreen nativeHeader>
+      <Stack.Title large>{family!.name}</Stack.Title>
       <View style={styles.sectionHead}>
         <Text variant="section" color={colors.muted}>
           {t('family.members', { count: members?.length ?? 0 })}
@@ -337,7 +326,7 @@ function FamilyNameEditor({
 
 const useStyles = makeStyles((colors) => ({
   sectionHead: {
-    marginTop: 20,
+    marginTop: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

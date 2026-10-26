@@ -18,7 +18,12 @@ import { SessionContext, type Me } from '@/lib/session';
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   // Header options need a real stack; the screens under test render fine without one.
-  Stack: { Screen: () => null },
+  Stack: {
+    Screen: () => null,
+    Title: () => null,
+    SearchBar: () => null,
+    Toolbar: Object.assign(() => null, { Button: () => null }),
+  },
 }));
 const mockUseQuery = jest.fn();
 const mockAddManual = jest.fn();
