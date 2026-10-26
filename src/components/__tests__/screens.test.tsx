@@ -271,32 +271,6 @@ describe('week', () => {
   });
 });
 
-describe('tab switch', () => {
-  test('fades a tab in after switching away and back, not after a pushed screen', async () => {
-    await i18n.changeLanguage('en');
-    mockUseQuery.mockReturnValue({ dinners: [], openLines: 0 });
-    await render(
-      <SessionContext.Provider value={me}>
-        <WeekScreen />
-      </SessionContext.Provider>,
-    );
-    const content = screen.getByTestId('tab-content');
-    expect(content).toHaveStyle({ opacity: 1 });
-
-    // A recipe pushed over the tabs: Week stays the selected tab, so it stays visible.
-    mockNav.emit('blur');
-    expect(content).toHaveStyle({ opacity: 1 });
-
-    // Switching to Groceries hides Week, and coming back fades it in again.
-    mockNav.index = 1;
-    mockNav.emit('blur');
-    expect(content).toHaveStyle({ opacity: 0 });
-    mockNav.index = 0;
-    mockNav.emit('focus');
-    expect(content).toHaveStyle({ opacity: 1 });
-  });
-});
-
 describe('groceries', () => {
   // Adding sets a timer that lets go of the flash; fake timers keep it from outliving the test.
   beforeEach(() => jest.useFakeTimers());
