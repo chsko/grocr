@@ -201,13 +201,8 @@ export default function AppTabs() {
   return (
     <Tabs
       tabBar={(props) => <TabBar {...props} />}
-      // Detaching the tabs you're not on raced the slide and sometimes left a blank tab, so all
-      // four stay attached; the slide keeps the hidden ones a screen-width off to the side.
-      detachInactiveScreens={false}
       screenOptions={{
         headerShown: false,
-        // Mount every tab up front, as the native tabs did, so a first visit slides in with content.
-        lazy: false,
         animation: reduceMotion ? 'none' : 'shift',
         sceneStyleInterpolator: forSlide,
         transitionSpec: slideSpec,
