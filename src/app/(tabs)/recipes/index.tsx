@@ -70,7 +70,7 @@ export default function RecipesScreen() {
         return (
           <Pressable
             key={r._id}
-            onPress={() => router.push({ pathname: '/recipe/[id]', params: { id: r._id } })}
+            onPress={() => router.push({ pathname: '/recipes/[id]', params: { id: r._id } })}
             accessibilityRole="link"
             style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}>
             <IconTile icon={r.icon} color={colors.tiles[index % colors.tiles.length]} />

@@ -14,7 +14,8 @@ import * as SystemUI from 'expo-system-ui';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Fonts, Palettes } from '@/constants/theme';
+import { useHeaderOptions } from '@/components/tab-stack';
+import { Palettes } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import {
   restoreAppearance,
@@ -84,6 +85,7 @@ export default function RootLayout() {
 function AppStack() {
   const { t } = useTranslation();
   const colors = useColors();
+  const header = useHeaderOptions();
   const [fontsLoaded] = useFonts({
     BricolageGrotesque_400Regular,
     BricolageGrotesque_500Medium,
@@ -103,13 +105,6 @@ function AppStack() {
 
   const signedIn = isAuthenticated && me != null;
   const hasFamily = signedIn && me.family !== null;
-  const header = {
-    headerShown: true,
-    headerShadowVisible: false,
-    headerTintColor: colors.ink,
-    headerTitleStyle: { fontFamily: Fonts.bold, fontSize: 17 },
-    headerBackButtonDisplayMode: 'minimal' as const,
-  };
 
   return (
     <SessionContext.Provider value={signedIn ? me : null}>
@@ -129,7 +124,6 @@ function AppStack() {
         <Stack.Protected guard={hasFamily}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="tour" options={{ animation: 'fade', gestureEnabled: false }} />
-          <Stack.Screen name="recipe/[id]" options={{ ...header, title: '' }} />
           <Stack.Screen
             name="recipe/edit"
             options={{ ...header, presentation: 'modal', title: t('recipeEdit.newTitle') }}
@@ -140,7 +134,6 @@ function AppStack() {
             options={{ presentation: 'modal' }}
           />
           <Stack.Screen name="invite" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="sections" options={{ ...header, title: t('storeOrder.title') }} />
         </Stack.Protected>
       </Stack>
     </SessionContext.Provider>

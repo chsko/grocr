@@ -2,11 +2,11 @@ import { act, fireEvent, render as rtlRender, screen } from '@testing-library/re
 import * as Haptics from 'expo-haptics';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import FamilyScreen from '@/app/(tabs)/family';
-import GroceriesScreen from '@/app/(tabs)/groceries';
+import FamilyScreen from '@/app/(tabs)/family/index';
+import GroceriesScreen from '@/app/(tabs)/groceries/index';
 import RecipeEditScreen from '@/app/recipe/edit';
-import WeekScreen from '@/app/(tabs)/week';
-import SectionsScreen from '@/app/sections';
+import WeekScreen from '@/app/(tabs)/week/index';
+import SectionsScreen from '@/app/(tabs)/family/sections';
 import SignInScreen from '@/app/sign-in';
 import { Palettes } from '@/constants/theme';
 import { SECTIONS } from '@/convex/lib/catalog';

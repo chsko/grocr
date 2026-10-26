@@ -236,7 +236,7 @@ export default function FamilyScreen() {
       </Pressable>
       <Pressable
         accessibilityRole="button"
-        onPress={() => router.push('/sections')}
+        onPress={() => router.push('/family/sections')}
         style={styles.setting}>
         <Text>{t('family.storeOrder')}</Text>
         <ChevronRight color={colors.muted} size={18} />

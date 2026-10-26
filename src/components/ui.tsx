@@ -18,7 +18,6 @@ import {
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useTabBarSpace } from '@/components/app-tabs';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
 import { makeStyles, useColors } from '@/lib/appearance';
 
@@ -368,8 +367,6 @@ export function TabScreen({
   onLayout?: ScrollViewProps['onLayout'];
 }) {
   const colors = useColors();
-  // The tab bar floats over the bottom of the screen, so the list ends above it.
-  const barSpace = useTabBarSpace();
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.background }}>
       {header}
@@ -383,11 +380,7 @@ export function TabScreen({
         keyboardShouldPersistTaps="handled"
         // Scrolling the list puts the keyboard away, like Notes and Reminders.
         keyboardDismissMode="on-drag"
-        scrollIndicatorInsets={{ bottom: barSpace }}
-        contentContainerStyle={[
-          { paddingHorizontal: 20, paddingBottom: 32 + barSpace },
-          contentStyle,
-        ]}>
+        contentContainerStyle={[{ paddingHorizontal: 20, paddingBottom: 32 }, contentStyle]}>
         {children}
       </ScrollView>
     </SafeAreaView>

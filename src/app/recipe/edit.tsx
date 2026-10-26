@@ -150,8 +150,9 @@ export default function RecipeEditScreen() {
     );
     setBusy(false);
     if (recipeId === undefined) return;
-    if (id) router.back();
-    else router.replace({ pathname: '/recipe/[id]', params: { id: recipeId } });
+    router.back();
+    // A new recipe opens in the Recipes tab, so back from it goes to the list.
+    if (!id) router.push({ pathname: '/recipes/[id]', params: { id: recipeId } });
   }
 
   if (id && existing === undefined) return <Loading />;
