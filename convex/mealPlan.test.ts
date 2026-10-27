@@ -93,6 +93,43 @@ describe('planning a dinner', () => {
     ]);
   });
 
+  test('moving a line to another section and saving it unchanged keeps it with the dinner', async () => {
+    const { t, kari, groupId, recipeId } = await family();
+    const entryId = await kari.as.mutation(api.mealPlan.set, { groupId, date: TUESDAY, recipeId });
+    const items = await t.run((ctx) => ctx.db.query('groceryItems').collect());
+    const row = items.find((i) => i.name === 'Onion')!;
+    await kari.as.mutation(api.ingredients.setSection, {
+      ingredientId: row.ingredientId!,
+      section: 'dry',
+    });
+    // The line editor stays open after picking a section; closing it with Save (amount as shown)
+    // is not an edit.
+    for (const name of ['Onion', 'Minced beef', 'Salt']) {
+      const r = items.find((i) => i.name === name)!;
+      await kari.as.mutation(api.grocery.editMerged, {
+        itemIds: [r._id],
+        qty: r.qty,
+        unit: r.unit,
+      });
+    }
+    await kari.as.mutation(api.mealPlan.remove, { entryId });
+    expect(await rows(t)).toEqual([]);
+  });
+
+  test("saving a merged line unchanged keeps each dinner's share", async () => {
+    const { t, kari, groupId, recipeId } = await family();
+    const tue = await kari.as.mutation(api.mealPlan.set, { groupId, date: TUESDAY, recipeId });
+    await kari.as.mutation(api.mealPlan.set, { groupId, date: addDays(TUESDAY, 1), recipeId });
+    const items = await t.run((ctx) => ctx.db.query('groceryItems').collect());
+    const onions = items.filter((i) => i.name === 'Onion').map((i) => i._id);
+    // "4 onions" saved as shown.
+    await kari.as.mutation(api.grocery.editMerged, { itemIds: onions, qty: 4, unit: 'pcs' });
+    await kari.as.mutation(api.mealPlan.remove, { entryId: tue });
+    expect((await rows(t)).filter((r) => r.name === 'Onion')).toEqual([
+      { name: 'Onion', qty: 2, unit: 'pcs', checked: false, kind: 'meal' },
+    ]);
+  });
+
   test('more servings after shopping adds a line for the extra amount only', async () => {
     const { t, kari, groupId, recipeId } = await family();
     const entryId = await kari.as.mutation(api.mealPlan.set, { groupId, date: TUESDAY, recipeId });

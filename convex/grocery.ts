@@ -5,7 +5,7 @@ import { mutation, query, type MutationCtx } from './_generated/server';
 import { resolveIngredient } from './ingredients';
 import { getMembership, requireMemberOf, requireMembership, requireUserId } from './lib/access';
 import { findList, getOrCreateList } from './lib/groceryRows';
-import { isUnit } from './lib/units';
+import { isUnit, sumAmounts } from './lib/units';
 import { familySections, placeSection } from './lib/catalog';
 import { addDays, isLocalDate, startOfWeek, type Weekday } from './lib/week';
 
@@ -155,6 +155,8 @@ async function loadRows(ctx: MutationCtx, itemIds: Id<'groceryItems'>[]) {
 /**
  * Edits a merged line ("3 onions" -> "1 onion"): every row behind it becomes edited, the new
  * amount goes on one row and the others are removed, so sync leaves the line alone from now on.
+ * Saving the amount the line already shows (e.g. after only moving it to another section) is no
+ * edit: the rows stay with their dinners, so removing the dinner still takes them off the list.
  */
 export const editMerged = mutation({
   args: {
@@ -165,10 +167,13 @@ export const editMerged = mutation({
   handler: async (ctx, { itemIds, qty, unit }) => {
     const rows = await loadRows(ctx, itemIds);
     if (rows.length === 0) return;
+    const newQty = qty !== undefined && Number.isFinite(qty) && qty > 0 ? qty : undefined;
+    const newUnit = unit !== undefined && isUnit(unit) ? unit : undefined;
+    if (showsAmount(rows, newQty, newUnit)) return;
     const [keep, ...rest] = rows;
     await ctx.db.patch('groceryItems', keep._id, {
-      qty: qty !== undefined && Number.isFinite(qty) && qty > 0 ? qty : undefined,
-      unit: unit !== undefined && isUnit(unit) ? unit : undefined,
+      qty: newQty,
+      unit: newUnit,
       edited: true,
       // The edited line is one to buy, even if the row kept was marked as at home meanwhile.
       atHome: undefined,
@@ -176,6 +181,24 @@ export const editMerged = mutation({
     for (const row of rest) await removeRow(ctx, row);
   },
 });
+
+/** Whether the rows already add up to the one amount given, as the line editor shows it. */
+function showsAmount(
+  rows: Doc<'groceryItems'>[],
+  qty: number | undefined,
+  unit: string | undefined,
+) {
+  // Saving a line puts rows someone marked at home meanwhile back on the list.
+  if (rows.some((r) => r.atHome)) return false;
+  const amounts = sumAmounts(
+    rows.map((r) => ({ qty: r.qty, unit: r.unit && isUnit(r.unit) ? r.unit : undefined })),
+  );
+  if (amounts.length !== 1 || amounts[0].unit !== unit) return false;
+  const shown = amounts[0].qty;
+  // The editor shows amounts rounded to two decimals.
+  if (shown === undefined || qty === undefined) return shown === qty;
+  return Math.abs(Math.round(shown * 100) / 100 - qty) < 1e-9;
+}
 
 /**
  * Takes a row off the list. Meal rows stay behind as hidden, edited tombstones so a later

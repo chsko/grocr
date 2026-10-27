@@ -43,14 +43,20 @@ export function GroceryLineEditor({ line, onClose }: { line: GroceryLine; onClos
   );
   // Lines with mixed units ("1 can + 200 g") start from the first part.
   const first = line.amounts[0];
-  const [qty, setQty] = useState(() =>
-    first?.qty !== undefined ? formatQty(first.qty, i18n.language) : '',
-  );
-  const [unit, setUnit] = useState<Unit | undefined>(first?.unit);
+  const [start] = useState(() => ({
+    qty: first?.qty !== undefined ? formatQty(first.qty, i18n.language) : '',
+    unit: first?.unit,
+  }));
+  const [qty, setQty] = useState(start.qty);
+  const [unit, setUnit] = useState<Unit | undefined>(start.unit);
   const itemIds = line.itemIds as Id<'groceryItems'>[];
 
   async function save() {
-    await attempt(t, () => editMerged({ itemIds, qty: parseQty(qty), unit }));
+    // Saving without touching the amount (e.g. after only picking a section) is no edit, so the
+    // rows keep following their dinners. The line may also have grown since the editor opened.
+    if (qty !== start.qty || unit !== start.unit) {
+      await attempt(t, () => editMerged({ itemIds, qty: parseQty(qty), unit }));
+    }
     onClose();
   }
 

@@ -3,6 +3,7 @@ import * as Haptics from 'expo-haptics';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import FamilyScreen from '@/app/(tabs)/family';
+import { GroceryLineEditor } from '@/components/grocery-line-editor';
 import GroceriesScreen from '@/app/(tabs)/groceries';
 import RecipeEditScreen from '@/app/recipe/edit';
 import WeekScreen from '@/app/(tabs)/week';
@@ -45,6 +46,8 @@ const mockUseQuery = jest.fn();
 const mockAddManual = jest.fn();
 const mockRename = jest.fn(() => Promise.resolve(null));
 const mockSetAtHome = jest.fn((_args: unknown) => Promise.resolve(1));
+const mockEditMerged = jest.fn((_args: unknown) => Promise.resolve(null));
+const mockSetSection = jest.fn((_args: unknown) => Promise.resolve(null));
 jest.mock('convex/react', () => ({
   useQuery: (...args: unknown[]) => mockUseQuery(...args),
   useMutation: (name: string) =>
@@ -54,7 +57,11 @@ jest.mock('convex/react', () => ({
         ? mockRename
         : name === 'grocery.setAtHome'
           ? { withOptimisticUpdate: () => mockSetAtHome }
-          : Object.assign(jest.fn(), { withOptimisticUpdate: () => jest.fn() }),
+          : name === 'grocery.editMerged'
+            ? mockEditMerged
+            : name === 'ingredients.setSection'
+              ? mockSetSection
+              : Object.assign(jest.fn(), { withOptimisticUpdate: () => jest.fn() }),
 }));
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(() => Promise.resolve()),
@@ -389,6 +396,51 @@ describe('groceries', () => {
     await fireEvent.press(screen.getByText('Har hjemme · 1'));
     await fireEvent.press(screen.getByLabelText('Sett Melk på listen igjen'));
     expect(mockSetAtHome).toHaveBeenCalledWith({ itemIds: ['i1'], atHome: false });
+  });
+});
+
+describe('grocery line editor', () => {
+  const line = {
+    key: 'open|ing-onion',
+    ingredientId: 'ing-onion',
+    name: 'Onion',
+    section: 'produce',
+    checked: false,
+    atHome: false,
+    itemIds: ['i0', 'i1'],
+    amounts: [{ qty: 4, unit: 'pcs' as const }],
+    entryIds: ['e1', 'e2'],
+    addedBy: [],
+  };
+
+  test('saving after only moving the line to another section is no edit', async () => {
+    await i18n.changeLanguage('en');
+    mockEditMerged.mockClear();
+    mockSetSection.mockClear();
+    const onClose = jest.fn();
+    await render(
+      <SessionContext.Provider value={me}>
+        <GroceryLineEditor line={line} onClose={onClose} />
+      </SessionContext.Provider>,
+    );
+    await fireEvent.press(screen.getByText('Frozen'));
+    expect(mockSetSection).toHaveBeenCalledWith({ ingredientId: 'ing-onion', section: 'frozen' });
+    await act(() => fireEvent.press(screen.getByText('Save')));
+    expect(mockEditMerged).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  test('saving a new amount edits the line', async () => {
+    await i18n.changeLanguage('en');
+    mockEditMerged.mockClear();
+    await render(
+      <SessionContext.Provider value={me}>
+        <GroceryLineEditor line={line} onClose={jest.fn()} />
+      </SessionContext.Provider>,
+    );
+    await fireEvent.changeText(screen.getByDisplayValue('4'), '3');
+    await act(() => fireEvent.press(screen.getByText('Save')));
+    expect(mockEditMerged).toHaveBeenCalledWith({ itemIds: ['i0', 'i1'], qty: 3, unit: 'pcs' });
   });
 });
 
