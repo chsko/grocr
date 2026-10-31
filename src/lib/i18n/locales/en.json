@@ -189,7 +189,14 @@
     "sameAsPlaceholder": "Search the family’s items",
     "merge": "Merge",
     "mergeTitle": "Merge {{from}} into {{into}}?",
-    "mergeBody": "Recipes and lists that use {{from}} will use {{into}} instead, and typing “{{from}}” later finds {{into}}."
+    "mergeBody": "Recipes and lists that use {{from}} will use {{into}} instead, and typing “{{from}}” later finds {{into}}.",
+    "staplesTitle": "Staples",
+    "staplesBody_one": "{{count}} staple isn’t on this list. Tap it to add it.",
+    "staplesBody_other": "{{count}} staples aren’t on this list. Tap one to add it.",
+    "staplesAddAll": "Add all",
+    "staplesDismiss": "Not this week",
+    "staplesAddOne": "Add {{name}} to the list",
+    "staple": "Buy every week"
   },
   "sections": {
     "produce": "Produce",
@@ -253,7 +260,8 @@
     "storeOrder": "Sections",
     "name": "Family name",
     "rename": "Rename family",
-    "items": "Items"
+    "items": "Items",
+    "staples": "Staples"
   },
   "invite": {
     "title": "Invite to {{family}}",
@@ -376,5 +384,14 @@
     "nameLabel": "Name",
     "takenTitle": "{{name}} is already an item",
     "takenBody": "Merge them, so recipes and lists use one item?"
+  },
+  "staples": {
+    "title": "Staples",
+    "intro": "Things you buy most weeks, like milk, bread or coffee. Every week’s grocery list offers the ones that aren’t on it yet.",
+    "empty": "No staples yet. Add some below, or long-press an item on the grocery list and pick “Buy every week”.",
+    "newLabel": "New staple",
+    "newPlaceholder": "E.g. Milk",
+    "add": "Add",
+    "remove": "Stop offering {{name}}"
   }
 }

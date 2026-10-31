@@ -202,6 +202,11 @@ export const merge = mutation({
       .withIndex('by_group_startDate', (q) => q.eq('groupId', groupId))
       .collect();
     for (const list of lists) {
+      // A staple the list already had stays handled under its kept item.
+      if (list.staplesHandled?.includes(fromId)) {
+        const handled = new Set(list.staplesHandled.map((id) => (id === fromId ? intoId : id)));
+        await ctx.db.patch('groceryLists', list._id, { staplesHandled: [...handled] });
+      }
       const items = await ctx.db
         .query('groceryItems')
         .withIndex('by_list', (q) => q.eq('listId', list._id))
@@ -233,7 +238,11 @@ export const merge = mutation({
 
     const aliases = new Set([...into.aliases, from.normalizedName, ...from.aliases]);
     aliases.delete(into.normalizedName);
-    await ctx.db.patch('ingredients', intoId, { aliases: [...aliases] });
+    await ctx.db.patch('ingredients', intoId, {
+      aliases: [...aliases],
+      // A staple stays a staple under its kept name.
+      ...(from.isStaple ? { isStaple: true } : {}),
+    });
     const fromAliases = await ctx.db
       .query('ingredientAliases')
       .withIndex('by_ingredient', (q) => q.eq('ingredientId', fromId))

@@ -22,7 +22,7 @@ import Animated, {
 
 import { GroceryLineEditor } from '@/components/grocery-line-editor';
 import { AtHome, Check, ChevronDown, ChevronRight, Plus } from '@/components/icons';
-import { Button, TabScreen, Text } from '@/components/ui';
+import { Button, Chip, TabScreen, Text } from '@/components/ui';
 import { Fonts, Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -91,6 +91,22 @@ export default function GroceriesScreen() {
       });
     },
   );
+  // The offer drops a staple as soon as it is tapped, so quick taps on several chips keep up.
+  const addStaples = useMutation(api.grocery.addStaples).withOptimisticUpdate(
+    (store, { ingredientIds }) => {
+      const current = store.getQuery(api.grocery.listForWeek, args);
+      if (!current) return;
+      const ids = new Set<string>(ingredientIds);
+      store.setQuery(api.grocery.listForWeek, args, {
+        ...current,
+        staplesOffer: current.staplesOffer.filter((s) => !ids.has(s.ingredientId)),
+      });
+    },
+  );
+  const dismissStaples = useMutation(api.grocery.dismissStaples).withOptimisticUpdate((store) => {
+    const current = store.getQuery(api.grocery.listForWeek, args);
+    if (current) store.setQuery(api.grocery.listForWeek, args, { ...current, staplesOffer: [] });
+  });
   const addManual = useMutation(api.grocery.addManual);
   const clearChecked = useMutation(api.grocery.clearChecked);
   const carryOver = useMutation(api.grocery.carryOver);
@@ -112,6 +128,11 @@ export default function GroceriesScreen() {
   const revealed = useRef<string | null>(null);
 
   const lines = useMemo(() => mergeRows(data?.items ?? [], data?.sectionOrder), [data]);
+  // While the carry-over card offers last week's items, the staples card leaves them out.
+  const carryShown = startDate === thisWeek && data?.carryOver ? data.carryOver : null;
+  const staplesOffer = (data?.staplesOffer ?? []).filter(
+    (s) => !carryShown?.ingredientIds.some((id) => id === s.ingredientId),
+  );
   const open = lines.filter((l) => !l.checked && !l.atHome);
   const home = lines.filter((l) => l.atHome);
   const editing = lines.find((l) => l.key === editingKey) ?? null;
@@ -151,6 +172,16 @@ export default function GroceriesScreen() {
   function markAtHome(line: GroceryLine, atHome: boolean) {
     if (atHome) void Haptics.selectionAsync().catch(() => {});
     void attempt(t, () => setAtHome({ itemIds: line.itemIds as Id<'groceryItems'>[], atHome }));
+  }
+
+  /** "Add all", in batches the server takes (at most 100 ids per call). */
+  async function addAllStaples(ids: Id<'ingredients'>[]) {
+    for (let i = 0; i < ids.length; i += 100) {
+      const done = await attempt(t, () =>
+        addStaples({ ...args, ingredientIds: ids.slice(i, i + 100) }),
+      );
+      if (done === undefined) return;
+    }
   }
 
   async function add() {
@@ -272,17 +303,17 @@ export default function GroceriesScreen() {
       onLayout={(e) => {
         viewHeight.current = e.nativeEvent.layout.height;
       }}>
-      {startDate === thisWeek && data?.carryOver ? (
+      {carryShown ? (
         <View style={styles.carry}>
           <Text style={{ fontSize: 15 }}>
             <Text style={{ fontFamily: Fonts.bold, fontSize: 15 }}>
-              {t('groceries.carryTitle', { count: data.carryOver.count })}
+              {t('groceries.carryTitle', { count: carryShown.count })}
             </Text>{' '}
             {t('groceries.carryBody')}
           </Text>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <Button
-              title={t('groceries.carryMove', { count: data.carryOver.count })}
+              title={t('groceries.carryMove', { count: carryShown.count })}
               style={styles.carryButton}
               onPress={() => void attempt(t, () => carryOver({ ...args, move: true }))}
             />
@@ -291,6 +322,44 @@ export default function GroceriesScreen() {
               title={t('groceries.carryDismiss')}
               style={{ minHeight: 40, paddingHorizontal: 8 }}
               onPress={() => void attempt(t, () => carryOver({ ...args, move: false }))}
+            />
+          </View>
+        </View>
+      ) : null}
+
+      {staplesOffer.length > 0 ? (
+        <View style={styles.staples}>
+          <Text style={{ fontSize: 15 }}>
+            <Text style={{ fontFamily: Fonts.bold, fontSize: 15 }}>
+              {t('groceries.staplesTitle')}
+            </Text>{' '}
+            {t('groceries.staplesBody', { count: staplesOffer.length })}
+          </Text>
+          <View style={styles.stapleChips}>
+            {staplesOffer.map((staple) => (
+              <Chip
+                key={staple.ingredientId}
+                title={`+ ${staple.name}`}
+                accessibilityLabel={t('groceries.staplesAddOne', { name: staple.name })}
+                onPress={() =>
+                  void attempt(t, () =>
+                    addStaples({ ...args, ingredientIds: [staple.ingredientId] }),
+                  )
+                }
+              />
+            ))}
+          </View>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Button
+              title={t('groceries.staplesAddAll')}
+              style={styles.staplesButton}
+              onPress={() => void addAllStaples(staplesOffer.map((s) => s.ingredientId))}
+            />
+            <Button
+              kind="ghost"
+              title={t('groceries.staplesDismiss')}
+              style={{ minHeight: 40, paddingHorizontal: 8 }}
+              onPress={() => void attempt(t, () => dismissStaples(args))}
             />
           </View>
         </View>
@@ -441,7 +510,15 @@ export default function GroceriesScreen() {
       ) : null}
 
       {editing ? (
-        <GroceryLineEditor key={editing.key} line={editing} onClose={() => setEditingKey(null)} />
+        <GroceryLineEditor
+          key={editing.key}
+          line={editing}
+          isStaple={
+            editing.ingredientId !== null &&
+            data!.stapleIds.some((id) => id === editing.ingredientId)
+          }
+          onClose={() => setEditingKey(null)}
+        />
       ) : null}
     </TabScreen>
   );
@@ -510,6 +587,15 @@ const useStyles = makeStyles((colors) => ({
     gap: 10,
   },
   carryButton: { minHeight: 40, borderRadius: 10, backgroundColor: colors.warningFill },
+  staples: {
+    marginTop: 14,
+    borderRadius: 14,
+    backgroundColor: colors.surface,
+    padding: 14,
+    gap: 10,
+  },
+  staplesButton: { minHeight: 40, borderRadius: 10 },
+  stapleChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   line: {
     minHeight: 56,
     flexDirection: 'row',

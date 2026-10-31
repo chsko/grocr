@@ -7,12 +7,14 @@ import { getMembership, requireMemberOf, requireMembership, requireUserId } from
 import { findList, getOrCreateList } from './lib/groceryRows';
 import { isUnit, sumAmounts } from './lib/units';
 import { familySections, placeSection } from './lib/catalog';
+import { familyStaples } from './staples';
 import { addDays, isLocalDate, startOfWeek, type Weekday } from './lib/week';
 
 /**
  * The grocery list for the week starting `startDate` (null if nothing was added yet), with the
  * dinner each meal line came from, and whether last week's list has unchecked items to offer
- * moving over (only until someone moves or dismisses them).
+ * moving over (only until someone moves or dismisses them). Also the family's staples, and the
+ * ones to offer adding: those not on the list in any state, until someone says not this week.
  */
 export const listForWeek = query({
   args: { groupId: v.id('groups'), startDate: v.string() },
@@ -44,7 +46,7 @@ export const listForWeek = query({
       }
     }
 
-    let carryOver: { count: number } | null = null;
+    let carryOver: { count: number; ingredientIds: Id<'ingredients'>[] } | null = null;
     if (!list?.carryOverDismissed) {
       const previous = await findList(ctx, groupId, addDays(startDate, -7));
       if (previous !== null) {
@@ -53,8 +55,13 @@ export const listForWeek = query({
           .withIndex('by_list', (q) => q.eq('listId', previous._id))
           .filter((q) => q.eq(q.field('checked'), false))
           .collect();
-        const visible = open.filter((r) => !r.removed && !r.atHome).length;
-        if (visible > 0) carryOver = { count: visible };
+        const visible = open.filter((r) => !r.removed && !r.atHome);
+        if (visible.length > 0) {
+          // The app leaves these out of the staples offer while it shows the carry-over card,
+          // so one item is not offered twice.
+          const ids = visible.flatMap((r) => (r.ingredientId ? [r.ingredientId] : []));
+          carryOver = { count: visible.length, ingredientIds: [...new Set(ids)] };
+        }
       }
     }
 
@@ -66,6 +73,19 @@ export const listForWeek = query({
       const ingredient = await ctx.db.get('ingredients', item.ingredientId);
       if (ingredient?.groupId === groupId) sections.set(item.ingredientId, ingredient.section);
     }
+    // Not offered: staples on the list in any state, and ones it had before (bought and cleared,
+    // or taken off by hand).
+    const staples = await familyStaples(ctx, groupId);
+    const handled = new Set<string | undefined>([
+      ...items.map((i) => i.ingredientId),
+      ...(list?.staplesHandled ?? []),
+    ]);
+    const staplesOffer = list?.staplesDismissed
+      ? []
+      : staples
+          .filter((i) => !handled.has(i._id))
+          .map((i) => ({ ingredientId: i._id, name: i.name }));
+
     const group = (await ctx.db.get('groups', groupId))!;
     // Lines of a section the family deleted show under "other" until they are sorted again.
     const keys = familySections(group).map((s) => s.key);
@@ -88,6 +108,8 @@ export const listForWeek = query({
       sources,
       addedBy,
       carryOver,
+      stapleIds: staples.map((i) => i._id),
+      staplesOffer,
     };
   },
 });
@@ -134,6 +156,86 @@ export const addManual = mutation({
       source: { kind: 'manual', addedBy: userId },
       createdAt: Date.now(),
     });
+  },
+});
+
+/**
+ * Puts staples on the week's list as manual items (the offer's "Add all", or one tapped), and
+ * remembers them so the list stops offering them. Items that are no longer staples, or already
+ * on the list in any state, are skipped, so a resend or two members tapping at once adds each
+ * staple once. Returns how many were added.
+ */
+export const addStaples = mutation({
+  args: {
+    groupId: v.id('groups'),
+    startDate: v.string(),
+    ingredientIds: v.array(v.id('ingredients')),
+  },
+  handler: async (ctx, { groupId, startDate, ingredientIds }) => {
+    const { userId } = await requireMembership(ctx, groupId);
+    if (ingredientIds.length > 100) throw new ConvexError({ code: 'TOO_MANY_ITEMS' });
+    const listId = await weekList(ctx, groupId, startDate);
+    const rows = await ctx.db
+      .query('groceryItems')
+      .withIndex('by_list', (q) => q.eq('listId', listId))
+      .collect();
+    const onList = new Set(rows.filter((r) => !r.removed).map((r) => r.ingredientId));
+    const now = Date.now();
+    const accepted: Id<'ingredients'>[] = [];
+    let added = 0;
+    for (const id of new Set(ingredientIds)) {
+      const ingredient = await ctx.db.get('ingredients', id);
+      if (ingredient === null || ingredient.groupId !== groupId || !ingredient.isStaple) continue;
+      accepted.push(id);
+      if (onList.has(id)) continue;
+      await ctx.db.insert('groceryItems', {
+        groupId,
+        listId,
+        ingredientId: id,
+        name: ingredient.name,
+        section: ingredient.section,
+        checked: false,
+        edited: false,
+        source: { kind: 'manual', addedBy: userId },
+        createdAt: now,
+      });
+      onList.add(id);
+      added++;
+    }
+    await rememberStaples(ctx, listId, accepted);
+    return added;
+  },
+});
+
+/**
+ * Notes on the list that these items were handled this week, so the staples offer leaves them
+ * out from now on. Only staples are kept; other items are never offered anyway.
+ */
+async function rememberStaples(
+  ctx: MutationCtx,
+  listId: Id<'groceryLists'>,
+  ingredientIds: (Id<'ingredients'> | undefined)[],
+) {
+  const list = await ctx.db.get('groceryLists', listId);
+  if (list === null) return;
+  const handled = new Set(list.staplesHandled ?? []);
+  for (const id of new Set(ingredientIds)) {
+    if (id === undefined || handled.has(id)) continue;
+    const ingredient = await ctx.db.get('ingredients', id);
+    if (ingredient?.groupId === list.groupId && ingredient.isStaple) handled.add(id);
+  }
+  if (handled.size !== (list.staplesHandled ?? []).length) {
+    await ctx.db.patch('groceryLists', listId, { staplesHandled: [...handled] });
+  }
+}
+
+/** Stops offering staples on this week's list ("Not this week"). */
+export const dismissStaples = mutation({
+  args: { groupId: v.id('groups'), startDate: v.string() },
+  handler: async (ctx, { groupId, startDate }) => {
+    await requireMembership(ctx, groupId);
+    const listId = await weekList(ctx, groupId, startDate);
+    await ctx.db.patch('groceryLists', listId, { staplesDismissed: true });
   },
 });
 
@@ -221,7 +323,15 @@ async function removeRow(ctx: MutationCtx, row: Doc<'groceryItems'>) {
 export const remove = mutation({
   args: { itemIds: v.array(v.id('groceryItems')) },
   handler: async (ctx, { itemIds }) => {
-    for (const row of await loadRows(ctx, itemIds)) await removeRow(ctx, row);
+    const rows = await loadRows(ctx, itemIds);
+    for (const row of rows) await removeRow(ctx, row);
+    if (rows.length > 0) {
+      await rememberStaples(
+        ctx,
+        rows[0].listId,
+        rows.map((r) => r.ingredientId),
+      );
+    }
   },
 });
 
@@ -241,6 +351,11 @@ export const clearChecked = mutation({
       .filter((q) => q.eq(q.field('checked'), true))
       .collect();
     for (const row of checked) await removeRow(ctx, row);
+    await rememberStaples(
+      ctx,
+      list._id,
+      checked.map((r) => r.ingredientId),
+    );
     return checked.length;
   },
 });

@@ -36,6 +36,7 @@ import type * as mealPlan from "../mealPlan.js";
 import type * as recipes from "../recipes.js";
 import type * as sections from "../sections.js";
 import type * as signInOptions from "../signInOptions.js";
+import type * as staples from "../staples.js";
 import type * as users from "../users.js";
 
 import type {
@@ -73,6 +74,7 @@ declare const fullApi: ApiFromModules<{
   recipes: typeof recipes;
   sections: typeof sections;
   signInOptions: typeof signInOptions;
+  staples: typeof staples;
   users: typeof users;
 }>;
 

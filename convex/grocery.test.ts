@@ -27,6 +27,8 @@ describe('grocery.listForWeek', () => {
       sources: {},
       addedBy: {},
       carryOver: null,
+      stapleIds: [],
+      staplesOffer: [],
     });
   });
 
@@ -199,7 +201,7 @@ describe('manual items and list upkeep', () => {
     await ada.as.mutation(api.grocery.setChecked, { itemIds: [itemIds[0]], checked: true });
 
     let list = await ada.as.query(api.grocery.listForWeek, { groupId, startDate: MONDAY });
-    expect(list.carryOver).toEqual({ count: 2 });
+    expect(list.carryOver?.count).toBe(2);
     expect(
       await ada.as.mutation(api.grocery.carryOver, { groupId, startDate: MONDAY, move: true }),
     ).toBe(2);
@@ -311,7 +313,7 @@ describe('grocery.setAtHome', () => {
       0,
     );
     let list = await ada.as.query(api.grocery.listForWeek, { groupId, startDate: MONDAY });
-    expect(list.carryOver).toEqual({ count: 1 });
+    expect(list.carryOver?.count).toBe(1);
     expect(
       await ada.as.mutation(api.grocery.carryOver, { groupId, startDate: MONDAY, move: true }),
     ).toBe(1);

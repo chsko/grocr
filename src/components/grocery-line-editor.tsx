@@ -24,9 +24,18 @@ import { useFamily } from '@/lib/session';
 
 /**
  * Edit or remove a merged grocery line (long press). Saving puts the new amount on one row and
- * marks it edited, so planning changes leave it alone (Product plan §5.3).
+ * marks it edited, so planning changes leave it alone (Product plan §5.3). Its item can also be
+ * made a staple, which every week's list then offers (GRO-62).
  */
-export function GroceryLineEditor({ line, onClose }: { line: GroceryLine; onClose: () => void }) {
+export function GroceryLineEditor({
+  line,
+  isStaple,
+  onClose,
+}: {
+  line: GroceryLine;
+  isStaple: boolean;
+  onClose: () => void;
+}) {
   const colors = useColors();
   const styles = useStyles();
   const { t, i18n } = useTranslation();
@@ -34,6 +43,7 @@ export function GroceryLineEditor({ line, onClose }: { line: GroceryLine; onClos
   const editMerged = useMutation(api.grocery.editMerged);
   const remove = useMutation(api.grocery.remove);
   const setSection = useMutation(api.ingredients.setSection);
+  const setStaple = useMutation(api.staples.set);
   const mergeIngredients = useMutation(api.ingredients.merge);
   const family = useFamily();
   const [mergeText, setMergeText] = useState<string | null>(null);
@@ -140,6 +150,24 @@ export function GroceryLineEditor({ line, onClose }: { line: GroceryLine; onClos
                 ))}
               </View>
             </>
+          ) : null}
+          {line.ingredientId ? (
+            <View style={styles.sections}>
+              <Chip
+                title={t('groceries.staple')}
+                selected={isStaple}
+                accessibilityRole="switch"
+                accessibilityState={{ checked: isStaple }}
+                onPress={() =>
+                  void attempt(t, () =>
+                    setStaple({
+                      ingredientId: line.ingredientId as Id<'ingredients'>,
+                      staple: !isStaple,
+                    }),
+                  )
+                }
+              />
+            </View>
           ) : null}
           {line.ingredientId && mergeText === null ? (
             <Button

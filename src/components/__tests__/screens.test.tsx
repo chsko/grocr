@@ -11,6 +11,7 @@ import WeekScreen from '@/app/(tabs)/week';
 import ItemsScreen from '@/app/items';
 import SectionsScreen from '@/app/sections';
 import SignInScreen from '@/app/sign-in';
+import StaplesScreen from '@/app/staples';
 import { Palettes } from '@/constants/theme';
 import { SECTIONS } from '@/convex/lib/catalog';
 import { SchemeContext } from '@/lib/appearance';
@@ -52,10 +53,21 @@ const mockEditMerged = jest.fn((_args: unknown) => Promise.resolve(null));
 const mockSetSection = jest.fn((_args: unknown) => Promise.resolve(null));
 const mockRenameItem = jest.fn((_args: unknown) => Promise.resolve(null));
 const mockMergeItems = jest.fn((_args: unknown) => Promise.resolve(null));
+const mockAddStaples = jest.fn((_args: unknown) => Promise.resolve(1));
+const mockDismissStaples = jest.fn((_args: unknown) => Promise.resolve(null));
+const mockSetStaple = jest.fn((_args: unknown) => Promise.resolve(null));
+const mockAddStaple = jest.fn((_args: unknown) => Promise.resolve('ing-new'));
+const mockMutations: Record<string, unknown> = {
+  'grocery.addStaples': { withOptimisticUpdate: () => mockAddStaples },
+  'grocery.dismissStaples': { withOptimisticUpdate: () => mockDismissStaples },
+  'staples.set': mockSetStaple,
+  'staples.add': mockAddStaple,
+};
 jest.mock('convex/react', () => ({
   useQuery: (...args: unknown[]) => mockUseQuery(...args),
   useMutation: (name: string) =>
-    name === 'grocery.addManual'
+    mockMutations[name] ??
+    (name === 'grocery.addManual'
       ? mockAddManual
       : name === 'groups.rename'
         ? mockRename
@@ -69,7 +81,7 @@ jest.mock('convex/react', () => ({
                 ? mockRenameItem
                 : name === 'ingredients.merge'
                   ? mockMergeItems
-                  : Object.assign(jest.fn(), { withOptimisticUpdate: () => jest.fn() }),
+                  : Object.assign(jest.fn(), { withOptimisticUpdate: () => jest.fn() })),
 }));
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(() => Promise.resolve()),
@@ -389,6 +401,8 @@ describe('groceries', () => {
     addedBy: {},
     sectionOrder: undefined,
     carryOver: null,
+    stapleIds: [] as string[],
+    staplesOffer: [] as { ingredientId: string; name: string }[],
   });
 
   test('typing shows Ferdig, which adds what is typed and leaves typing mode', async () => {
@@ -487,6 +501,120 @@ describe('groceries', () => {
   });
 });
 
+describe('staples offer', () => {
+  const offer = {
+    items: [],
+    sources: {},
+    addedBy: {},
+    sectionOrder: undefined,
+    carryOver: null,
+    stapleIds: ['ing-milk', 'ing-bread'],
+    staplesOffer: [
+      { ingredientId: 'ing-bread', name: 'Brød' },
+      { ingredientId: 'ing-milk', name: 'Melk' },
+    ],
+  };
+
+  test('adds one staple, all of them, or skips them this week', async () => {
+    await i18n.changeLanguage('nb');
+    mockAddStaples.mockClear();
+    mockDismissStaples.mockClear();
+    mockUseQuery.mockReturnValue(offer);
+    await render(
+      <SessionContext.Provider value={me}>
+        <GroceriesScreen />
+      </SessionContext.Provider>,
+    );
+    expect(screen.getByText(/2 faste varer er ikke på listen/)).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('Legg Melk på listen'));
+    expect(mockAddStaples).toHaveBeenLastCalledWith(
+      expect.objectContaining({ groupId: 'g1', ingredientIds: ['ing-milk'] }),
+    );
+    await fireEvent.press(screen.getByText('Legg til alle'));
+    expect(mockAddStaples).toHaveBeenLastCalledWith(
+      expect.objectContaining({ ingredientIds: ['ing-bread', 'ing-milk'] }),
+    );
+    await fireEvent.press(screen.getByText('Ikke denne uka'));
+    expect(mockDismissStaples).toHaveBeenCalledWith(expect.objectContaining({ groupId: 'g1' }));
+  });
+
+  test('leaves out staples the carry-over card offers to move', async () => {
+    await i18n.changeLanguage('en');
+    mockUseQuery.mockReturnValue({
+      ...offer,
+      carryOver: { count: 1, ingredientIds: ['ing-milk'] },
+    });
+    await render(
+      <SessionContext.Provider value={me}>
+        <GroceriesScreen />
+      </SessionContext.Provider>,
+    );
+    await fireEvent.press(screen.getByText('This week'));
+    expect(screen.getByText('Move 1 item')).toBeTruthy();
+    expect(screen.getByLabelText('Add Brød to the list')).toBeTruthy();
+    expect(screen.queryByLabelText('Add Melk to the list')).toBeNull();
+    // Next week has no carry-over card, so it offers both.
+    await fireEvent.press(screen.getByText('Next week'));
+    expect(screen.getByLabelText('Add Melk to the list')).toBeTruthy();
+  });
+
+  test('shows nothing when every staple is on the list', async () => {
+    await i18n.changeLanguage('en');
+    mockUseQuery.mockReturnValue({ ...offer, staplesOffer: [] });
+    await render(
+      <SessionContext.Provider value={me}>
+        <GroceriesScreen />
+      </SessionContext.Provider>,
+    );
+    expect(screen.queryByText('Add all')).toBeNull();
+  });
+});
+
+describe('staples screen', () => {
+  test('lists staples, removes one, and adds a typed or suggested item', async () => {
+    await i18n.changeLanguage('en');
+    mockSetStaple.mockClear();
+    mockAddStaple.mockClear();
+    mockUseQuery.mockImplementation((name: string, args: unknown) =>
+      name === 'staples.list'
+        ? [{ _id: 'ing-milk', name: 'Milk', section: 'dairy' }]
+        : args === 'skip'
+          ? undefined
+          : [
+              { _id: 'ing-milk', name: 'Milk', section: 'dairy' },
+              { _id: 'ing-oat', name: 'Oat milk', section: 'dairy' },
+            ],
+    );
+    await render(
+      <SessionContext.Provider value={me}>
+        <StaplesScreen />
+      </SessionContext.Provider>,
+    );
+    expect(screen.getByText('Milk')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('Stop offering Milk'));
+    expect(mockSetStaple).toHaveBeenCalledWith({ ingredientId: 'ing-milk', staple: false });
+
+    const field = screen.getByLabelText('New staple');
+    await fireEvent.changeText(field, 'milk');
+    // Milk is already a staple, so only Oat milk is suggested.
+    await act(() => fireEvent.press(screen.getByText('Oat milk')));
+    expect(mockAddStaple).toHaveBeenCalledWith({
+      groupId: 'g1',
+      name: 'Oat milk',
+      ingredientId: 'ing-oat',
+    });
+
+    mockAddStaple.mockClear();
+    await fireEvent.changeText(field, 'Coffee');
+    await act(() => fireEvent.press(screen.getByText('Add')));
+    expect(mockAddStaple).toHaveBeenCalledWith({
+      groupId: 'g1',
+      name: 'Coffee',
+      ingredientId: undefined,
+    });
+  });
+});
+
 describe('grocery line editor', () => {
   const line = {
     key: 'open|ing-onion',
@@ -508,7 +636,7 @@ describe('grocery line editor', () => {
     const onClose = jest.fn();
     await render(
       <SessionContext.Provider value={me}>
-        <GroceryLineEditor line={line} onClose={onClose} />
+        <GroceryLineEditor line={line} isStaple={false} onClose={onClose} />
       </SessionContext.Provider>,
     );
     await fireEvent.press(screen.getByText('Frozen'));
@@ -518,12 +646,33 @@ describe('grocery line editor', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  test('"Buy every week" makes the item a staple, or stops it being one', async () => {
+    await i18n.changeLanguage('en');
+    mockSetStaple.mockClear();
+    const view = await render(
+      <SessionContext.Provider value={me}>
+        <GroceryLineEditor line={line} isStaple={false} onClose={jest.fn()} />
+      </SessionContext.Provider>,
+    );
+    await fireEvent.press(screen.getByRole('switch', { name: 'Buy every week' }));
+    expect(mockSetStaple).toHaveBeenLastCalledWith({ ingredientId: 'ing-onion', staple: true });
+    await view.rerender(
+      <SafeAreaProvider initialMetrics={metrics}>
+        <SessionContext.Provider value={me}>
+          <GroceryLineEditor line={line} isStaple onClose={jest.fn()} />
+        </SessionContext.Provider>
+      </SafeAreaProvider>,
+    );
+    await fireEvent.press(screen.getByRole('switch', { name: 'Buy every week' }));
+    expect(mockSetStaple).toHaveBeenLastCalledWith({ ingredientId: 'ing-onion', staple: false });
+  });
+
   test('saving a new amount edits the line', async () => {
     await i18n.changeLanguage('en');
     mockEditMerged.mockClear();
     await render(
       <SessionContext.Provider value={me}>
-        <GroceryLineEditor line={line} onClose={jest.fn()} />
+        <GroceryLineEditor line={line} isStaple={false} onClose={jest.fn()} />
       </SessionContext.Provider>,
     );
     await fireEvent.changeText(screen.getByDisplayValue('4'), '3');

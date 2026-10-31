@@ -189,7 +189,14 @@
     "sameAsPlaceholder": "Søk i familiens varer",
     "merge": "Slå sammen",
     "mergeTitle": "Slå sammen {{from}} med {{into}}?",
-    "mergeBody": "Oppskrifter og lister som bruker {{from}}, bruker {{into}} i stedet, og skriver du «{{from}}» senere, finner du {{into}}."
+    "mergeBody": "Oppskrifter og lister som bruker {{from}}, bruker {{into}} i stedet, og skriver du «{{from}}» senere, finner du {{into}}.",
+    "staplesTitle": "Faste varer",
+    "staplesBody_one": "{{count}} fast vare er ikke på listen. Trykk på den for å legge den til.",
+    "staplesBody_other": "{{count}} faste varer er ikke på listen. Trykk på en for å legge den til.",
+    "staplesAddAll": "Legg til alle",
+    "staplesDismiss": "Ikke denne uka",
+    "staplesAddOne": "Legg {{name}} på listen",
+    "staple": "Kjøpes hver uke"
   },
   "sections": {
     "produce": "Frukt og grønt",
@@ -253,7 +260,8 @@
     "storeOrder": "Avdelinger",
     "name": "Familienavn",
     "rename": "Endre familienavn",
-    "items": "Varer"
+    "items": "Varer",
+    "staples": "Faste varer"
   },
   "invite": {
     "title": "Inviter til {{family}}",
@@ -376,5 +384,14 @@
     "nameLabel": "Navn",
     "takenTitle": "{{name}} finnes allerede",
     "takenBody": "Vil du slå dem sammen, så oppskrifter og lister bruker én vare?"
+  },
+  "staples": {
+    "title": "Faste varer",
+    "intro": "Ting dere kjøper nesten hver uke, som melk, brød eller kaffe. Handlelisten tilbyr hver uke de som ikke er på den ennå.",
+    "empty": "Ingen faste varer ennå. Legg til noen under, eller hold inne en vare på handlelisten og velg «Kjøpes hver uke».",
+    "newLabel": "Ny fast vare",
+    "newPlaceholder": "F.eks. Melk",
+    "add": "Legg til",
+    "remove": "Slutt å tilby {{name}}"
   }
 }

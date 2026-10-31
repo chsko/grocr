@@ -98,9 +98,12 @@ export default defineSchema({
     // Who set the section: the keyword guess, jev, or a family member (never overridden).
     sectionSource: v.optional(v.union(v.literal('guess'), v.literal('jev'), v.literal('user'))),
     defaultUnit: v.optional(v.string()),
+    // Bought most weeks (milk, bread, coffee): each week's list offers it (GRO-62).
     isStaple: v.optional(v.boolean()),
     aliases: v.array(v.string()),
-  }).index('by_group_normalizedName', ['groupId', 'normalizedName']),
+  })
+    .index('by_group_normalizedName', ['groupId', 'normalizedName'])
+    .index('by_group_staple', ['groupId', 'isStaple']),
 
   // Names merged into another catalog item (ingredients.merge), so typing them finds that item.
   ingredientAliases: defineTable({
@@ -158,6 +161,11 @@ export default defineSchema({
     startDate: v.string(),
     endDate: v.string(),
     carryOverDismissed: v.optional(v.boolean()),
+    // Someone said "not this week" to the staples offer (GRO-62).
+    staplesDismissed: v.optional(v.boolean()),
+    // Staples this list already had (added from the offer, cleared after the shop, or taken off
+    // by hand), so they are not offered again this week.
+    staplesHandled: v.optional(v.array(v.id('ingredients'))),
   }).index('by_group_startDate', ['groupId', 'startDate']),
 
   groceryItems: defineTable({
