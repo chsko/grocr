@@ -24,6 +24,8 @@ import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
 import { sectionName } from '@/lib/sections';
 import { useFamily } from '@/lib/session';
+import Animated from 'react-native-reanimated';
+import { sheetIn } from '@/lib/motion';
 
 // Same cap as the server (ingredients.MAX_ITEM_NAME); function files can't be imported here.
 const MAX_ITEM_NAME = 80;
@@ -216,79 +218,81 @@ function ItemEditor({ item, items, onClose }: { item: Item; items: Item[]; onClo
   }
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={() => void save()}>
+    <Modal visible transparent animationType="fade" onRequestClose={() => void save()}>
       <Pressable
         style={styles.backdrop}
         accessibilityLabel={t('common.close')}
         onPress={() => void save()}
       />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView
-          bounces={false}
-          keyboardShouldPersistTaps="handled"
-          style={[styles.sheetScroll, { maxHeight: height * 0.85 }]}
-          contentContainerStyle={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
-          <View style={{ gap: 2 }}>
-            <Text variant="heading">{item.name}</Text>
-            <Text variant="small" color={colors.muted}>
-              {details(t, item)}
-            </Text>
-          </View>
-          <Field
-            label={t('items.nameLabel')}
-            value={name}
-            onChangeText={setName}
-            maxLength={MAX_ITEM_NAME}
-            returnKeyType="done"
-            onSubmitEditing={() => void save()}
-          />
-          <Text variant="label" color={colors.muted}>
-            {t('groceries.section')}
-          </Text>
-          <View style={styles.chips}>
-            {family.sections.map((s) => (
-              <Chip
-                key={s.key}
-                title={sectionName(t, s)}
-                selected={section === s.key}
-                accessibilityState={{ selected: section === s.key }}
-                onPress={() =>
-                  void attempt(t, () => setSection({ ingredientId: item._id, section: s.key }))
-                }
-              />
-            ))}
-          </View>
-          {mergeText === null ? (
-            <Button
-              kind="ghost"
-              title={t('groceries.sameAs')}
-              style={{ alignSelf: 'flex-start' }}
-              onPress={() => setMergeText('')}
-            />
-          ) : (
-            <View style={{ gap: 6 }}>
-              <Field
-                label={t('groceries.sameAsLabel', { name: item.name })}
-                value={mergeText}
-                onChangeText={setMergeText}
-                autoFocus
-                autoCorrect={false}
-                placeholder={t('groceries.sameAsPlaceholder')}
-              />
-              <View style={styles.chips}>
-                {candidates.map((m) => (
-                  <Chip key={m._id} title={m.name} onPress={() => confirmMerge(m)} />
-                ))}
-              </View>
+        <Animated.View entering={sheetIn}>
+          <ScrollView
+            bounces={false}
+            keyboardShouldPersistTaps="handled"
+            style={[styles.sheetScroll, { maxHeight: height * 0.85 }]}
+            contentContainerStyle={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
+            <View style={{ gap: 2 }}>
+              <Text variant="heading">{item.name}</Text>
+              <Text variant="small" color={colors.muted}>
+                {details(t, item)}
+              </Text>
             </View>
-          )}
-          <Button
-            title={t('common.save')}
-            loading={busy}
-            disabled={name.trim() === ''}
-            onPress={() => void save()}
-          />
-        </ScrollView>
+            <Field
+              label={t('items.nameLabel')}
+              value={name}
+              onChangeText={setName}
+              maxLength={MAX_ITEM_NAME}
+              returnKeyType="done"
+              onSubmitEditing={() => void save()}
+            />
+            <Text variant="label" color={colors.muted}>
+              {t('groceries.section')}
+            </Text>
+            <View style={styles.chips}>
+              {family.sections.map((s) => (
+                <Chip
+                  key={s.key}
+                  title={sectionName(t, s)}
+                  selected={section === s.key}
+                  accessibilityState={{ selected: section === s.key }}
+                  onPress={() =>
+                    void attempt(t, () => setSection({ ingredientId: item._id, section: s.key }))
+                  }
+                />
+              ))}
+            </View>
+            {mergeText === null ? (
+              <Button
+                kind="ghost"
+                title={t('groceries.sameAs')}
+                style={{ alignSelf: 'flex-start' }}
+                onPress={() => setMergeText('')}
+              />
+            ) : (
+              <View style={{ gap: 6 }}>
+                <Field
+                  label={t('groceries.sameAsLabel', { name: item.name })}
+                  value={mergeText}
+                  onChangeText={setMergeText}
+                  autoFocus
+                  autoCorrect={false}
+                  placeholder={t('groceries.sameAsPlaceholder')}
+                />
+                <View style={styles.chips}>
+                  {candidates.map((m) => (
+                    <Chip key={m._id} title={m.name} onPress={() => confirmMerge(m)} />
+                  ))}
+                </View>
+              </View>
+            )}
+            <Button
+              title={t('common.save')}
+              loading={busy}
+              disabled={name.trim() === ''}
+              onPress={() => void save()}
+            />
+          </ScrollView>
+        </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
   );

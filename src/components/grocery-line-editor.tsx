@@ -21,6 +21,8 @@ import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
 import { sectionName } from '@/lib/sections';
 import { useFamily } from '@/lib/session';
+import Animated from 'react-native-reanimated';
+import { sheetIn } from '@/lib/motion';
 
 /**
  * Edit or remove a merged grocery line (long press). Saving puts the new amount on one row and
@@ -97,112 +99,114 @@ export function GroceryLineEditor({
   }
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} accessibilityLabel={t('common.close')} onPress={onClose} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
-          <Text variant="heading">{line.name}</Text>
-          <Field
-            label={t('groceries.amount')}
-            value={qty}
-            onChangeText={setQty}
-            keyboardType="decimal-pad"
-            placeholder="1"
-          />
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 8 }}>
-            <Chip
-              title={t('units.none')}
-              selected={unit === undefined}
-              onPress={() => setUnit(undefined)}
+        <Animated.View entering={sheetIn}>
+          <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
+            <Text variant="heading">{line.name}</Text>
+            <Field
+              label={t('groceries.amount')}
+              value={qty}
+              onChangeText={setQty}
+              keyboardType="decimal-pad"
+              placeholder="1"
             />
-            {UNITS.map((u) => (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 8 }}>
               <Chip
-                key={u}
-                title={t(`units.${u}`)}
-                selected={unit === u}
-                onPress={() => setUnit(u)}
+                title={t('units.none')}
+                selected={unit === undefined}
+                onPress={() => setUnit(undefined)}
               />
-            ))}
-          </ScrollView>
-          {line.ingredientId ? (
-            <>
-              <Text variant="label" color={colors.muted}>
-                {t('groceries.section')}
-              </Text>
-              <View style={styles.sections}>
-                {family.sections.map((s) => (
-                  <Chip
-                    key={s.key}
-                    title={sectionName(t, s)}
-                    selected={line.section === s.key}
-                    onPress={() =>
-                      void attempt(t, () =>
-                        setSection({
-                          ingredientId: line.ingredientId as Id<'ingredients'>,
-                          section: s.key,
-                        }),
-                      )
-                    }
-                  />
-                ))}
-              </View>
-            </>
-          ) : null}
-          {line.ingredientId ? (
-            <View style={styles.sections}>
-              <Chip
-                title={t('groceries.staple')}
-                selected={isStaple}
-                accessibilityRole="switch"
-                accessibilityState={{ checked: isStaple }}
-                onPress={() =>
-                  void attempt(t, () =>
-                    setStaple({
-                      ingredientId: line.ingredientId as Id<'ingredients'>,
-                      staple: !isStaple,
-                    }),
-                  )
-                }
-              />
-            </View>
-          ) : null}
-          {line.ingredientId && mergeText === null ? (
-            <Button
-              kind="ghost"
-              title={t('groceries.sameAs')}
-              style={{ alignSelf: 'flex-start' }}
-              onPress={() => setMergeText('')}
-            />
-          ) : null}
-          {mergeText !== null ? (
-            <View style={{ gap: 6 }}>
-              <Field
-                label={t('groceries.sameAsLabel', { name: line.name })}
-                value={mergeText}
-                onChangeText={setMergeText}
-                autoFocus
-                placeholder={t('groceries.sameAsPlaceholder')}
-              />
-              <View style={styles.sections}>
-                {matches
-                  ?.filter((m) => m._id !== line.ingredientId)
-                  .map((m) => (
-                    <Chip key={m._id} title={m.name} onPress={() => confirmMerge(m)} />
+              {UNITS.map((u) => (
+                <Chip
+                  key={u}
+                  title={t(`units.${u}`)}
+                  selected={unit === u}
+                  onPress={() => setUnit(u)}
+                />
+              ))}
+            </ScrollView>
+            {line.ingredientId ? (
+              <>
+                <Text variant="label" color={colors.muted}>
+                  {t('groceries.section')}
+                </Text>
+                <View style={styles.sections}>
+                  {family.sections.map((s) => (
+                    <Chip
+                      key={s.key}
+                      title={sectionName(t, s)}
+                      selected={line.section === s.key}
+                      onPress={() =>
+                        void attempt(t, () =>
+                          setSection({
+                            ingredientId: line.ingredientId as Id<'ingredients'>,
+                            section: s.key,
+                          }),
+                        )
+                      }
+                    />
                   ))}
+                </View>
+              </>
+            ) : null}
+            {line.ingredientId ? (
+              <View style={styles.sections}>
+                <Chip
+                  title={t('groceries.staple')}
+                  selected={isStaple}
+                  accessibilityRole="switch"
+                  accessibilityState={{ checked: isStaple }}
+                  onPress={() =>
+                    void attempt(t, () =>
+                      setStaple({
+                        ingredientId: line.ingredientId as Id<'ingredients'>,
+                        staple: !isStaple,
+                      }),
+                    )
+                  }
+                />
               </View>
-            </View>
-          ) : null}
-          <Button title={t('common.save')} onPress={() => void save()} />
-          <Button
-            kind="danger"
-            title={t('groceries.removeLine')}
-            style={{ alignSelf: 'center' }}
-            onPress={() => void removeLine()}
-          />
-        </View>
+            ) : null}
+            {line.ingredientId && mergeText === null ? (
+              <Button
+                kind="ghost"
+                title={t('groceries.sameAs')}
+                style={{ alignSelf: 'flex-start' }}
+                onPress={() => setMergeText('')}
+              />
+            ) : null}
+            {mergeText !== null ? (
+              <View style={{ gap: 6 }}>
+                <Field
+                  label={t('groceries.sameAsLabel', { name: line.name })}
+                  value={mergeText}
+                  onChangeText={setMergeText}
+                  autoFocus
+                  placeholder={t('groceries.sameAsPlaceholder')}
+                />
+                <View style={styles.sections}>
+                  {matches
+                    ?.filter((m) => m._id !== line.ingredientId)
+                    .map((m) => (
+                      <Chip key={m._id} title={m.name} onPress={() => confirmMerge(m)} />
+                    ))}
+                </View>
+              </View>
+            ) : null}
+            <Button title={t('common.save')} onPress={() => void save()} />
+            <Button
+              kind="danger"
+              title={t('groceries.removeLine')}
+              style={{ alignSelf: 'center' }}
+              onPress={() => void removeLine()}
+            />
+          </View>
+        </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
   );

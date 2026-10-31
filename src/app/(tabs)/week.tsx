@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 import Animated, { FadeInLeft, FadeInRight } from 'react-native-reanimated';
 
+import { Highlight } from '@/components/highlight';
 import { Basket, ChevronLeft, ChevronRight, Plus, Sparkle } from '@/components/icons';
 import { Button, IconButton, IconTile, TabScreen, Text } from '@/components/ui';
 import { Fonts, Radius } from '@/constants/theme';
@@ -12,6 +13,7 @@ import { api } from '@/convex/_generated/api';
 import { DEFAULT_ICON } from '@/convex/lib/recipeIcons';
 import { makeStyles, useColors } from '@/lib/appearance';
 import { dayShort, weekSpan, weekTitle } from '@/lib/format';
+import { useFreshIds } from '@/lib/fresh-ids';
 import { useFamily } from '@/lib/session';
 import { addDays, defaultGroceryWeek, startOfWeek, todayIn, type Weekday } from '@/lib/week';
 
@@ -55,6 +57,11 @@ export default function WeekScreen() {
           ? t('week.lastWeek')
           : null;
   const days = Array.from({ length: 7 }, (_, i) => addDays(startDate, i));
+  // A dinner planned or changed while the week is on screen (here, in Suggest a week, or by
+  // another member) gets a saffron wash, so coming back from the picker shows what changed.
+  const dinnerKey = (d: { _id: string; recipeId: string | null; title: string }) =>
+    `${d._id}:${d.recipeId ?? d.title}`;
+  const freshDinners = useFreshIds(startDate, week?.dinners.map(dinnerKey));
   // Suggestions fill days from today on that have no dinner yet (GRO-69).
   const canSuggest =
     week !== undefined && days.some((d) => d >= today && !week.dinners.some((x) => x.date === d));
@@ -101,6 +108,9 @@ export default function WeekScreen() {
                 date === today && styles.dayToday,
                 pressed && { opacity: 0.7 },
               ]}>
+              {dinner && freshDinners.has(dinnerKey(dinner)) ? (
+                <Highlight key={dinnerKey(dinner)} style={styles.flash} />
+              ) : null}
               <View style={[styles.dateTile, date === today && styles.dateTileToday]}>
                 <Text
                   variant="small"
@@ -223,6 +233,7 @@ const useStyles = makeStyles((colors) => ({
     paddingLeft: 6,
     paddingRight: 13,
   },
+  flash: { borderRadius: 15 },
   dateTile: {
     width: 46,
     height: 46,

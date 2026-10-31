@@ -28,6 +28,8 @@ import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
 import { sectionName } from '@/lib/sections';
 import { useFamily } from '@/lib/session';
+import Animated from 'react-native-reanimated';
+import { sheetIn } from '@/lib/motion';
 
 /**
  * The family's grocery list sections (GRO-51): add their own, rename or delete any but "other",
@@ -194,46 +196,48 @@ function SectionEditor({
   }
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} accessibilityLabel={t('common.close')} onPress={onClose} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
-          <Text variant="heading">{current}</Text>
-          <Field
-            label={t('storeOrder.nameLabel')}
-            value={name}
-            onChangeText={setName}
-            maxLength={MAX_SECTION_NAME}
-            autoFocus
-            returnKeyType="done"
-            onSubmitEditing={() => void save(name)}
-          />
-          {builtIn && section.name !== undefined ? (
-            <Button
-              kind="ghost"
-              title={t('storeOrder.standardName', { name: standard })}
-              style={{ alignSelf: 'flex-start' }}
-              onPress={() => void save('')}
+        <Animated.View entering={sheetIn}>
+          <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
+            <Text variant="heading">{current}</Text>
+            <Field
+              label={t('storeOrder.nameLabel')}
+              value={name}
+              onChangeText={setName}
+              maxLength={MAX_SECTION_NAME}
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={() => void save(name)}
             />
-          ) : null}
-          <Button
-            title={t('common.save')}
-            disabled={!builtIn && name.trim() === ''}
-            onPress={() => void save(name)}
-          />
-          {section.key === 'other' ? (
-            <Text variant="small" color={colors.muted} style={{ textAlign: 'center' }}>
-              {t('storeOrder.otherStays')}
-            </Text>
-          ) : (
+            {builtIn && section.name !== undefined ? (
+              <Button
+                kind="ghost"
+                title={t('storeOrder.standardName', { name: standard })}
+                style={{ alignSelf: 'flex-start' }}
+                onPress={() => void save('')}
+              />
+            ) : null}
             <Button
-              kind="danger"
-              title={t('storeOrder.delete')}
-              style={{ alignSelf: 'center' }}
-              onPress={confirmRemove}
+              title={t('common.save')}
+              disabled={!builtIn && name.trim() === ''}
+              onPress={() => void save(name)}
             />
-          )}
-        </View>
+            {section.key === 'other' ? (
+              <Text variant="small" color={colors.muted} style={{ textAlign: 'center' }}>
+                {t('storeOrder.otherStays')}
+              </Text>
+            ) : (
+              <Button
+                kind="danger"
+                title={t('storeOrder.delete')}
+                style={{ alignSelf: 'center' }}
+                onPress={confirmRemove}
+              />
+            )}
+          </View>
+        </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
   );

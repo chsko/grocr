@@ -210,6 +210,8 @@
     "carryMove_one": "Flytt {{count}} vare",
     "carryMove_other": "Flytt {{count}} varer",
     "carryDismiss": "Nei takk",
+    "allShopped": "Alt er handlet",
+    "allShoppedBody": "Alt på listen ligger i kurven eller er hjemme.",
     "inCart": "I kurven · {{count}}",
     "markAtHome": "Har hjemme: {{name}}",
     "atHome": "Har hjemme · {{count}}",

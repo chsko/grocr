@@ -21,6 +21,8 @@ import { attempt } from '@/lib/errors';
 import { accountLabel, dayMonth } from '@/lib/format';
 import { setLanguagePreference, useLanguagePreference } from '@/lib/i18n/preference';
 import { useMe } from '@/lib/session';
+import Animated from 'react-native-reanimated';
+import { sheetIn } from '@/lib/motion';
 
 // Each language is named in itself, so it can be found from either.
 const LANGUAGE_NAMES = { nb: 'Norsk', en: 'English' } as const;
@@ -323,27 +325,29 @@ function FamilyNameEditor({
   }
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} accessibilityLabel={t('common.close')} onPress={onClose} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
-          <Text variant="heading">{t('family.rename')}</Text>
-          <Field
-            label={t('family.name')}
-            value={name}
-            onChangeText={setName}
-            maxLength={60}
-            autoFocus
-            returnKeyType="done"
-            onSubmitEditing={() => void save()}
-          />
-          <Button
-            title={t('common.save')}
-            loading={busy}
-            disabled={name.trim() === ''}
-            onPress={() => void save()}
-          />
-        </View>
+        <Animated.View entering={sheetIn}>
+          <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
+            <Text variant="heading">{t('family.rename')}</Text>
+            <Field
+              label={t('family.name')}
+              value={name}
+              onChangeText={setName}
+              maxLength={60}
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={() => void save()}
+            />
+            <Button
+              title={t('common.save')}
+              loading={busy}
+              disabled={name.trim() === ''}
+              onPress={() => void save()}
+            />
+          </View>
+        </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
   );

@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from 'convex/react';
 import * as Clipboard from 'expo-clipboard';
+import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -44,6 +45,7 @@ export default function InviteScreen() {
     if (!active) return;
     await Clipboard.setStringAsync(active.code);
     setCopied(true);
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
   }
 
   return (

@@ -210,6 +210,8 @@
     "carryMove_one": "Move {{count}} item",
     "carryMove_other": "Move {{count}} items",
     "carryDismiss": "No thanks",
+    "allShopped": "All shopped",
+    "allShoppedBody": "Everything on the list is in the cart or at home.",
     "inCart": "In cart · {{count}}",
     "markAtHome": "Have at home: {{name}}",
     "atHome": "At home · {{count}}",

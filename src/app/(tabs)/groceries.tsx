@@ -13,15 +13,11 @@ import {
   type TextInputInstance,
   View,
 } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withDelay,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated, { LayoutAnimationConfig, useReducedMotion, ZoomIn } from 'react-native-reanimated';
 
 import { GroceryLineEditor } from '@/components/grocery-line-editor';
-import { AtHome, Check, ChevronDown, ChevronRight, Plus } from '@/components/icons';
+import { Highlight } from '@/components/highlight';
+import { AtHome, Check, ChevronRight, Plus } from '@/components/icons';
 import { Button, Chip, TabScreen, Text } from '@/components/ui';
 import { Fonts, Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
@@ -34,10 +30,15 @@ import { useItemSuggestions, type ItemSuggestion } from '@/lib/item-suggestions'
 import { parseItemInput } from '@/lib/parse-item';
 import { useSectionName } from '@/lib/sections';
 import { useFamily } from '@/lib/session';
+import { useFreshIds } from '@/lib/fresh-ids';
+import { EASE_OUT, fadeIn, fadeOut, reflow } from '@/lib/motion';
 import { addDays, defaultGroceryWeek, startOfWeek, todayIn, type Weekday } from '@/lib/week';
 
 /** Suggestions under the add field; more would push the list itself off screen. */
 const MAX_SUGGESTIONS = 5;
+
+/** How long a ticked box shows its check before the line leaves for the cart. */
+const CHECK_HOLD_MS = 200;
 
 /**
  * The week's shared grocery list (GRO-36, GRO-37): lines of the same ingredient merged, grouped
@@ -130,6 +131,13 @@ export default function GroceriesScreen() {
   const sectionY = useRef(new Map<string, number>());
   const lineLayout = useRef(new Map<string, { y: number; height: number }>());
   const revealed = useRef<string | null>(null);
+  // Lines just ticked: the box shows its check for a moment before the line moves to the cart.
+  const [checking, setChecking] = useState<ReadonlySet<string>>(new Set());
+  // Rows that arrived while the list was open (added here or by someone else) get the saffron wash.
+  const fresh = useFreshIds(
+    startDate,
+    data?.items.map((i) => i._id),
+  );
 
   // The family's items matching the typed name ("2 l melk" looks for "melk"), while typing.
   const suggestions = useItemSuggestions(
@@ -173,14 +181,45 @@ export default function GroceriesScreen() {
     return [...meals, ...people].join(' · ');
   }
 
+  /** Called when an open line leaves for the cart or the at-home group. */
+  function leaving(line: GroceryLine) {
+    const lastOpen = open.every((l) => l.key === line.key || checking.has(l.key));
+    // Ticking off the last thing on the list is the one moment worth a success buzz.
+    if (lastOpen) {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    }
+    return lastOpen;
+  }
+
   function toggle(line: GroceryLine) {
-    void attempt(t, () =>
-      setChecked({ itemIds: line.itemIds as Id<'groceryItems'>[], checked: !line.checked }),
-    );
+    const run = () =>
+      attempt(t, () =>
+        setChecked({ itemIds: line.itemIds as Id<'groceryItems'>[], checked: !line.checked }),
+      );
+    if (line.checked) {
+      void run();
+      return;
+    }
+    if (checking.has(line.key)) return;
+    if (!leaving(line)) void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setChecking((current) => new Set(current).add(line.key));
+    // The optimistic update moves the line to the cart in the same batch as the check is let
+    // go, so it never flashes an empty box on the way out. The key is not kept until the server
+    // answers: offline that can be minutes, and an unticked line coming back would look ticked.
+    setTimeout(() => {
+      void run();
+      setChecking((current) => {
+        const next = new Set(current);
+        next.delete(line.key);
+        return next;
+      });
+    }, CHECK_HOLD_MS);
   }
 
   function markAtHome(line: GroceryLine, atHome: boolean) {
-    if (atHome) void Haptics.selectionAsync().catch(() => {});
+    // Already ticked and on its way to the cart; the tick wins.
+    if (atHome && checking.has(line.key)) return;
+    if (atHome && !leaving(line)) void Haptics.selectionAsync().catch(() => {});
     void attempt(t, () => setAtHome({ itemIds: line.itemIds as Id<'groceryItems'>[], atHome }));
   }
 
@@ -341,212 +380,286 @@ export default function GroceriesScreen() {
       onLayout={(e) => {
         viewHeight.current = e.nativeEvent.layout.height;
       }}>
-      {carryShown ? (
-        <View style={styles.carry}>
-          <Text style={{ fontSize: 15 }}>
-            <Text style={{ fontFamily: Fonts.bold, fontSize: 15 }}>
-              {t('groceries.carryTitle', { count: carryShown.count })}
-            </Text>{' '}
-            {t('groceries.carryBody')}
-          </Text>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Button
-              title={t('groceries.carryMove', { count: carryShown.count })}
-              style={styles.carryButton}
-              onPress={() => void attempt(t, () => carryOver({ ...args, move: true }))}
-            />
-            <Button
-              kind="ghost"
-              title={t('groceries.carryDismiss')}
-              style={{ minHeight: 40, paddingHorizontal: 8 }}
-              onPress={() => void attempt(t, () => carryOver({ ...args, move: false }))}
-            />
-          </View>
-        </View>
-      ) : null}
+      {data ? (
+        // Rows already there when a week's list first shows appear at once; after that, rows
+        // fade in and out and the rest slide into place. Switching weeks skips the fades.
+        // One child: with several, Reanimated wraps each in its own config, and a section
+        // leaving the list would then skip its fade.
+        <LayoutAnimationConfig key={startDate} skipEntering skipExiting>
+          <View>
+            {carryShown ? (
+              <Animated.View
+                entering={fadeIn}
+                exiting={fadeOut}
+                layout={reflow}
+                style={styles.carry}>
+                <Text style={{ fontSize: 15 }}>
+                  <Text style={{ fontFamily: Fonts.bold, fontSize: 15 }}>
+                    {t('groceries.carryTitle', { count: carryShown.count })}
+                  </Text>{' '}
+                  {t('groceries.carryBody')}
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Button
+                    title={t('groceries.carryMove', { count: carryShown.count })}
+                    style={styles.carryButton}
+                    onPress={() => void attempt(t, () => carryOver({ ...args, move: true }))}
+                  />
+                  <Button
+                    kind="ghost"
+                    title={t('groceries.carryDismiss')}
+                    style={{ minHeight: 40, paddingHorizontal: 8 }}
+                    onPress={() => void attempt(t, () => carryOver({ ...args, move: false }))}
+                  />
+                </View>
+              </Animated.View>
+            ) : null}
 
-      {staplesOffer.length > 0 ? (
-        <View style={styles.staples}>
-          <Text style={{ fontSize: 15 }}>
-            <Text style={{ fontFamily: Fonts.bold, fontSize: 15 }}>
-              {t('groceries.staplesTitle')}
-            </Text>{' '}
-            {t('groceries.staplesBody', { count: staplesOffer.length })}
-          </Text>
-          <View style={styles.stapleChips}>
-            {staplesOffer.map((staple) => (
-              <Chip
-                key={staple.ingredientId}
-                title={`+ ${staple.name}`}
-                accessibilityLabel={t('groceries.staplesAddOne', { name: staple.name })}
-                onPress={() =>
-                  void attempt(t, () =>
-                    addStaples({ ...args, ingredientIds: [staple.ingredientId] }),
-                  )
-                }
-              />
-            ))}
-          </View>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Button
-              title={t('groceries.staplesAddAll')}
-              style={styles.staplesButton}
-              onPress={() => void addAllStaples(staplesOffer.map((s) => s.ingredientId))}
-            />
-            <Button
-              kind="ghost"
-              title={t('groceries.staplesDismiss')}
-              style={{ minHeight: 40, paddingHorizontal: 8 }}
-              onPress={() => void attempt(t, () => dismissStaples(args))}
-            />
-          </View>
-        </View>
-      ) : null}
+            {staplesOffer.length > 0 ? (
+              <Animated.View
+                entering={fadeIn}
+                exiting={fadeOut}
+                layout={reflow}
+                style={styles.staples}>
+                <Text style={{ fontSize: 15 }}>
+                  <Text style={{ fontFamily: Fonts.bold, fontSize: 15 }}>
+                    {t('groceries.staplesTitle')}
+                  </Text>{' '}
+                  {t('groceries.staplesBody', { count: staplesOffer.length })}
+                </Text>
+                <View style={styles.stapleChips}>
+                  {staplesOffer.map((staple) => (
+                    <Animated.View
+                      key={staple.ingredientId}
+                      entering={fadeIn}
+                      exiting={fadeOut}
+                      layout={reflow}>
+                      <Chip
+                        title={`+ ${staple.name}`}
+                        accessibilityLabel={t('groceries.staplesAddOne', { name: staple.name })}
+                        onPress={() =>
+                          void attempt(t, () =>
+                            addStaples({ ...args, ingredientIds: [staple.ingredientId] }),
+                          )
+                        }
+                      />
+                    </Animated.View>
+                  ))}
+                </View>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Button
+                    title={t('groceries.staplesAddAll')}
+                    style={styles.staplesButton}
+                    onPress={() => void addAllStaples(staplesOffer.map((s) => s.ingredientId))}
+                  />
+                  <Button
+                    kind="ghost"
+                    title={t('groceries.staplesDismiss')}
+                    style={{ minHeight: 40, paddingHorizontal: 8 }}
+                    onPress={() => void attempt(t, () => dismissStaples(args))}
+                  />
+                </View>
+              </Animated.View>
+            ) : null}
 
-      {data && lines.length === 0 ? (
-        <Text color={colors.muted} style={{ marginTop: 24 }}>
-          {t('groceries.empty')}
-        </Text>
-      ) : null}
-
-      {sections.map(({ section, lines: sectionLines }) => (
-        <View
-          key={section}
-          style={{ marginTop: 14 }}
-          onLayout={(e) => {
-            sectionY.current.set(section, e.nativeEvent.layout.y);
-            sectionLines.forEach(reveal);
-          }}>
-          <Text variant="section" color={colors.muted} style={{ marginBottom: 4 }}>
-            {sectionName(section)}
-          </Text>
-          {sectionLines.map((line) => (
-            <Pressable
-              key={line.key}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: false }}
-              // The row is one element to VoiceOver, so the house button is offered as an action.
-              accessibilityActions={[
-                { name: 'atHome', label: t('groceries.markAtHome', { name: line.name }) },
-              ]}
-              onAccessibilityAction={(e) => {
-                if (e.nativeEvent.actionName === 'atHome') markAtHome(line, true);
-              }}
-              onPress={() => toggle(line)}
-              onLongPress={() => setEditingKey(line.key)}
-              onLayout={(e) => {
-                const { y, height } = e.nativeEvent.layout;
-                lineLayout.current.set(line.key, { y, height });
-                reveal(line);
-              }}
-              style={({ pressed }) => [styles.line, pressed && { opacity: 0.6 }]}>
-              {added && line.itemIds.includes(added) ? <AddedFlash key={added} /> : null}
-              <View style={styles.box} />
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text variant="item">{line.name}</Text>
-                {sourceText(line) ? (
+            {lines.length === 0 ? (
+              <Animated.View entering={fadeIn} exiting={fadeOut} layout={reflow}>
+                <Text color={colors.muted} style={{ marginTop: 24 }}>
+                  {t('groceries.empty')}
+                </Text>
+              </Animated.View>
+            ) : open.length === 0 ? (
+              <Animated.View
+                testID="all-shopped"
+                accessibilityRole="summary"
+                entering={fadeIn}
+                exiting={fadeOut}
+                layout={reflow}
+                style={styles.allShopped}>
+                <View style={styles.allShoppedIcon}>
+                  <Check color={colors.ink} size={18} strokeWidth={3} />
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text variant="item">{t('groceries.allShopped')}</Text>
                   <Text variant="small" color={colors.muted}>
-                    {sourceText(line)}
+                    {t('groceries.allShoppedBody')}
                   </Text>
-                ) : null}
-              </View>
-              <Text variant="item" style={{ fontSize: 16 }}>
-                {formatAmounts(t, i18n.language, line.amounts)}
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('groceries.markAtHome', { name: line.name })}
-                onPress={() => markAtHome(line, true)}
-                hitSlop={{ top: 6, bottom: 6, left: 4, right: 8 }}
-                style={({ pressed }) => [styles.homeButton, pressed && { opacity: 0.5 }]}>
-                <AtHome color={colors.muted} size={20} strokeWidth={1.8} />
-              </Pressable>
-            </Pressable>
-          ))}
-        </View>
-      ))}
+                </View>
+              </Animated.View>
+            ) : null}
 
-      {home.length > 0 ? (
-        <View style={styles.cart}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ expanded: homeOpen }}
-            onPress={() => setHomeOpen(!homeOpen)}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 }}>
-            {homeOpen ? (
-              <ChevronDown size={16} strokeWidth={2.2} />
-            ) : (
-              <ChevronRight size={16} strokeWidth={2.2} />
-            )}
-            <Text variant="item" style={{ fontSize: 15, fontFamily: Fonts.bold }}>
-              {t('groceries.atHome', { count: home.length })}
-            </Text>
-          </Pressable>
-          {homeOpen
-            ? home.map((line) => (
+            {sections.map(({ section, lines: sectionLines }) => (
+              <Animated.View
+                key={section}
+                entering={fadeIn}
+                exiting={fadeOut}
+                layout={reflow}
+                style={{ marginTop: 14 }}
+                onLayout={(e) => {
+                  sectionY.current.set(section, e.nativeEvent.layout.y);
+                  sectionLines.forEach(reveal);
+                }}>
+                <Text variant="section" color={colors.muted} style={{ marginBottom: 4 }}>
+                  {sectionName(section)}
+                </Text>
+                {sectionLines.map((line) => {
+                  const ticked = checking.has(line.key);
+                  const flashId = line.itemIds.find((id) => id === added || fresh.has(id));
+                  return (
+                    <Animated.View
+                      key={line.key}
+                      entering={fadeIn}
+                      exiting={fadeOut}
+                      layout={reflow}
+                      onLayout={(e) => {
+                        const { y, height } = e.nativeEvent.layout;
+                        lineLayout.current.set(line.key, { y, height });
+                        reveal(line);
+                      }}>
+                      <Pressable
+                        accessibilityRole="checkbox"
+                        accessibilityState={{ checked: ticked }}
+                        // The row is one element to VoiceOver, so the house button is offered as an
+                        // action.
+                        accessibilityActions={[
+                          { name: 'atHome', label: t('groceries.markAtHome', { name: line.name }) },
+                        ]}
+                        onAccessibilityAction={(e) => {
+                          if (e.nativeEvent.actionName === 'atHome') markAtHome(line, true);
+                        }}
+                        onPress={() => toggle(line)}
+                        onLongPress={() => setEditingKey(line.key)}
+                        style={({ pressed }) => [
+                          styles.line,
+                          pressed && !ticked && { opacity: 0.6 },
+                        ]}>
+                        {flashId ? <Highlight key={flashId} style={styles.flash} /> : null}
+                        {ticked ? (
+                          <Animated.View entering={tickIn} style={styles.boxOn}>
+                            <Check color={colors.onTomato} size={14} strokeWidth={3} />
+                          </Animated.View>
+                        ) : (
+                          <View style={styles.box} />
+                        )}
+                        <View style={{ flex: 1, gap: 2 }}>
+                          <Text variant="item">{line.name}</Text>
+                          {sourceText(line) ? (
+                            <Text variant="small" color={colors.muted}>
+                              {sourceText(line)}
+                            </Text>
+                          ) : null}
+                        </View>
+                        <Text variant="item" style={{ fontSize: 16 }}>
+                          {formatAmounts(t, i18n.language, line.amounts)}
+                        </Text>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={t('groceries.markAtHome', { name: line.name })}
+                          onPress={() => markAtHome(line, true)}
+                          hitSlop={{ top: 6, bottom: 6, left: 4, right: 8 }}
+                          style={({ pressed }) => [styles.homeButton, pressed && { opacity: 0.5 }]}>
+                          <AtHome color={colors.muted} size={20} strokeWidth={1.8} />
+                        </Pressable>
+                      </Pressable>
+                    </Animated.View>
+                  );
+                })}
+              </Animated.View>
+            ))}
+
+            {home.length > 0 ? (
+              <Animated.View
+                entering={fadeIn}
+                exiting={fadeOut}
+                layout={reflow}
+                style={styles.cart}>
                 <Pressable
-                  key={line.key}
                   accessibilityRole="button"
-                  accessibilityLabel={t('groceries.backOnList', { name: line.name })}
-                  onPress={() => markAtHome(line, false)}
-                  style={styles.cartLine}>
-                  <AtHome color={colors.muted} size={22} strokeWidth={1.8} />
-                  <Text color={colors.muted} style={{ flex: 1, fontSize: 16 }}>
-                    {line.name}
-                  </Text>
-                  <Text color={colors.muted} style={{ fontSize: 15 }}>
-                    {formatAmounts(t, i18n.language, line.amounts)}
+                  accessibilityState={{ expanded: homeOpen }}
+                  onPress={() => setHomeOpen(!homeOpen)}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 }}>
+                  <Disclosure open={homeOpen} />
+                  <Text variant="item" style={{ fontSize: 15, fontFamily: Fonts.bold }}>
+                    {t('groceries.atHome', { count: home.length })}
                   </Text>
                 </Pressable>
-              ))
-            : null}
-        </View>
-      ) : null}
+                {homeOpen
+                  ? home.map((line) => (
+                      <Animated.View
+                        key={line.key}
+                        entering={fadeIn}
+                        exiting={fadeOut}
+                        layout={reflow}>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={t('groceries.backOnList', { name: line.name })}
+                          onPress={() => markAtHome(line, false)}
+                          style={styles.cartLine}>
+                          <AtHome color={colors.muted} size={22} strokeWidth={1.8} />
+                          <Text color={colors.muted} style={{ flex: 1, fontSize: 16 }}>
+                            {line.name}
+                          </Text>
+                          <Text color={colors.muted} style={{ fontSize: 15 }}>
+                            {formatAmounts(t, i18n.language, line.amounts)}
+                          </Text>
+                        </Pressable>
+                      </Animated.View>
+                    ))
+                  : null}
+              </Animated.View>
+            ) : null}
 
-      {cart.length > 0 ? (
-        <View style={styles.cart}>
-          <View style={styles.cartHead}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ expanded: cartOpen }}
-              onPress={() => setCartOpen(!cartOpen)}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 }}>
-              {cartOpen ? (
-                <ChevronDown size={16} strokeWidth={2.2} />
-              ) : (
-                <ChevronRight size={16} strokeWidth={2.2} />
-              )}
-              <Text variant="item" style={{ fontSize: 15, fontFamily: Fonts.bold }}>
-                {t('groceries.inCart', { count: cart.length })}
-              </Text>
-            </Pressable>
-            <Button kind="ghost" title={t('groceries.clearChecked')} onPress={confirmClear} />
+            {cart.length > 0 ? (
+              <Animated.View
+                entering={fadeIn}
+                exiting={fadeOut}
+                layout={reflow}
+                style={styles.cart}>
+                <View style={styles.cartHead}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: cartOpen }}
+                    onPress={() => setCartOpen(!cartOpen)}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 }}>
+                    <Disclosure open={cartOpen} />
+                    <Text variant="item" style={{ fontSize: 15, fontFamily: Fonts.bold }}>
+                      {t('groceries.inCart', { count: cart.length })}
+                    </Text>
+                  </Pressable>
+                  <Button kind="ghost" title={t('groceries.clearChecked')} onPress={confirmClear} />
+                </View>
+                {cartOpen
+                  ? cart.map((line) => (
+                      <Animated.View
+                        key={line.key}
+                        entering={fadeIn}
+                        exiting={fadeOut}
+                        layout={reflow}>
+                        <Pressable
+                          accessibilityRole="checkbox"
+                          accessibilityState={{ checked: true }}
+                          onPress={() => toggle(line)}
+                          style={styles.cartLine}>
+                          <View style={styles.boxOn}>
+                            <Check color={colors.onTomato} size={14} strokeWidth={3} />
+                          </View>
+                          <Text
+                            color={colors.muted}
+                            style={{ flex: 1, textDecorationLine: 'line-through', fontSize: 16 }}>
+                            {line.name}
+                          </Text>
+                          <Text color={colors.muted} style={{ fontSize: 15 }}>
+                            {formatAmounts(t, i18n.language, line.amounts)}
+                          </Text>
+                        </Pressable>
+                      </Animated.View>
+                    ))
+                  : null}
+              </Animated.View>
+            ) : null}
           </View>
-          {cartOpen
-            ? cart.map((line) => (
-                <Pressable
-                  key={line.key}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: true }}
-                  onPress={() => toggle(line)}
-                  style={styles.cartLine}>
-                  <View style={styles.boxOn}>
-                    <Check color={colors.onTomato} size={14} strokeWidth={3} />
-                  </View>
-                  <Text
-                    color={colors.muted}
-                    style={{ flex: 1, textDecorationLine: 'line-through', fontSize: 16 }}>
-                    {line.name}
-                  </Text>
-                  <Text color={colors.muted} style={{ fontSize: 15 }}>
-                    {formatAmounts(t, i18n.language, line.amounts)}
-                  </Text>
-                </Pressable>
-              ))
-            : null}
-        </View>
+        </LayoutAnimationConfig>
       ) : null}
-
       {editing ? (
         <GroceryLineEditor
           key={editing.key}
@@ -562,15 +675,23 @@ export default function GroceriesScreen() {
   );
 }
 
-/** A saffron wash behind a just-added line that fades away, so the eye finds the new item. */
-function AddedFlash() {
-  const styles = useStyles();
-  const opacity = useSharedValue(1);
-  useEffect(() => {
-    opacity.value = withDelay(700, withTiming(0, { duration: 900 }));
-  }, [opacity]);
-  const fade = useAnimatedStyle(() => ({ opacity: opacity.value }));
-  return <Animated.View testID="added-flash" pointerEvents="none" style={[styles.flash, fade]} />;
+/** The tomato check fills in quickly; with Reduce Motion on it simply appears. */
+const tickIn = ZoomIn.duration(140).easing(EASE_OUT);
+
+/** The chevron of a group that folds open: it turns a quarter instead of swapping icons. */
+function Disclosure({ open }: { open: boolean }) {
+  const reduced = useReducedMotion();
+  return (
+    <Animated.View
+      style={{
+        transform: [{ rotate: open ? '90deg' : '0deg' }],
+        transitionProperty: 'transform',
+        transitionDuration: reduced ? 0 : 150,
+        transitionTimingFunction: 'ease-out',
+      }}>
+      <ChevronRight size={16} strokeWidth={2.2} />
+    </Animated.View>
+  );
 }
 
 const useStyles = makeStyles((colors) => ({
@@ -622,15 +743,7 @@ const useStyles = makeStyles((colors) => ({
   },
   suggestionDivider: { borderTopWidth: 1, borderTopColor: colors.divider },
   done: { minHeight: 44, justifyContent: 'center' },
-  flash: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: -10,
-    right: -10,
-    borderRadius: 10,
-    backgroundColor: colors.saffronSoft,
-  },
+  flash: { left: -10, right: -10, borderRadius: 10 },
   addInput: { flex: 1, fontFamily: Fonts.medium, fontSize: 16, color: colors.ink, height: '100%' },
   carry: {
     marginTop: 14,
@@ -682,6 +795,23 @@ const useStyles = makeStyles((colors) => ({
     backgroundColor: colors.surface,
     paddingHorizontal: 14,
     paddingVertical: 6,
+  },
+  allShopped: {
+    marginTop: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 14,
+    backgroundColor: colors.saffronSoft,
+  },
+  allShoppedIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.saffronPill,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cartHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   cartLine: {

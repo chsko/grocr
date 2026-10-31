@@ -50,6 +50,7 @@ const mockUseQuery = jest.fn();
 const mockAddManual = jest.fn();
 const mockRename = jest.fn(() => Promise.resolve(null));
 const mockSetAtHome = jest.fn((_args: unknown) => Promise.resolve(1));
+const mockSetChecked = jest.fn((_args: unknown) => Promise.resolve(1));
 const mockEditMerged = jest.fn((_args: unknown) => Promise.resolve(null));
 const mockSetSection = jest.fn((_args: unknown) => Promise.resolve(null));
 const mockRenameItem = jest.fn((_args: unknown) => Promise.resolve(null));
@@ -59,6 +60,7 @@ const mockDismissStaples = jest.fn((_args: unknown) => Promise.resolve(null));
 const mockSetStaple = jest.fn((_args: unknown) => Promise.resolve(null));
 const mockAddStaple = jest.fn((_args: unknown) => Promise.resolve('ing-new'));
 const mockMutations: Record<string, unknown> = {
+  'grocery.setChecked': { withOptimisticUpdate: () => mockSetChecked },
   'grocery.addStaples': { withOptimisticUpdate: () => mockAddStaples },
   'grocery.dismissStaples': { withOptimisticUpdate: () => mockDismissStaples },
   'staples.set': mockSetStaple,
@@ -87,7 +89,9 @@ jest.mock('convex/react', () => ({
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(() => Promise.resolve()),
   selectionAsync: jest.fn(() => Promise.resolve()),
+  notificationAsync: jest.fn(() => Promise.resolve()),
   ImpactFeedbackStyle: { Light: 'light' },
+  NotificationFeedbackType: { Success: 'success' },
 }));
 jest.mock('@convex-dev/auth/react', () => ({
   useAuthActions: () => ({ signIn: jest.fn(), signOut: jest.fn() }),
@@ -532,6 +536,66 @@ describe('groceries', () => {
     );
     // The field is empty again, so the suggestions are gone.
     expect(screen.queryByText('Lettmelk')).toBeNull();
+  });
+
+  test('ticking a line shows its check first, then sends it to the cart with a light tap', async () => {
+    await i18n.changeLanguage('en');
+    mockSetChecked.mockClear();
+    jest.mocked(Haptics.impactAsync).mockClear();
+    mockUseQuery.mockReturnValue(list([row('i0', 'Butter'), row('i1', 'Milk')]));
+    await render(
+      <SessionContext.Provider value={me}>
+        <GroceriesScreen />
+      </SessionContext.Provider>,
+    );
+    await fireEvent.press(screen.getByText('Butter'));
+    // The box shows the check before the line leaves; a second tap meanwhile does nothing.
+    expect(screen.getAllByRole('checkbox', { checked: true })).toHaveLength(1);
+    expect(Haptics.impactAsync).toHaveBeenCalledWith('light');
+    await fireEvent.press(screen.getByText('Butter'));
+    expect(mockSetChecked).not.toHaveBeenCalled();
+    await act(() => jest.runOnlyPendingTimers());
+    expect(mockSetChecked).toHaveBeenCalledTimes(1);
+    expect(mockSetChecked).toHaveBeenCalledWith({ itemIds: ['i0'], checked: true });
+  });
+
+  test('ticking the last open line buzzes success, and an all-shopped list says so', async () => {
+    await i18n.changeLanguage('en');
+    jest.mocked(Haptics.notificationAsync).mockClear();
+    mockUseQuery.mockReturnValue(list([row('i0', 'Butter'), row('i1', 'Milk', true)]));
+    const ui = (
+      <SessionContext.Provider value={me}>
+        <GroceriesScreen />
+      </SessionContext.Provider>
+    );
+    await render(ui);
+    expect(screen.queryByTestId('all-shopped')).toBeNull();
+    await fireEvent.press(screen.getByText('Butter'));
+    expect(Haptics.notificationAsync).toHaveBeenCalledWith('success');
+    mockUseQuery.mockReturnValue(
+      list([{ ...row('i0', 'Butter'), checked: true }, row('i1', 'Milk', true)]),
+    );
+    await act(() => jest.runOnlyPendingTimers());
+    await render(ui);
+    expect(screen.getByText('All shopped')).toBeTruthy();
+  });
+
+  test("lines someone else adds get the wash; lines there on first show don't", async () => {
+    await i18n.changeLanguage('en');
+    mockUseQuery.mockReturnValue(list([row('i0', 'Butter')]));
+    // A new element each time, so the screen renders again and reads the updated query.
+    const ui = () => (
+      <SessionContext.Provider value={me}>
+        <GroceriesScreen />
+      </SessionContext.Provider>
+    );
+    const view = await render(ui());
+    expect(screen.queryByTestId('added-flash')).toBeNull();
+    mockUseQuery.mockReturnValue(list([row('i0', 'Butter'), row('i2', 'Eggs')]));
+    await view.rerender(<SafeAreaProvider initialMetrics={metrics}>{ui()}</SafeAreaProvider>);
+    expect(screen.getAllByTestId('added-flash')).toHaveLength(1);
+    await act(() => jest.runOnlyPendingTimers());
+    expect(screen.queryByTestId('added-flash')).toBeNull();
   });
 
   test('the house button marks a line as at home, and the at-home group puts it back', async () => {
