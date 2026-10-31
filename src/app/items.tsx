@@ -50,7 +50,7 @@ function matches(item: Item, needle: string, exact = false) {
 export default function ItemsScreen() {
   const colors = useColors();
   const styles = useStyles();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const family = useFamily();
   const items = useQuery(api.ingredients.list, { groupId: family.groupId });
   const [filter, setFilter] = useState('');
@@ -59,7 +59,10 @@ export default function ItemsScreen() {
   if (items === undefined) return <Loading />;
 
   const needle = normalizeName(filter);
-  const shown = needle === '' ? items : items.filter((i) => matches(i, needle));
+  // Sorted here in the app's language, so Norwegian puts Æ, Ø and Å after Z.
+  const shown = (needle === '' ? [...items] : items.filter((i) => matches(i, needle))).sort(
+    (a, b) => a.name.localeCompare(b.name, i18n.language),
+  );
   const keys = family.sections.map((s) => s.key);
   const sections = family.sections
     .map((section) => ({
@@ -158,6 +161,9 @@ function ItemEditor({ item, items, onClose }: { item: Item; items: Item[]; onClo
   const rename = useMutation(api.ingredients.rename);
   const setSection = useMutation(api.ingredients.setSection);
   const merge = useMutation(api.ingredients.merge);
+  // What the field opened with: Save renames only when they changed it, so it never undoes a
+  // rename another member made while this was open.
+  const [opened] = useState(item.name);
   const [name, setName] = useState(item.name);
   const [busy, setBusy] = useState(false);
   const [mergeText, setMergeText] = useState<string | null>(null);
@@ -186,8 +192,7 @@ function ItemEditor({ item, items, onClose }: { item: Item; items: Item[]; onClo
 
   async function save() {
     const next = cleanName(name).slice(0, MAX_ITEM_NAME);
-    if (next === '') return;
-    if (next !== item.name) {
+    if (next !== '' && name !== opened && next !== item.name) {
       const normalized = normalizeName(next);
       const taken =
         normalized === item.normalizedName
@@ -211,8 +216,12 @@ function ItemEditor({ item, items, onClose }: { item: Item; items: Item[]; onClo
   }
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} accessibilityLabel={t('common.close')} onPress={onClose} />
+    <Modal visible transparent animationType="slide" onRequestClose={() => void save()}>
+      <Pressable
+        style={styles.backdrop}
+        accessibilityLabel={t('common.close')}
+        onPress={() => void save()}
+      />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
           bounces={false}
