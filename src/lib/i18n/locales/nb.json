@@ -196,7 +196,9 @@
     "staplesAddAll": "Legg til alle",
     "staplesDismiss": "Ikke denne uka",
     "staplesAddOne": "Legg {{name}} på listen",
-    "staple": "Kjøpes hver uke"
+    "staple": "Kjøpes hver uke",
+    "suggestionAdd": "Legg til {{name}}",
+    "suggestionOnList": "Står allerede på listen"
   },
   "sections": {
     "produce": "Frukt og grønt",

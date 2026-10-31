@@ -11,6 +11,7 @@ import type { Id } from '@/convex/_generated/dataModel';
 import { normalizeName } from '@/convex/lib/catalog';
 import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
+import { useItemSuggestions } from '@/lib/item-suggestions';
 import { useSectionName } from '@/lib/sections';
 import { useFamily } from '@/lib/session';
 
@@ -28,15 +29,12 @@ export default function StaplesScreen() {
   const add = useMutation(api.staples.add);
   const set = useMutation(api.staples.set);
   const [text, setText] = useState('');
-  const matches = useQuery(
-    api.ingredients.search,
-    text.trim() ? { groupId: family.groupId, text } : 'skip',
-  );
+  const matches = useItemSuggestions(family.groupId, text);
 
   if (staples === undefined) return <Loading />;
 
   const isStaple = new Set<string>(staples.map((s) => s._id));
-  const suggestions = (matches ?? []).filter((m) => !isStaple.has(m._id));
+  const suggestions = matches.filter((m) => !isStaple.has(m._id));
   const sorted = [...staples].sort((a, b) => a.name.localeCompare(b.name, i18n.language));
 
   async function addStaple(pick?: { _id: Id<'ingredients'>; name: string }) {

@@ -16,6 +16,7 @@ import { Palettes } from '@/constants/theme';
 import { SECTIONS } from '@/convex/lib/catalog';
 import { SchemeContext } from '@/lib/appearance';
 import * as build from '@/lib/build';
+import { SUGGEST_DELAY_MS } from '@/lib/item-suggestions';
 import i18n from '@/lib/i18n';
 import { SessionContext, type Me } from '@/lib/session';
 
@@ -480,6 +481,59 @@ describe('groceries', () => {
     expect(screen.queryByTestId('added-flash')).toBeNull();
   });
 
+  test("typing suggests the family's items; one tap adds it with the typed amount", async () => {
+    await i18n.changeLanguage('nb');
+    const found = [
+      { _id: 'ing-Melk', name: 'Melk', section: 'dairy' },
+      { _id: 'ing-lettmelk', name: 'Lettmelk', section: 'dairy' },
+    ];
+    const searched: unknown[] = [];
+    let loading = false;
+    mockUseQuery.mockImplementation((name: string, args: unknown) => {
+      if (name === 'grocery.listForWeek') return list([row('i0', 'Melk')]);
+      if (args === 'skip') return undefined;
+      searched.push(args);
+      return loading ? undefined : found;
+    });
+    mockAddManual.mockResolvedValue('i1');
+    await render(
+      <SessionContext.Provider value={me}>
+        <GroceriesScreen />
+      </SessionContext.Provider>,
+    );
+    const field = screen.getByLabelText('Legg til en vare');
+    await fireEvent(field, 'focus');
+    await fireEvent.changeText(field, '2 l m');
+    await fireEvent.changeText(field, '2 l me');
+    // Nothing is searched until typing pauses, and then only the name.
+    expect(searched).toEqual([]);
+    await act(() => jest.advanceTimersByTime(SUGGEST_DELAY_MS));
+    expect(new Set(searched.map((a) => JSON.stringify(a)))).toEqual(
+      new Set([JSON.stringify({ groupId: 'g1', text: 'me' })]),
+    );
+    expect(screen.getByText('Står allerede på listen')).toBeTruthy();
+    expect(screen.getByText('Lettmelk')).toBeTruthy();
+
+    // While the next search loads, the last results stay up instead of blinking away.
+    loading = true;
+    await fireEvent.changeText(field, '2 l mel');
+    await act(() => jest.advanceTimersByTime(SUGGEST_DELAY_MS));
+    expect(screen.getByText('Lettmelk')).toBeTruthy();
+    loading = false;
+
+    await act(() => fireEvent.press(screen.getByLabelText(/^Legg til Lettmelk,/)));
+    expect(mockAddManual).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ingredientId: 'ing-lettmelk',
+        name: 'Lettmelk',
+        qty: 2,
+        unit: 'l',
+      }),
+    );
+    // The field is empty again, so the suggestions are gone.
+    expect(screen.queryByText('Lettmelk')).toBeNull();
+  });
+
   test('the house button marks a line as at home, and the at-home group puts it back', async () => {
     await i18n.changeLanguage('nb');
     mockSetAtHome.mockClear();
@@ -571,19 +625,20 @@ describe('staples offer', () => {
 });
 
 describe('staples screen', () => {
+  afterEach(() => jest.useRealTimers());
+
   test('lists staples, removes one, and adds a typed or suggested item', async () => {
+    jest.useFakeTimers();
     await i18n.changeLanguage('en');
     mockSetStaple.mockClear();
     mockAddStaple.mockClear();
+    const staples = [{ _id: 'ing-milk', name: 'Milk', section: 'dairy' }];
+    const found = [
+      { _id: 'ing-milk', name: 'Milk', section: 'dairy' },
+      { _id: 'ing-oat', name: 'Oat milk', section: 'dairy' },
+    ];
     mockUseQuery.mockImplementation((name: string, args: unknown) =>
-      name === 'staples.list'
-        ? [{ _id: 'ing-milk', name: 'Milk', section: 'dairy' }]
-        : args === 'skip'
-          ? undefined
-          : [
-              { _id: 'ing-milk', name: 'Milk', section: 'dairy' },
-              { _id: 'ing-oat', name: 'Oat milk', section: 'dairy' },
-            ],
+      name === 'staples.list' ? staples : args === 'skip' ? undefined : found,
     );
     await render(
       <SessionContext.Provider value={me}>
@@ -596,6 +651,7 @@ describe('staples screen', () => {
 
     const field = screen.getByLabelText('New staple');
     await fireEvent.changeText(field, 'milk');
+    await act(() => jest.advanceTimersByTime(SUGGEST_DELAY_MS));
     // Milk is already a staple, so only Oat milk is suggested.
     await act(() => fireEvent.press(screen.getByText('Oat milk')));
     expect(mockAddStaple).toHaveBeenCalledWith({

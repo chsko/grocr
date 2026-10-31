@@ -30,10 +30,14 @@ import { mergeRows, type GroceryLine } from '@/convex/lib/merge';
 import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
 import { dayShort, formatAmounts, weekSpan, weekTitle } from '@/lib/format';
+import { useItemSuggestions, type ItemSuggestion } from '@/lib/item-suggestions';
 import { parseItemInput } from '@/lib/parse-item';
 import { useSectionName } from '@/lib/sections';
 import { useFamily } from '@/lib/session';
 import { addDays, defaultGroceryWeek, startOfWeek, todayIn, type Weekday } from '@/lib/week';
+
+/** Suggestions under the add field; more would push the list itself off screen. */
+const MAX_SUGGESTIONS = 5;
 
 /**
  * The week's shared grocery list (GRO-36, GRO-37): lines of the same ingredient merged, grouped
@@ -127,6 +131,12 @@ export default function GroceriesScreen() {
   const lineLayout = useRef(new Map<string, { y: number; height: number }>());
   const revealed = useRef<string | null>(null);
 
+  // The family's items matching the typed name ("2 l melk" looks for "melk"), while typing.
+  const suggestions = useItemSuggestions(
+    family.groupId,
+    typing ? parseItemInput(text).name : '',
+  ).slice(0, MAX_SUGGESTIONS);
+
   const lines = useMemo(() => mergeRows(data?.items ?? [], data?.sectionOrder), [data]);
   // While the carry-over card offers last week's items, the staples card leaves them out.
   const carryShown = startDate === thisWeek && data?.carryOver ? data.carryOver : null;
@@ -184,8 +194,10 @@ export default function GroceriesScreen() {
     }
   }
 
-  async function add() {
-    const parsed = parseItemInput(text);
+  /** Adds what is typed; a picked suggestion is that item, with the typed amount. */
+  async function add(pick?: ItemSuggestion) {
+    const typed = parseItemInput(text);
+    const parsed = pick ? { ...typed, ingredientId: pick._id, name: pick.name } : typed;
     if (!parsed.name) return;
     setText('');
     const id = await attempt(t, () => addManual({ ...args, ...parsed }));
@@ -290,6 +302,32 @@ export default function GroceriesScreen() {
           </Pressable>
         ) : null}
       </View>
+      {suggestions.length > 0 ? (
+        <View style={styles.suggestions} accessibilityRole="list">
+          {suggestions.map((s, index) => {
+            const onList = lines.some((l) => !l.checked && l.ingredientId === s._id);
+            return (
+              <Pressable
+                key={s._id}
+                accessibilityRole="button"
+                accessibilityLabel={`${t('groceries.suggestionAdd', { name: s.name })}, ${onList ? t('groceries.suggestionOnList') : sectionName(s.section)}`}
+                onPress={() => void add(s)}
+                style={({ pressed }) => [
+                  styles.suggestion,
+                  index > 0 && styles.suggestionDivider,
+                  pressed && { backgroundColor: colors.surface },
+                ]}>
+                <Text variant="item" style={{ fontSize: 16 }}>
+                  {s.name}
+                </Text>
+                <Text variant="small" color={colors.muted} style={{ fontSize: 12 }}>
+                  {onList ? t('groceries.suggestionOnList') : sectionName(s.section)}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
     </View>
   );
 
@@ -568,6 +606,21 @@ const useStyles = makeStyles((colors) => ({
     borderColor: colors.border,
   },
   addTyping: { borderColor: colors.tomato },
+  suggestions: {
+    marginTop: -4,
+    borderRadius: Radius.field,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.raised,
+    overflow: 'hidden',
+  },
+  suggestion: {
+    minHeight: 46,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  suggestionDivider: { borderTopWidth: 1, borderTopColor: colors.divider },
   done: { minHeight: 44, justifyContent: 'center' },
   flash: {
     position: 'absolute',

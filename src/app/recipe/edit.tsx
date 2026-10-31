@@ -24,6 +24,7 @@ import { formatQty, isUnit, parseQty, UNITS, type Unit } from '@/convex/lib/unit
 import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
 import { useSectionName } from '@/lib/sections';
+import { useItemSuggestions } from '@/lib/item-suggestions';
 import { useFamily } from '@/lib/session';
 
 type Row = {
@@ -85,11 +86,10 @@ export default function RecipeEditScreen() {
   }, [existing, i18n.language]);
 
   const activeRow = rows.find((r) => r.key === active);
-  const suggestions = useQuery(
-    api.ingredients.search,
-    activeRow && activeRow.name.trim() && !activeRow.ingredientId
-      ? { groupId: family.groupId, text: activeRow.name }
-      : 'skip',
+  const suggestions = useItemSuggestions(
+    family.groupId,
+    activeRow && !activeRow.ingredientId ? activeRow.name : '',
+    active,
   );
 
   function update(key: number, patch: Partial<Row>) {
@@ -272,7 +272,7 @@ export default function RecipeEditScreen() {
                   <Close size={18} color={colors.muted} />
                 </IconButton>
               </View>
-              {row.key === active && suggestions && suggestions.length > 0 ? (
+              {row.key === active && suggestions.length > 0 ? (
                 <View style={styles.suggestions} accessibilityRole="list">
                   {suggestions.map((s) => (
                     <Pressable

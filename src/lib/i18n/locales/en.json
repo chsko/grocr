@@ -196,7 +196,9 @@
     "staplesAddAll": "Add all",
     "staplesDismiss": "Not this week",
     "staplesAddOne": "Add {{name}} to the list",
-    "staple": "Buy every week"
+    "staple": "Buy every week",
+    "suggestionAdd": "Add {{name}}",
+    "suggestionOnList": "Already on the list"
   },
   "sections": {
     "produce": "Produce",
