@@ -1,4 +1,5 @@
 import { act, fireEvent, render as rtlRender, screen } from '@testing-library/react-native';
+import * as Haptics from 'expo-haptics';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import WeekScreen from '@/app/(tabs)/week';
@@ -25,6 +26,13 @@ jest.mock('@/convex/_generated/api', () => ({
     {},
     { get: (_, mod) => new Proxy({}, { get: (__, fn) => `${String(mod)}.${String(fn)}` }) },
   ),
+}));
+jest.mock('expo-haptics', () => ({
+  impactAsync: jest.fn(() => Promise.resolve()),
+  selectionAsync: jest.fn(() => Promise.resolve()),
+  notificationAsync: jest.fn(() => Promise.resolve()),
+  ImpactFeedbackStyle: { Light: 'light' },
+  NotificationFeedbackType: { Success: 'success' },
 }));
 const mockRouter = { back: jest.fn(), push: jest.fn(), navigate: jest.fn() };
 let mockParams: Record<string, string> = {};
@@ -201,6 +209,7 @@ describe('rating a recipe', () => {
       fireEvent.press(screen.getByLabelText('5 stars'));
     });
     expect(mockRate).toHaveBeenCalledWith({ recipeId: 'r1', stars: 5 });
+    expect(Haptics.impactAsync).toHaveBeenCalledWith('light');
   });
 
   test('tapping your own rating again clears it', async () => {
@@ -216,5 +225,7 @@ describe('rating a recipe', () => {
       fireEvent.press(screen.getByLabelText('3 stjerner'));
     });
     expect(mockRate).toHaveBeenCalledWith({ recipeId: 'r1', stars: null });
+    expect(Haptics.selectionAsync).toHaveBeenCalled();
+    expect(Haptics.impactAsync).not.toHaveBeenCalled();
   });
 });

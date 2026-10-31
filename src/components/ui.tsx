@@ -15,11 +15,23 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import Animated, {
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withDelay,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Fonts, Radius, Spacing } from '@/constants/theme';
 import { makeStyles, useColors } from '@/lib/appearance';
+import { EASE_OUT } from '@/lib/motion';
 import { Star } from '@/components/icons';
 import { UpdateBanner } from '@/components/update-banner';
 
@@ -242,7 +254,8 @@ export function Chip({
 
 /**
  * Five tappable stars for the signed-in member's rating. Tapping the current rating clears it.
- * Each star is a 44pt target.
+ * Each star is a 44pt target. A tap gives a light haptic, and the stars that fill pop one after
+ * another (not with Reduce Motion on, where they just fill).
  */
 export function StarPicker({
   value,
@@ -254,6 +267,8 @@ export function StarPicker({
   disabled?: boolean;
 }) {
   const { t } = useTranslation();
+  // Bumped on every tap that sets stars, so only taps pop (not loading or another phone).
+  const [pop, setPop] = useState(0);
   return (
     <View style={{ flexDirection: 'row' }}>
       {[1, 2, 3, 4, 5].map((stars) => (
@@ -264,7 +279,16 @@ export function StarPicker({
           accessibilityState={{ selected: value === stars, disabled }}
           disabled={disabled}
           hitSlop={2}
-          onPress={() => onChange(value === stars ? null : stars)}
+          onPress={() => {
+            const next = value === stars ? null : stars;
+            if (next === null) {
+              void Haptics.selectionAsync().catch(() => {});
+            } else {
+              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+              setPop(pop + 1);
+            }
+            onChange(next);
+          }}
           style={({ pressed }) => ({
             width: 44,
             height: 44,
@@ -272,10 +296,34 @@ export function StarPicker({
             justifyContent: 'center',
             opacity: pressed ? 0.6 : 1,
           })}>
-          <Star size={30} filled={value !== null && stars <= value} />
+          <PoppingStar filled={value !== null && stars <= value} pop={pop} order={stars - 1} />
         </Pressable>
       ))}
     </View>
+  );
+}
+
+/** One star of the picker; grows a little and springs back when `pop` changes while filled. */
+function PoppingStar({ filled, pop, order }: { filled: boolean; pop: number; order: number }) {
+  const reduceMotion = useReducedMotion();
+  const scale = useSharedValue(1);
+  useEffect(() => {
+    if (pop === 0 || !filled || reduceMotion) return;
+    scale.value = withDelay(
+      order * 30,
+      withSequence(
+        withTiming(1.2, { duration: 90, easing: EASE_OUT }),
+        withSpring(1, { damping: 12, stiffness: 260 }),
+      ),
+    );
+    // Only a new tap starts a pop; `filled` is read as of that tap.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pop]);
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  return (
+    <Animated.View style={style}>
+      <Star size={30} filled={filled} />
+    </Animated.View>
   );
 }
 

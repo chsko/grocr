@@ -3,6 +3,7 @@ import type { FunctionReturnType } from 'convex/server';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 
 import { Button, IconTile, Loading, StarPicker, Text } from '@/components/ui';
 import { Fonts } from '@/constants/theme';
@@ -10,6 +11,7 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
+import { fadeIn } from '@/lib/motion';
 import { dayLabel, formatAmounts } from '@/lib/format';
 import { relativeDay } from '@/lib/relative';
 import { useFamily } from '@/lib/session';
@@ -86,19 +88,22 @@ export default function RecipeScreen() {
             onChange={(stars) => void attempt(t, () => rate({ recipeId: id, stars }))}
           />
         </View>
-        <Text variant="small" color={colors.muted}>
-          {recipe.rating.average === null
-            ? t('rating.nobody')
-            : [
-                t('rating.family', {
-                  count: recipe.rating.count,
-                  rating: recipe.rating.average.toLocaleString(i18n.language),
-                }),
-                ...recipe.ratings
-                  .filter((r) => !r.isMe)
-                  .map((r) => `${r.name.split(' ')[0] || '?'} ${r.stars}★`),
-              ].join(' · ')}
-        </Text>
+        {/* The family line fades to its new numbers when a rating changes. */}
+        <Animated.View key={`${recipe.rating.average}-${recipe.rating.count}`} entering={fadeIn}>
+          <Text variant="small" color={colors.muted}>
+            {recipe.rating.average === null
+              ? t('rating.nobody')
+              : [
+                  t('rating.family', {
+                    count: recipe.rating.count,
+                    rating: recipe.rating.average.toLocaleString(i18n.language),
+                  }),
+                  ...recipe.ratings
+                    .filter((r) => !r.isMe)
+                    .map((r) => `${r.name.split(' ')[0] || '?'} ${r.stars}★`),
+                ].join(' · ')}
+          </Text>
+        </Animated.View>
       </View>
 
       <Text variant="section" color={colors.muted} style={styles.section}>
