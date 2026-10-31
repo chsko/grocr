@@ -24,7 +24,8 @@
     "NOT_FOUND": "That no longer exists.",
     "INVALID_SERVINGS": "Servings must be between 1 and 50.",
     "SECTION_EXISTS": "There is already a section with that name.",
-    "TOO_MANY_SECTIONS": "A family can have at most 30 sections."
+    "TOO_MANY_SECTIONS": "A family can have at most 30 sections.",
+    "ITEM_EXISTS": "There is already an item with that name. Merge the two instead."
   },
   "signIn": {
     "headline": "Pick the week's dinners.",
@@ -251,7 +252,8 @@
     "account": "Account",
     "storeOrder": "Sections",
     "name": "Family name",
-    "rename": "Rename family"
+    "rename": "Rename family",
+    "items": "Items"
   },
   "invite": {
     "title": "Invite to {{family}}",
@@ -359,5 +361,20 @@
       "ingredients_one": "{{count}} ingredient",
       "ingredients_other": "{{count}} ingredients"
     }
+  },
+  "items": {
+    "title": "Items",
+    "intro": "Everything your family has added to recipes and grocery lists. Tap an item to rename it, move it to another section, or merge it with one that is the same thing.",
+    "search": "Search items",
+    "empty": "No items yet. They show up here as you add recipes and groceries.",
+    "noMatch": "No items match “{{text}}”.",
+    "editHint": "Rename, move or merge",
+    "inRecipes_one": "In {{count}} recipe",
+    "inRecipes_other": "In {{count}} recipes",
+    "noRecipes": "In no recipes",
+    "alsoCalled": "also {{names}}",
+    "nameLabel": "Name",
+    "takenTitle": "{{name}} is already an item",
+    "takenBody": "Merge them, so recipes and lists use one item?"
   }
 }

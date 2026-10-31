@@ -19,6 +19,7 @@ const KNOWN = new Set([
   'INVALID_SERVINGS',
   'SECTION_EXISTS',
   'TOO_MANY_SECTIONS',
+  'ITEM_EXISTS',
 ]);
 
 /** Shows a friendly alert for a failed mutation. */

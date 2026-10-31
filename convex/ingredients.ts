@@ -36,6 +36,127 @@ export const search = query({
   },
 });
 
+/** Longest catalog item name; longer input is cut (same as resolveIngredient). */
+export const MAX_ITEM_NAME = 80;
+
+/**
+ * Every item in the family's catalog, for the Items screen (GRO-63): its section, the other names
+ * that find it (merged or renamed away), and how many recipes use it.
+ */
+export const list = query({
+  args: { groupId: v.id('groups') },
+  handler: async (ctx, { groupId }) => {
+    await requireMembership(ctx, groupId);
+    const items = await ctx.db
+      .query('ingredients')
+      .withIndex('by_group_normalizedName', (q) => q.eq('groupId', groupId))
+      .collect();
+    const recipes = await ctx.db
+      .query('recipes')
+      .withIndex('by_group', (q) => q.eq('groupId', groupId))
+      .collect();
+    const uses = new Map<string, number>();
+    for (const recipe of recipes) {
+      if (recipe.archivedAt !== undefined) continue;
+      for (const id of new Set(recipe.ingredients.map((line) => line.ingredientId))) {
+        uses.set(id, (uses.get(id) ?? 0) + 1);
+      }
+    }
+    return items
+      .map((i) => ({
+        _id: i._id,
+        name: i.name,
+        normalizedName: i.normalizedName,
+        section: i.section,
+        aliases: i.aliases,
+        recipeCount: uses.get(i._id) ?? 0,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  },
+});
+
+/**
+ * Renames a catalog item. Recipes point at it by id, and grocery lines' copy of the name is
+ * updated. The old name stays an alias, so typing it still finds the item instead of making a
+ * duplicate. A name another item has (or finds it) is refused: merge them instead.
+ */
+export const rename = mutation({
+  args: { ingredientId: v.id('ingredients'), name: v.string() },
+  handler: async (ctx, { ingredientId, name: input }) => {
+    const { doc } = await loadForMember(ctx, 'ingredients', ingredientId);
+    const name = cleanName(input).slice(0, MAX_ITEM_NAME);
+    if (name === '') throw new ConvexError({ code: 'NAME_REQUIRED' });
+    if (name === doc.name) return;
+    const groupId = doc.groupId;
+    const normalizedName = normalizeName(name);
+    let aliases = doc.aliases;
+
+    if (normalizedName !== doc.normalizedName) {
+      const same = await ctx.db
+        .query('ingredients')
+        .withIndex('by_group_normalizedName', (q) =>
+          q.eq('groupId', groupId).eq('normalizedName', normalizedName),
+        )
+        .first();
+      if (same !== null) throw new ConvexError({ code: 'ITEM_EXISTS', name: same.name });
+      const aliasRows = await ctx.db
+        .query('ingredientAliases')
+        .withIndex('by_group_name', (q) =>
+          q.eq('groupId', groupId).eq('normalizedName', normalizedName),
+        )
+        .collect();
+      for (const row of aliasRows) {
+        const owner =
+          row.ingredientId === doc._id ? doc : await ctx.db.get('ingredients', row.ingredientId);
+        if (owner !== null && owner._id !== doc._id) {
+          throw new ConvexError({ code: 'ITEM_EXISTS', name: owner.name });
+        }
+        // Its own former name (renaming back), or left over from a deleted item.
+        await ctx.db.delete('ingredientAliases', row._id);
+      }
+      const oldTaken = await ctx.db
+        .query('ingredientAliases')
+        .withIndex('by_group_name', (q) =>
+          q.eq('groupId', groupId).eq('normalizedName', doc.normalizedName),
+        )
+        .first();
+      if (oldTaken === null) {
+        await ctx.db.insert('ingredientAliases', {
+          groupId,
+          normalizedName: doc.normalizedName,
+          ingredientId: doc._id,
+        });
+      }
+      aliases = [...new Set([...doc.aliases, doc.normalizedName])].filter(
+        (a) => a !== normalizedName,
+      );
+    }
+
+    await ctx.db.patch('ingredients', doc._id, { name, normalizedName, aliases });
+
+    const lists = await ctx.db
+      .query('groceryLists')
+      .withIndex('by_group_startDate', (q) => q.eq('groupId', groupId))
+      .collect();
+    for (const list of lists) {
+      const items = await ctx.db
+        .query('groceryItems')
+        .withIndex('by_list', (q) => q.eq('listId', list._id))
+        .collect();
+      for (const item of items) {
+        if (item.ingredientId === doc._id && item.name !== name) {
+          await ctx.db.patch('groceryItems', item._id, { name });
+        }
+      }
+    }
+
+    // A new name may belong in another section, unless a member already picked one.
+    if (normalizedName !== doc.normalizedName && doc.sectionSource !== 'user') {
+      await scheduleSort(ctx, groupId, [doc._id]);
+    }
+  },
+});
+
 /** A member moves a catalog item to another section; every list shows it there from now on. */
 export const setSection = mutation({
   args: { ingredientId: v.id('ingredients'), section: v.string() },

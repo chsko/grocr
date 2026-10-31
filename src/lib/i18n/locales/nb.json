@@ -24,7 +24,8 @@
     "NOT_FOUND": "Det finnes ikke lenger.",
     "INVALID_SERVINGS": "Porsjoner må være mellom 1 og 50.",
     "SECTION_EXISTS": "Det finnes allerede en avdeling med det navnet.",
-    "TOO_MANY_SECTIONS": "En familie kan ha høyst 30 avdelinger."
+    "TOO_MANY_SECTIONS": "En familie kan ha høyst 30 avdelinger.",
+    "ITEM_EXISTS": "Det finnes allerede en vare med det navnet. Slå dem sammen i stedet."
   },
   "signIn": {
     "headline": "Velg ukens middager.",
@@ -251,7 +252,8 @@
     "account": "Konto",
     "storeOrder": "Avdelinger",
     "name": "Familienavn",
-    "rename": "Endre familienavn"
+    "rename": "Endre familienavn",
+    "items": "Varer"
   },
   "invite": {
     "title": "Inviter til {{family}}",
@@ -359,5 +361,20 @@
       "ingredients_one": "{{count}} ingrediens",
       "ingredients_other": "{{count}} ingredienser"
     }
+  },
+  "items": {
+    "title": "Varer",
+    "intro": "Alt familien har lagt til i oppskrifter og handlelister. Trykk på en vare for å gi den nytt navn, flytte den til en annen avdeling eller slå den sammen med en som er det samme.",
+    "search": "Søk i varer",
+    "empty": "Ingen varer ennå. De dukker opp her når dere legger til oppskrifter og handlevarer.",
+    "noMatch": "Ingen varer passer med «{{text}}».",
+    "editHint": "Gi nytt navn, flytt eller slå sammen",
+    "inRecipes_one": "I {{count}} oppskrift",
+    "inRecipes_other": "I {{count}} oppskrifter",
+    "noRecipes": "I ingen oppskrifter",
+    "alsoCalled": "også {{names}}",
+    "nameLabel": "Navn",
+    "takenTitle": "{{name}} finnes allerede",
+    "takenBody": "Vil du slå dem sammen, så oppskrifter og lister bruker én vare?"
   }
 }

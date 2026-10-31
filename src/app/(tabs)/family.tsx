@@ -241,6 +241,13 @@ export default function FamilyScreen() {
         <Text>{t('family.storeOrder')}</Text>
         <ChevronRight color={colors.muted} size={18} />
       </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.push('/items')}
+        style={styles.setting}>
+        <Text>{t('family.items')}</Text>
+        <ChevronRight color={colors.muted} size={18} />
+      </Pressable>
       <Pressable accessibilityRole="button" onPress={pickLanguage} style={styles.setting}>
         <Text>{t('family.language')}</Text>
         <Text color={colors.muted}>

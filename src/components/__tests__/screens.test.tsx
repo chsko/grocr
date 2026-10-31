@@ -1,5 +1,6 @@
 import { act, fireEvent, render as rtlRender, screen } from '@testing-library/react-native';
 import * as Haptics from 'expo-haptics';
+import { Alert } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import FamilyScreen from '@/app/(tabs)/family';
@@ -7,6 +8,7 @@ import { GroceryLineEditor } from '@/components/grocery-line-editor';
 import GroceriesScreen from '@/app/(tabs)/groceries';
 import RecipeEditScreen from '@/app/recipe/edit';
 import WeekScreen from '@/app/(tabs)/week';
+import ItemsScreen from '@/app/items';
 import SectionsScreen from '@/app/sections';
 import SignInScreen from '@/app/sign-in';
 import { Palettes } from '@/constants/theme';
@@ -48,6 +50,8 @@ const mockRename = jest.fn(() => Promise.resolve(null));
 const mockSetAtHome = jest.fn((_args: unknown) => Promise.resolve(1));
 const mockEditMerged = jest.fn((_args: unknown) => Promise.resolve(null));
 const mockSetSection = jest.fn((_args: unknown) => Promise.resolve(null));
+const mockRenameItem = jest.fn((_args: unknown) => Promise.resolve(null));
+const mockMergeItems = jest.fn((_args: unknown) => Promise.resolve(null));
 jest.mock('convex/react', () => ({
   useQuery: (...args: unknown[]) => mockUseQuery(...args),
   useMutation: (name: string) =>
@@ -61,7 +65,11 @@ jest.mock('convex/react', () => ({
             ? mockEditMerged
             : name === 'ingredients.setSection'
               ? mockSetSection
-              : Object.assign(jest.fn(), { withOptimisticUpdate: () => jest.fn() }),
+              : name === 'ingredients.rename'
+                ? mockRenameItem
+                : name === 'ingredients.merge'
+                  ? mockMergeItems
+                  : Object.assign(jest.fn(), { withOptimisticUpdate: () => jest.fn() }),
 }));
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(() => Promise.resolve()),
@@ -202,6 +210,86 @@ describe('family', () => {
     await fireEvent.press(screen.getByText('Lagre'));
     expect(mockRename).toHaveBeenCalledWith({ groupId: 'g1', name: 'Familien Hansen' });
     expect(screen.queryByLabelText('Familienavn')).toBeNull();
+  });
+});
+
+describe('items', () => {
+  const items = [
+    {
+      _id: 'melk',
+      name: 'Melk',
+      normalizedName: 'melk',
+      section: 'dairy',
+      aliases: ['mlek'],
+      recipeCount: 2,
+    },
+    {
+      _id: 'helmelk',
+      name: 'Helmelk',
+      normalizedName: 'helmelk',
+      section: 'dairy',
+      aliases: [],
+      recipeCount: 0,
+    },
+    {
+      _id: 'løk',
+      name: 'Løk',
+      normalizedName: 'løk',
+      section: 'gone',
+      aliases: [],
+      recipeCount: 1,
+    },
+  ];
+  const showItems = async () => {
+    mockUseQuery.mockReturnValue(items);
+    await render(
+      <SchemeContext.Provider value="dark">
+        <SessionContext.Provider value={me}>
+          <ItemsScreen />
+        </SessionContext.Provider>
+      </SchemeContext.Provider>,
+    );
+  };
+
+  test('lists items by section, with their recipes and other names, and filters them', async () => {
+    await i18n.changeLanguage('nb');
+    await showItems();
+    expect(screen.getByText('Melk')).toHaveStyle({ color: Palettes.dark.ink });
+    expect(screen.getByText('I 2 oppskrifter · også mlek')).toBeTruthy();
+    // An item in a deleted section shows under Annet.
+    expect(screen.getByText('Annet · 1')).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText('Søk i varer'), 'MLEK');
+    expect(screen.getByText('Melk')).toBeTruthy();
+    expect(screen.queryByText('Løk')).toBeNull();
+    expect(screen.queryByText('Helmelk')).toBeNull();
+  });
+
+  test('renames, moves and merges an item', async () => {
+    await i18n.changeLanguage('en');
+    mockRenameItem.mockClear();
+    mockSetSection.mockClear();
+    mockMergeItems.mockClear();
+    const alert = jest.spyOn(Alert, 'alert');
+    await showItems();
+    await fireEvent.press(screen.getByText('Løk'));
+    await fireEvent.press(screen.getByText('Produce'));
+    expect(mockSetSection).toHaveBeenCalledWith({ ingredientId: 'løk', section: 'produce' });
+    await fireEvent.changeText(screen.getByLabelText('Name'), ' rødløk ');
+    await act(() => fireEvent.press(screen.getByText('Save')));
+    expect(mockRenameItem).toHaveBeenCalledWith({ ingredientId: 'løk', name: 'Rødløk' });
+
+    // A name another item answers to offers a merge instead of renaming.
+    await fireEvent.press(screen.getByText('Helmelk'));
+    await fireEvent.changeText(screen.getByLabelText('Name'), 'mlek');
+    await act(() => fireEvent.press(screen.getByText('Save')));
+    expect(mockRenameItem).toHaveBeenCalledTimes(1);
+    expect(alert.mock.calls.at(-1)?.[0]).toBe('Melk is already an item');
+    const offer = alert.mock.calls.at(-1)?.[2]?.find((b) => b.text === 'Merge');
+    await act(() => offer?.onPress?.());
+    const confirm = alert.mock.calls.at(-1)?.[2]?.find((b) => b.text === 'Merge');
+    await act(() => confirm?.onPress?.());
+    expect(mockMergeItems).toHaveBeenCalledWith({ fromId: 'helmelk', intoId: 'melk' });
+    alert.mockRestore();
   });
 });
 

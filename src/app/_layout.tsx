@@ -141,6 +141,7 @@ function AppStack() {
           />
           <Stack.Screen name="invite" options={{ presentation: 'modal' }} />
           <Stack.Screen name="sections" options={{ ...header, title: t('storeOrder.title') }} />
+          <Stack.Screen name="items" options={{ ...header, title: t('items.title') }} />
         </Stack.Protected>
       </Stack>
     </SessionContext.Provider>
