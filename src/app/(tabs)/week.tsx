@@ -5,8 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 import Animated, { FadeInLeft, FadeInRight } from 'react-native-reanimated';
 
-import { Basket, ChevronLeft, ChevronRight, Plus } from '@/components/icons';
-import { IconButton, IconTile, TabScreen, Text } from '@/components/ui';
+import { Basket, ChevronLeft, ChevronRight, Plus, Sparkle } from '@/components/icons';
+import { Button, IconButton, IconTile, TabScreen, Text } from '@/components/ui';
 import { Fonts, Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import { DEFAULT_ICON } from '@/convex/lib/recipeIcons';
@@ -55,6 +55,9 @@ export default function WeekScreen() {
           ? t('week.lastWeek')
           : null;
   const days = Array.from({ length: 7 }, (_, i) => addDays(startDate, i));
+  // Suggestions fill days from today on that have no dinner yet (GRO-69).
+  const canSuggest =
+    week !== undefined && days.some((d) => d >= today && !week.dinners.some((x) => x.date === d));
 
   return (
     <TabScreen>
@@ -143,6 +146,16 @@ export default function WeekScreen() {
           );
         })}
       </Animated.View>
+
+      {canSuggest ? (
+        <Button
+          kind="ghost"
+          title={t('week.suggest')}
+          icon={<Sparkle size={20} color={colors.tomato} />}
+          style={{ marginTop: 10 }}
+          onPress={() => router.push({ pathname: '/suggest-week', params: { start: startDate } })}
+        />
+      ) : null}
 
       {week && week.openLines > 0 ? (
         <Pressable

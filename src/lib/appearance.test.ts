@@ -110,6 +110,11 @@ describe.each(['light', 'dark'] as const)('%s palette contrast', (scheme) => {
     expect(contrast(c.checkbox, c[bg])).toBeGreaterThanOrEqual(3);
   });
 
+  // Rating stars are graphics, so they need 3:1, also on a picked recipe row.
+  test.each(['background', 'surface', 'saffronSoft'] as const)('stars stand out on %s', (bg) => {
+    expect(contrast(c.star, c[bg])).toBeGreaterThanOrEqual(3);
+  });
+
   test('white initials stay readable on every avatar color', () => {
     for (const color of c.avatars) expect(contrast('#FFFFFF', color)).toBeGreaterThanOrEqual(4.5);
   });

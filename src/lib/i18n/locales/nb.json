@@ -82,7 +82,8 @@
     "serves_other": "{{count}} porsjoner",
     "addDinner": "Legg til middag",
     "groceryBanner_one": "{{count}} vare på handlelisten",
-    "groceryBanner_other": "{{count}} varer på handlelisten"
+    "groceryBanner_other": "{{count}} varer på handlelisten",
+    "suggest": "Foreslå middager"
   },
   "pick": {
     "title": "Middag {{day}}",
@@ -104,6 +105,25 @@
     "footer_one": "{{count}} ingrediens havner på handlelisten for {{week}}.",
     "footer_other": "{{count}} ingredienser havner på handlelisten for {{week}}."
   },
+  "suggest": {
+    "title": "Middagsforslag",
+    "intro": "Favoritter dere ikke har spist på en stund. Bytt eller hopp over det du vil.",
+    "swap": "En annen middag {{day}}",
+    "skip": "Hopp over {{day}}",
+    "bringBack": "Foreslå en middag {{day}}",
+    "skipped": "Hoppet over",
+    "shuffle": "Stokk om",
+    "plan_one": "Planlegg {{count}} middag",
+    "plan_other": "Planlegg {{count}} middager",
+    "footer": "Ingrediensene havner på handlelisten for {{week}}.",
+    "noRecipes": "Legg inn noen oppskrifter først, så kan Grocr foreslå en uke.",
+    "noDays": "Alle dagene som er igjen denne uka har allerede middag.",
+    "newRecipe": "Ikke laget ennå",
+    "noneLeft": "Ingen flere oppskrifter å foreslå",
+    "open": "Ingen middag ennå",
+    "someTaken_one": "{{count}} dag hadde allerede fått middag, så den ble stående som den var.",
+    "someTaken_other": "{{count}} dager hadde allerede fått middag, så de ble stående som de var."
+  },
   "recipes": {
     "title": "Oppskrifter",
     "archivedTitle": "Arkivert",
@@ -122,7 +142,21 @@
     "backToRecipes": "Tilbake til oppskrifter",
     "archive": "Arkiver oppskrift",
     "restore": "Gjenopprett oppskrift",
-    "archiveHint": "Arkiverte oppskrifter blir stående på middager som allerede er planlagt."
+    "archiveHint": "Arkiverte oppskrifter blir stående på middager som allerede er planlagt.",
+    "lastCooked": "Sist laget {{when}}",
+    "timesCooked_one": "laget én gang",
+    "timesCooked_other": "laget {{count}} ganger",
+    "nextPlanned": "Neste gang: {{day}}",
+    "neverCookedLong": "Ikke laget ennå"
+  },
+  "rating": {
+    "stars_one": "{{count}} stjerne",
+    "stars_other": "{{count}} stjerner",
+    "average": "Vurdert til {{rating}} av 5",
+    "yours": "Din vurdering",
+    "family_one": "Familien: {{rating}} fra {{count}} vurdering",
+    "family_other": "Familien: {{rating}} fra {{count}} vurderinger",
+    "nobody": "Ingen har vurdert den ennå. Trykk på en stjerne når dere har spist den."
   },
   "relative": {
     "today": "i dag",

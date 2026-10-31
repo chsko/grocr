@@ -20,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Fonts, Radius, Spacing } from '@/constants/theme';
 import { makeStyles, useColors } from '@/lib/appearance';
+import { Star } from '@/components/icons';
 import { UpdateBanner } from '@/components/update-banner';
 
 // Small building blocks shared by the screens, styled after the design canvas.
@@ -236,6 +237,67 @@ export function Chip({
         {title}
       </Text>
     </Pressable>
+  );
+}
+
+/**
+ * Five tappable stars for the signed-in member's rating. Tapping the current rating clears it.
+ * Each star is a 44pt target.
+ */
+export function StarPicker({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: number | null;
+  onChange: (stars: number | null) => void;
+  disabled?: boolean;
+}) {
+  const { t } = useTranslation();
+  return (
+    <View style={{ flexDirection: 'row' }}>
+      {[1, 2, 3, 4, 5].map((stars) => (
+        <Pressable
+          key={stars}
+          accessibilityRole="button"
+          accessibilityLabel={t('rating.stars', { count: stars })}
+          accessibilityState={{ selected: value === stars, disabled }}
+          disabled={disabled}
+          hitSlop={2}
+          onPress={() => onChange(value === stars ? null : stars)}
+          style={({ pressed }) => ({
+            width: 44,
+            height: 44,
+            alignItems: 'center',
+            justifyContent: 'center',
+            opacity: pressed ? 0.6 : 1,
+          })}>
+          <Star size={30} filled={value !== null && stars <= value} />
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+/** A family average as "★ 4.5", for list rows. Nothing when no one has rated it. */
+export function RatingBadge({ average, color }: { average: number | null; color?: string }) {
+  const { t, i18n } = useTranslation();
+  const colors = useColors();
+  if (average === null) return null;
+  const shown = average.toLocaleString(i18n.language, {
+    minimumFractionDigits: Number.isInteger(average) ? 0 : 1,
+    maximumFractionDigits: 1,
+  });
+  return (
+    <View
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}
+      accessible
+      accessibilityLabel={t('rating.average', { rating: shown })}>
+      <Star size={13} filled />
+      <Text variant="small" color={color ?? colors.muted} style={{ fontFamily: Fonts.semibold }}>
+        {shown}
+      </Text>
+    </View>
   );
 }
 

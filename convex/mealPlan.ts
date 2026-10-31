@@ -1,11 +1,21 @@
 import { ConvexError, v } from 'convex/values';
 
-import { mutation, query } from './_generated/server';
+import type { Id } from './_generated/dataModel';
+import { mutation, query, type MutationCtx } from './_generated/server';
 import { loadForMember, requireMembership } from './lib/access';
 import { normalizeName } from './lib/catalog';
 import { detachEntry, findList, syncEntry } from './lib/groceryRows';
-import { addDays, isLocalDate } from './lib/week';
+import { familyRatings } from './lib/ratings';
 import { recipeIcon } from './lib/recipeIcons';
+import { rankRecipes } from './lib/suggest';
+import { addDays, isLocalDate, todayIn } from './lib/week';
+
+/** At most this many ranked recipes go back to the app for one week's suggestions. */
+const MAX_CANDIDATES = 30;
+
+function daysBetween(from: string, to: string) {
+  return Math.round((Date.parse(to) - Date.parse(from)) / (24 * 3600 * 1000));
+}
 
 function validDate(date: string) {
   if (!isLocalDate(date)) throw new ConvexError({ code: 'INVALID_DATE' });
@@ -103,18 +113,158 @@ export const set = mutation({
       await ctx.db.delete('mealPlanEntries', entry._id);
     }
 
-    const entryId = await ctx.db.insert('mealPlanEntries', {
+    return await insertDinner(ctx, {
       groupId,
       date,
-      slot: 'dinner',
       recipeId,
       freeText: note,
       servings: entryServings,
       addedBy: userId,
-      createdAt: Date.now(),
     });
-    await syncEntry(ctx, (await ctx.db.get('mealPlanEntries', entryId))!);
-    return entryId;
+  },
+});
+
+/** Adds a dinner and puts its ingredients on that week's grocery list. */
+async function insertDinner(
+  ctx: MutationCtx,
+  dinner: {
+    groupId: Id<'groups'>;
+    date: string;
+    recipeId?: Id<'recipes'>;
+    freeText?: string;
+    servings: number;
+    addedBy: Id<'users'>;
+  },
+) {
+  const entryId = await ctx.db.insert('mealPlanEntries', {
+    ...dinner,
+    slot: 'dinner',
+    createdAt: Date.now(),
+  });
+  await syncEntry(ctx, (await ctx.db.get('mealPlanEntries', entryId))!);
+  return entryId;
+}
+
+/**
+ * Suggestions for the week from `startDate` (GRO-69): the days from today on that have no
+ * dinner, and the family's recipes ranked for them, best first (well rated and not had
+ * recently; see lib/suggest.ts). A new `seed` gives a different order.
+ */
+export const suggestions = query({
+  args: { groupId: v.id('groups'), startDate: v.string(), seed: v.number() },
+  handler: async (ctx, { groupId, startDate, seed }) => {
+    const { userId } = await requireMembership(ctx, groupId);
+    const group = (await ctx.db.get('groups', groupId))!;
+    const today = todayIn(group.timezone);
+    const endDate = addDays(validDate(startDate), 6);
+    const entries = await ctx.db
+      .query('mealPlanEntries')
+      .withIndex('by_group_date', (q) =>
+        q.eq('groupId', groupId).gte('date', startDate).lte('date', endDate),
+      )
+      .collect();
+    const planned = new Set(entries.map((e) => e.date));
+    const days = Array.from({ length: 7 }, (_, i) => addDays(startDate, i)).filter(
+      (d) => d >= today && !planned.has(d),
+    );
+    if (days.length === 0) return { days, candidates: [] };
+
+    const recipes = (
+      await ctx.db
+        .query('recipes')
+        .withIndex('by_group', (q) => q.eq('groupId', groupId))
+        .collect()
+    ).filter((r) => r.archivedAt === undefined);
+    const ratingOf = await familyRatings(ctx, groupId, userId);
+    const facts = await Promise.all(
+      recipes.map(async (r) => {
+        const before = await ctx.db
+          .query('mealPlanEntries')
+          .withIndex('by_recipe_date', (q) => q.eq('recipeId', r._id).lt('date', startDate))
+          .order('desc')
+          .first();
+        const from = await ctx.db
+          .query('mealPlanEntries')
+          .withIndex('by_recipe_date', (q) => q.eq('recipeId', r._id).gte('date', startDate))
+          .first();
+        const cooked = await ctx.db
+          .query('mealPlanEntries')
+          .withIndex('by_recipe_date', (q) => q.eq('recipeId', r._id).lte('date', today))
+          .order('desc')
+          .first();
+        const inWeek = from !== null && from.date <= endDate;
+        let daysAfter: number | null = null;
+        if (from !== null && !inWeek) daysAfter = daysBetween(endDate, from.date);
+        return {
+          recipe: r,
+          rating: ratingOf(r._id).average,
+          daysBefore: before ? daysBetween(before.date, startDate) : null,
+          daysAfter,
+          inWeek,
+          lastCooked: cooked?.date ?? null,
+        };
+      }),
+    );
+    const byId = new Map(facts.map((f) => [f.recipe._id, f]));
+    const ranked = rankRecipes(
+      facts.map((f) => ({ ...f, id: f.recipe._id })),
+      seed,
+    ).slice(0, MAX_CANDIDATES);
+    const candidates = ranked.map((id) => {
+      const f = byId.get(id)!;
+      return {
+        recipeId: id,
+        title: f.recipe.title,
+        icon: recipeIcon(f.recipe),
+        servings: f.recipe.servings,
+        rating: f.rating,
+        lastCooked: f.lastCooked,
+      };
+    });
+    return { days, candidates };
+  },
+});
+
+/**
+ * Plans the suggested dinners the family kept. A day someone planned in the meantime is left
+ * alone, so nobody's pick is replaced, and days before today are skipped. Returns how many
+ * dinners were planned.
+ */
+export const planSuggested = mutation({
+  args: {
+    groupId: v.id('groups'),
+    dinners: v.array(v.object({ date: v.string(), recipeId: v.id('recipes') })),
+  },
+  handler: async (ctx, { groupId, dinners }) => {
+    const { userId } = await requireMembership(ctx, groupId);
+    if (dinners.length > 7) throw new ConvexError({ code: 'TOO_LONG' });
+    const dates = new Set(dinners.map((d) => validDate(d.date)));
+    if (dates.size !== dinners.length) throw new ConvexError({ code: 'INVALID_DATE' });
+
+    const group = (await ctx.db.get('groups', groupId))!;
+    const today = todayIn(group.timezone);
+    let planned = 0;
+    for (const { date, recipeId } of dinners) {
+      const recipe = await ctx.db.get('recipes', recipeId);
+      if (recipe === null || recipe.groupId !== groupId)
+        throw new ConvexError({ code: 'NOT_FOUND' });
+      // Suggestions are for today on; an archived recipe is no longer offered.
+      if (date < today || recipe.archivedAt !== undefined) continue;
+      const taken = await ctx.db
+        .query('mealPlanEntries')
+        .withIndex('by_group_date', (q) => q.eq('groupId', groupId).eq('date', date))
+        .first();
+      if (taken !== null) continue;
+      await insertDinner(ctx, {
+        groupId,
+        date,
+        recipeId,
+        servings: recipe.servings,
+        addedBy: userId,
+      });
+      planned += 1;
+    }
+    return planned;
   },
 });
 

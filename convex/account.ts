@@ -6,8 +6,9 @@ import { requireUserId } from './lib/access';
 /**
  * Deletes the signed-in user's account (App Store and Play require this in-app). They leave
  * every family, with ownership passing on and a last-member family deleted; their name is
- * removed from what stays behind (recipes, dinners, grocery lines); and their user, sign-in
- * accounts and sessions are deleted, which signs them out. Apple tokens are revoked afterwards.
+ * removed from what stays behind (recipes, dinners, grocery lines); their recipe ratings are
+ * deleted; and their user, sign-in accounts and sessions are deleted, which signs them out.
+ * Apple tokens are revoked afterwards.
  */
 export const deleteAccount = mutation({
   args: {},
@@ -65,6 +66,13 @@ export const deleteAccount = mutation({
       }
       await leaveFamily(ctx, membership);
     }
+
+    // Stars are personal; the family's averages simply lose them.
+    const ratings = await ctx.db
+      .query('recipeRatings')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .collect();
+    for (const doc of ratings) await ctx.db.delete('recipeRatings', doc._id);
 
     const attempts = await ctx.db
       .query('inviteAttempts')

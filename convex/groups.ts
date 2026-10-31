@@ -186,6 +186,11 @@ async function deleteGroup(ctx: MutationCtx, groupId: Id<'groups'>) {
     .withIndex('by_group', (q) => q.eq('groupId', groupId))
     .collect();
   for (const doc of recipes) await ctx.db.delete('recipes', doc._id);
+  const ratings = await ctx.db
+    .query('recipeRatings')
+    .withIndex('by_group', (q) => q.eq('groupId', groupId))
+    .collect();
+  for (const doc of ratings) await ctx.db.delete('recipeRatings', doc._id);
   const ingredients = await ctx.db
     .query('ingredients')
     .withIndex('by_group_normalizedName', (q) => q.eq('groupId', groupId))

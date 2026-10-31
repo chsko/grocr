@@ -82,7 +82,8 @@
     "serves_other": "Serves {{count}}",
     "addDinner": "Add dinner",
     "groceryBanner_one": "{{count}} item on the grocery list",
-    "groceryBanner_other": "{{count}} items on the grocery list"
+    "groceryBanner_other": "{{count}} items on the grocery list",
+    "suggest": "Suggest dinners"
   },
   "pick": {
     "title": "Dinner for {{day}}",
@@ -104,6 +105,25 @@
     "footer_one": "{{count}} ingredient goes on {{week}}'s grocery list.",
     "footer_other": "{{count}} ingredients go on {{week}}'s grocery list."
   },
+  "suggest": {
+    "title": "Dinner ideas",
+    "intro": "Favourites you have not had for a while. Swap or skip any of them.",
+    "swap": "Another dinner for {{day}}",
+    "skip": "Skip {{day}}",
+    "bringBack": "Suggest a dinner for {{day}}",
+    "skipped": "Skipped",
+    "shuffle": "Shuffle all",
+    "plan_one": "Plan {{count}} dinner",
+    "plan_other": "Plan {{count}} dinners",
+    "footer": "Their ingredients go on {{week}}'s grocery list.",
+    "noRecipes": "Add a few recipes first, then Grocr can suggest a week.",
+    "noDays": "Every day left this week already has a dinner.",
+    "newRecipe": "Not cooked yet",
+    "noneLeft": "No more recipes to suggest",
+    "open": "No dinner yet",
+    "someTaken_one": "{{count}} day already had a dinner planned, so it was left as it was.",
+    "someTaken_other": "{{count}} days already had a dinner planned, so they were left as they were."
+  },
   "recipes": {
     "title": "Recipes",
     "archivedTitle": "Archived",
@@ -122,7 +142,21 @@
     "backToRecipes": "Back to recipes",
     "archive": "Archive recipe",
     "restore": "Restore recipe",
-    "archiveHint": "Archived recipes stay on dinners you already planned."
+    "archiveHint": "Archived recipes stay on dinners you already planned.",
+    "lastCooked": "Last cooked {{when}}",
+    "timesCooked_one": "cooked once",
+    "timesCooked_other": "cooked {{count}} times",
+    "nextPlanned": "Next on the menu: {{day}}",
+    "neverCookedLong": "Not cooked yet"
+  },
+  "rating": {
+    "stars_one": "{{count}} star",
+    "stars_other": "{{count}} stars",
+    "average": "Rated {{rating}} out of 5",
+    "yours": "Your rating",
+    "family_one": "Family: {{rating}} from {{count}} rating",
+    "family_other": "Family: {{rating}} from {{count}} ratings",
+    "nobody": "Nobody has rated it yet. Tap a star once you have had it."
   },
   "relative": {
     "today": "today",

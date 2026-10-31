@@ -134,6 +134,37 @@ export const Calendar = (p: IconProps) => (
   </Stroke>
 );
 
+/** A rating star; `filled` paints it in the given color. */
+export const Star = ({ filled, ...p }: IconProps & { filled?: boolean }) => {
+  const colors = useColors();
+  const color = p.color ?? colors.star;
+  return (
+    <Svg width={p.size ?? 22} height={p.size ?? 22} viewBox="0 0 24 24">
+      <Path
+        d="M12 3.2l2.7 5.5 6 .9-4.35 4.25 1.03 6-5.38-2.83-5.38 2.83 1.03-6L3.3 9.6l6-.9z"
+        fill={filled ? color : 'none'}
+        stroke={filled ? color : (p.color ?? colors.checkbox)}
+        strokeWidth={p.strokeWidth ?? 1.8}
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+};
+/** Sparkles: "suggest for me". */
+export const Sparkle = (p: IconProps) => (
+  <Stroke {...p}>
+    <Path d="M11 3l1.8 4.7L17.5 9.5l-4.7 1.8L11 16l-1.8-4.7L4.5 9.5l4.7-1.8z" />
+    <Path d="M18.5 14.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" />
+  </Stroke>
+);
+/** Two arrows chasing each other: shuffle or swap. */
+export const Shuffle = (p: IconProps) => (
+  <Stroke {...p}>
+    <Path d="M4 7h11l-3-3M20 17H9l3 3" />
+    <Path d="M15 7a5 5 0 0 1 5 5M9 17a5 5 0 0 1-5-5" />
+  </Stroke>
+);
+
 /** Logo 7, "Grocery bag": tomato bag, ink handle, herb sprig, white G. */
 /** Google's "G" in its brand colors, for the sign-in button. */
 export const GoogleLogo = ({ size = 20 }: { size?: number }) => (

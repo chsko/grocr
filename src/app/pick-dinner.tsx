@@ -6,7 +6,16 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Check, Close, Search } from '@/components/icons';
-import { Button, Chip, Field, IconButton, IconTile, Stepper, Text } from '@/components/ui';
+import {
+  Button,
+  Chip,
+  Field,
+  IconButton,
+  IconTile,
+  RatingBadge,
+  Stepper,
+  Text,
+} from '@/components/ui';
 import { Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -146,13 +155,19 @@ export default function PickDinnerScreen() {
               <IconTile icon={r.icon} color={colors.tiles[0]} size={38} />
               <View style={{ flex: 1 }}>
                 <Text variant="item">{r.title}</Text>
-                <Text variant="small" color={isSelected ? colors.tomatoDeep : colors.muted}>
-                  {r.lastCooked
-                    ? t('recipes.cooked', {
-                        when: relativeDay(t, r.lastCooked, todayIn(family.timezone)),
-                      })
-                    : t('recipes.neverCooked')}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <RatingBadge
+                    average={r.rating.average}
+                    color={isSelected ? colors.tomatoDeep : undefined}
+                  />
+                  <Text variant="small" color={isSelected ? colors.tomatoDeep : colors.muted}>
+                    {r.lastCooked
+                      ? t('recipes.cooked', {
+                          when: relativeDay(t, r.lastCooked, todayIn(family.timezone)),
+                        })
+                      : t('recipes.neverCooked')}
+                  </Text>
+                </View>
               </View>
               {isSelected ? <Check color={colors.tomato} /> : null}
             </Pressable>

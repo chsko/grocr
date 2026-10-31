@@ -27,6 +27,8 @@ const light = {
   /** A picked chip (unit, section). */
   chipSelected: '#FFF0C2',
   herb: '#2F8F4E',
+  /** Filled rating stars; 3:1 on background, surface and saffronSoft. */
+  star: '#B27B00',
   surface: '#F7F3EE',
   warningSurface: '#FBEDE7',
   /** The carry-over button on the warning surface. */
@@ -63,6 +65,7 @@ const dark: Palette = {
   saffronInk: '#F2CC6B',
   chipSelected: '#5A4718',
   herb: '#5CB97A',
+  star: '#F2C14E',
   surface: '#221D18',
   warningSurface: '#3A211A',
   warningFill: '#B5503A',

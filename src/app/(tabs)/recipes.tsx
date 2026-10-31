@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, TextInput, View } from 'react-native';
 
 import { Plus, Search } from '@/components/icons';
-import { Button, IconButton, IconTile, TabScreen, Text } from '@/components/ui';
+import { Button, IconButton, IconTile, RatingBadge, TabScreen, Text } from '@/components/ui';
 import { Fonts, Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import { makeStyles, useColors } from '@/lib/appearance';
@@ -76,14 +76,17 @@ export default function RecipesScreen() {
             <IconTile icon={r.icon} color={colors.tiles[index % colors.tiles.length]} />
             <View style={{ flex: 1, gap: 2 }}>
               <Text variant="item">{r.title}</Text>
-              <Text variant="small" color={colors.muted}>
-                {[
-                  t('recipes.servings', { count: r.servings }),
-                  r.lastCooked
-                    ? t('recipes.cooked', { when: relativeDay(t, r.lastCooked, today) })
-                    : t('recipes.neverCooked'),
-                ].join(' · ')}
-              </Text>
+              <View style={styles.meta}>
+                <RatingBadge average={r.rating.average} />
+                <Text variant="small" color={colors.muted} style={{ flexShrink: 1 }}>
+                  {[
+                    t('recipes.servings', { count: r.servings }),
+                    r.lastCooked
+                      ? t('recipes.cooked', { when: relativeDay(t, r.lastCooked, today) })
+                      : t('recipes.neverCooked'),
+                  ].join(' · ')}
+                </Text>
+              </View>
             </View>
             {planned ? (
               <Text variant="small" color={colors.tomatoDeep} style={styles.badge}>
@@ -135,6 +138,7 @@ const useStyles = makeStyles((colors) => ({
     color: colors.ink,
     height: '100%',
   },
+  meta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   row: {
     minHeight: 68,
     flexDirection: 'row',

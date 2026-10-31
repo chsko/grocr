@@ -141,6 +141,7 @@ function AppStack() {
             // A plain modal: a formSheet with a flex root renders empty on iOS.
             options={{ presentation: 'modal' }}
           />
+          <Stack.Screen name="suggest-week" options={{ presentation: 'modal' }} />
           <Stack.Screen name="invite" options={{ presentation: 'modal' }} />
           <Stack.Screen name="sections" options={{ ...header, title: t('storeOrder.title') }} />
           <Stack.Screen name="items" options={{ ...header, title: t('items.title') }} />

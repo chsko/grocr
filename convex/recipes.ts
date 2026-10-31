@@ -6,6 +6,7 @@ import { scheduleIconGuess } from './classify';
 import { resolveIngredient } from './ingredients';
 import { loadForMember, requireMembership } from './lib/access';
 import { cleanName } from './lib/catalog';
+import { familyRatings, isStars, memberIds, roundRating } from './lib/ratings';
 import { syncEntry } from './lib/groceryRows';
 import { DEFAULT_ICON, guessIcon, isRecipeIcon, recipeIcon } from './lib/recipeIcons';
 import { isUnit } from './lib/units';
@@ -28,11 +29,15 @@ async function planDates(ctx: QueryCtx, recipeId: Id<'recipes'>, today: string) 
   return { lastCooked: last?.date ?? null, nextPlanned: next?.date ?? null };
 }
 
-/** The family's recipes by title, with when each was last cooked and next planned. */
+/**
+ * The family's recipes by title, with when each was last cooked and next planned, and the
+ * family's rating.
+ */
 export const list = query({
   args: { groupId: v.id('groups'), archived: v.optional(v.boolean()) },
   handler: async (ctx, { groupId, archived }) => {
-    await requireMembership(ctx, groupId);
+    const { userId } = await requireMembership(ctx, groupId);
+    const ratingOf = await familyRatings(ctx, groupId, userId);
     const group = (await ctx.db.get('groups', groupId))!;
     const today = todayIn(group.timezone);
     const recipes = await ctx.db
@@ -47,6 +52,7 @@ export const list = query({
         icon: recipeIcon(r),
         servings: r.servings,
         ingredientCount: r.ingredients.length,
+        rating: ratingOf(r._id),
         ...(await planDates(ctx, r._id, today)),
       })),
     );
@@ -54,11 +60,14 @@ export const list = query({
   },
 });
 
-/** One recipe with its ingredients' catalog names and sections. */
+/**
+ * One recipe with its ingredients' catalog names and sections, when it was last made (and how
+ * often), and each current member's stars.
+ */
 export const get = query({
   args: { recipeId: v.id('recipes') },
   handler: async (ctx, { recipeId }) => {
-    const { doc } = await loadForMember(ctx, 'recipes', recipeId);
+    const { doc, userId } = await loadForMember(ctx, 'recipes', recipeId);
     const ingredients = await Promise.all(
       doc.ingredients.map(async (line) => {
         const ingredient = await ctx.db.get('ingredients', line.ingredientId);
@@ -69,7 +78,74 @@ export const get = query({
         };
       }),
     );
-    return { ...doc, shownIcon: recipeIcon(doc), ingredients };
+    const group = (await ctx.db.get('groups', doc.groupId))!;
+    const today = todayIn(group.timezone);
+    const cooked = await ctx.db
+      .query('mealPlanEntries')
+      .withIndex('by_recipe_date', (q) => q.eq('recipeId', doc._id).lte('date', today))
+      .collect();
+
+    const members = await memberIds(ctx, doc.groupId);
+    const rows = await ctx.db
+      .query('recipeRatings')
+      .withIndex('by_recipe_user', (q) => q.eq('recipeId', doc._id))
+      .collect();
+    const ratings = await Promise.all(
+      rows
+        .filter((r) => members.has(r.userId))
+        .map(async (r) => ({
+          name: (await ctx.db.get('users', r.userId))?.name ?? '',
+          stars: r.stars,
+          isMe: r.userId === userId,
+        })),
+    );
+    ratings.sort((a, b) => Number(b.isMe) - Number(a.isMe) || b.stars - a.stars);
+    const average =
+      ratings.length === 0
+        ? null
+        : roundRating(ratings.reduce((sum, r) => sum + r.stars, 0) / ratings.length);
+
+    return {
+      ...doc,
+      shownIcon: recipeIcon(doc),
+      ingredients,
+      ...(await planDates(ctx, doc._id, today)),
+      timesCooked: cooked.length,
+      ratings,
+      rating: {
+        average,
+        count: ratings.length,
+        mine: ratings.find((r) => r.isMe)?.stars ?? null,
+      },
+    };
+  },
+});
+
+/** Sets the signed-in member's stars for a recipe (1-5), or clears them with null. */
+export const rate = mutation({
+  args: { recipeId: v.id('recipes'), stars: v.union(v.number(), v.null()) },
+  handler: async (ctx, { recipeId, stars }) => {
+    const { doc, userId } = await loadForMember(ctx, 'recipes', recipeId);
+    if (stars !== null && !isStars(stars)) throw new ConvexError({ code: 'INVALID_RATING' });
+    const existing = await ctx.db
+      .query('recipeRatings')
+      .withIndex('by_recipe_user', (q) => q.eq('recipeId', doc._id).eq('userId', userId))
+      .unique();
+    if (stars === null) {
+      if (existing !== null) await ctx.db.delete('recipeRatings', existing._id);
+      return;
+    }
+    if (existing !== null) {
+      await ctx.db.patch('recipeRatings', existing._id, { stars, updatedAt: Date.now() });
+      return;
+    }
+    await ctx.db.insert('recipeRatings', {
+      groupId: doc.groupId,
+      recipeId: doc._id,
+      userId,
+      stars,
+      updatedAt: Date.now(),
+    });
   },
 });
 

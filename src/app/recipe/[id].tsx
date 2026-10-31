@@ -1,18 +1,25 @@
 import { useMutation, useQuery } from 'convex/react';
+import type { FunctionReturnType } from 'convex/server';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, View } from 'react-native';
 
-import { Button, IconTile, Loading, Text } from '@/components/ui';
+import { Button, IconTile, Loading, StarPicker, Text } from '@/components/ui';
 import { Fonts } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
-import { formatAmounts } from '@/lib/format';
+import { dayLabel, formatAmounts } from '@/lib/format';
+import { relativeDay } from '@/lib/relative';
+import { useFamily } from '@/lib/session';
+import { todayIn } from '@/lib/week';
 import { isUnit } from '@/convex/lib/units';
 
-/** One recipe: ingredients and steps, with edit and archive (GRO-30). */
+/**
+ * One recipe: when it was last cooked, the family's stars (GRO-68), ingredients and steps, with
+ * edit and archive (GRO-30).
+ */
 export default function RecipeScreen() {
   const colors = useColors();
   const styles = useStyles();
@@ -20,6 +27,11 @@ export default function RecipeScreen() {
   const { id } = useLocalSearchParams<{ id: Id<'recipes'> }>();
   const recipe = useQuery(api.recipes.get, { recipeId: id });
   const setArchived = useMutation(api.recipes.setArchived);
+  const rate = useMutation(api.recipes.rate).withOptimisticUpdate((store, { recipeId, stars }) => {
+    const current = store.getQuery(api.recipes.get, { recipeId });
+    if (current) store.setQuery(api.recipes.get, { recipeId }, withMyStars(current, stars));
+  });
+  const family = useFamily();
 
   if (recipe === undefined) return <Loading />;
   const archived = recipe.archivedAt !== undefined;
@@ -45,7 +57,49 @@ export default function RecipeScreen() {
       <Text variant="title" style={{ marginTop: 12 }}>
         {recipe.title}
       </Text>
-      <Text color={colors.muted}>{t('recipes.servings', { count: recipe.servings })}</Text>
+      <Text color={colors.muted}>
+        {[
+          t('recipes.servings', { count: recipe.servings }),
+          recipe.lastCooked
+            ? t('recipes.lastCooked', {
+                when: relativeDay(t, recipe.lastCooked, todayIn(family.timezone)),
+              })
+            : t('recipes.neverCookedLong'),
+          recipe.timesCooked > 0 ? t('recipes.timesCooked', { count: recipe.timesCooked }) : null,
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+      </Text>
+      {recipe.nextPlanned ? (
+        <Text color={colors.tomatoDeep}>
+          {t('recipes.nextPlanned', { day: dayLabel(t, recipe.nextPlanned) })}
+        </Text>
+      ) : null}
+
+      <View style={styles.rating}>
+        <Text variant="section" color={colors.muted}>
+          {t('rating.yours')}
+        </Text>
+        <View style={{ marginHorizontal: -7 }}>
+          <StarPicker
+            value={recipe.rating.mine}
+            onChange={(stars) => void attempt(t, () => rate({ recipeId: id, stars }))}
+          />
+        </View>
+        <Text variant="small" color={colors.muted}>
+          {recipe.rating.average === null
+            ? t('rating.nobody')
+            : [
+                t('rating.family', {
+                  count: recipe.rating.count,
+                  rating: recipe.rating.average.toLocaleString(i18n.language),
+                }),
+                ...recipe.ratings
+                  .filter((r) => !r.isMe)
+                  .map((r) => `${r.name.split(' ')[0] || '?'} ${r.stars}★`),
+              ].join(' · ')}
+        </Text>
+      </View>
 
       <Text variant="section" color={colors.muted} style={styles.section}>
         {t('recipeEdit.ingredients')}
@@ -93,8 +147,31 @@ export default function RecipeScreen() {
   );
 }
 
+type RecipeDetail = NonNullable<FunctionReturnType<typeof api.recipes.get>>;
+
+/** The recipe as it will look once the member's new stars are saved. */
+function withMyStars(recipe: RecipeDetail, stars: number | null): RecipeDetail {
+  const others = recipe.ratings.filter((r) => !r.isMe);
+  const mine = recipe.ratings.find((r) => r.isMe);
+  const ratings =
+    stars === null ? others : [{ name: mine?.name ?? '', stars, isMe: true }, ...others];
+  const average =
+    ratings.length === 0
+      ? null
+      : Math.round((ratings.reduce((sum, r) => sum + r.stars, 0) / ratings.length) * 10) / 10;
+  return { ...recipe, ratings, rating: { average, count: ratings.length, mine: stars } };
+}
+
 const useStyles = makeStyles((colors) => ({
   content: { padding: 20, paddingBottom: 48, gap: 6 },
+  rating: {
+    marginTop: 18,
+    padding: 14,
+    paddingBottom: 12,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
+    gap: 4,
+  },
   section: { marginTop: 24, marginBottom: 6 },
   ingredient: {
     flexDirection: 'row',

@@ -143,6 +143,19 @@ export default defineSchema({
     .index('by_group', ['groupId'])
     .searchIndex('search_title', { searchField: 'title', filterFields: ['groupId'] }),
 
+  // One member's stars (1-5) for a recipe (GRO-68). Per member, so a family can disagree; only
+  // current members count toward the family average.
+  recipeRatings: defineTable({
+    groupId: v.id('groups'),
+    recipeId: v.id('recipes'),
+    userId: v.id('users'),
+    stars: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_recipe_user', ['recipeId', 'userId'])
+    .index('by_group', ['groupId'])
+    .index('by_user', ['userId']),
+
   mealPlanEntries: defineTable({
     groupId: v.id('groups'),
     date: v.string(), // "YYYY-MM-DD" in the group's timezone
