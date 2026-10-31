@@ -26,6 +26,7 @@ import {
 import { convex, tokenStorage } from '@/lib/convex';
 import { restoreLanguage } from '@/lib/i18n/preference';
 import { SessionContext } from '@/lib/session';
+import { useForegroundUpdateCheck } from '@/lib/updates';
 
 void restoreLanguage();
 void restoreAppearance();
@@ -93,6 +94,7 @@ function AppStack() {
   const { isLoading, isAuthenticated } = useConvexAuth();
   const me = useQuery(api.users.me, isAuthenticated ? {} : 'skip');
   const appearanceRestored = useAppearanceRestored();
+  useForegroundUpdateCheck();
   const ready =
     fontsLoaded && appearanceRestored && !isLoading && (!isAuthenticated || me !== undefined);
 

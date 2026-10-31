@@ -393,5 +393,10 @@
     "newPlaceholder": "F.eks. Melk",
     "add": "Legg til",
     "remove": "Slutt å tilby {{name}}"
+  },
+  "update": {
+    "ready": "Ny versjon er klar",
+    "action": "Oppdater",
+    "later": "Ikke nå"
   }
 }

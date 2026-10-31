@@ -20,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Fonts, Radius, Spacing } from '@/constants/theme';
 import { makeStyles, useColors } from '@/lib/appearance';
+import { UpdateBanner } from '@/components/update-banner';
 
 // Small building blocks shared by the screens, styled after the design canvas.
 
@@ -369,6 +370,7 @@ export function TabScreen({
   const colors = useColors();
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: colors.background }}>
+      <UpdateBanner />
       {header}
       <ScrollView
         ref={scrollRef}

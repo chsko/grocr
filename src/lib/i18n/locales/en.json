@@ -393,5 +393,10 @@
     "newPlaceholder": "E.g. Milk",
     "add": "Add",
     "remove": "Stop offering {{name}}"
+  },
+  "update": {
+    "ready": "New version ready",
+    "action": "Update",
+    "later": "Not now"
   }
 }
