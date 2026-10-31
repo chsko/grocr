@@ -21,6 +21,7 @@ import { attempt } from '@/lib/errors';
 import { accountLabel, dayMonth } from '@/lib/format';
 import { setLanguagePreference, useLanguagePreference } from '@/lib/i18n/preference';
 import { useMe } from '@/lib/session';
+import { unseenEntries } from '@/lib/whats-new';
 import Animated from 'react-native-reanimated';
 import { sheetIn } from '@/lib/motion';
 
@@ -45,6 +46,7 @@ export default function FamilyScreen() {
   const { signOut } = useAuthActions();
   const [now] = useState(() => Date.now());
   const [renaming, setRenaming] = useState(false);
+  const hasNews = unseenEntries(user.whatsNewSeen).length > 0;
   const language = useLanguagePreference();
   const appearance = useAppearancePreference();
   const appearanceNames = {
@@ -238,6 +240,19 @@ export default function FamilyScreen() {
       </Pressable>
       <Pressable
         accessibilityRole="button"
+        accessibilityLabel={
+          hasNews ? `${t('family.whatsNew')}, ${t('whatsNew.unseen')}` : t('family.whatsNew')
+        }
+        onPress={() => router.push('/whats-new')}
+        style={styles.setting}>
+        <Text>{t('family.whatsNew')}</Text>
+        <View style={styles.settingEnd}>
+          {hasNews ? <View style={styles.newDot} /> : null}
+          <ChevronRight color={colors.muted} size={18} />
+        </View>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
         onPress={() => router.push('/sections')}
         style={styles.setting}>
         <Text>{t('family.storeOrder')}</Text>
@@ -397,6 +412,8 @@ const useStyles = makeStyles((colors) => ({
     padding: 20,
     gap: 14,
   },
+  settingEnd: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  newDot: { width: 8, height: 8, borderRadius: Radius.pill, backgroundColor: colors.tomato },
   setting: {
     minHeight: 52,
     flexDirection: 'row',

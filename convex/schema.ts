@@ -30,6 +30,8 @@ export default defineSchema({
     isAnonymous: v.optional(v.boolean()),
     // When they finished or skipped the get-started tour; missing shows it (GRO-49).
     tourDoneAt: v.optional(v.number()),
+    // Number of the newest "What's new" entry they have seen (GRO-66); entries live in the app.
+    whatsNewSeen: v.optional(v.number()),
   })
     .index('email', ['email'])
     .index('phone', ['phone']),

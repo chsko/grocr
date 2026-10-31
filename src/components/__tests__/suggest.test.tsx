@@ -47,7 +47,13 @@ jest.mock('expo-router', () => ({
 }));
 
 const me: Me = {
-  user: { _id: 'u1' as Me['user']['_id'], name: 'Kari Hansen', email: undefined, tourDone: true },
+  user: {
+    _id: 'u1' as Me['user']['_id'],
+    name: 'Kari Hansen',
+    email: undefined,
+    tourDone: true,
+    whatsNewSeen: null,
+  },
   family: {
     groupId: 'g1' as NonNullable<Me['family']>['groupId'],
     name: 'Hansen family',

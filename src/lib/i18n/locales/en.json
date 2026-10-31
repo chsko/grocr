@@ -299,7 +299,8 @@
     "name": "Family name",
     "rename": "Rename family",
     "items": "Items",
-    "staples": "Staples"
+    "staples": "Staples",
+    "whatsNew": "What's new"
   },
   "invite": {
     "title": "Invite to {{family}}",
@@ -436,5 +437,44 @@
     "ready": "New version ready",
     "action": "Update",
     "later": "Not now"
+  },
+  "whatsNew": {
+    "title": "What's new",
+    "sheetTitle": "New in Grocr",
+    "sheetIntro": "A few things got better since you last looked.",
+    "done": "Nice",
+    "showMe": "Show me",
+    "unseen": "New",
+    "intro": "What has changed in Grocr lately, newest first.",
+    "entries": {
+      "darkMode": {
+        "title": "Dark mode",
+        "body": "Grocr follows your phone's light or dark setting. To choose one yourself, go to Family › Appearance."
+      },
+      "atHome": {
+        "title": "Already at home",
+        "body": "Tap the house on a grocery item you already have. It moves out of the way, so nobody buys it twice."
+      },
+      "items": {
+        "title": "Tidy up your items",
+        "body": "Family › Items lists everything your family has added. Rename an item, move it to another section, or merge two that are the same thing."
+      },
+      "staples": {
+        "title": "Staples",
+        "body": "Mark the things you buy every week, like milk or coffee. Each week's list offers the ones that aren't on it yet."
+      },
+      "typeAhead": {
+        "title": "Suggestions as you type",
+        "body": "Start typing on the grocery list and Grocr suggests items your family already uses, so milk stays one item."
+      },
+      "ratings": {
+        "title": "Rate your dinners",
+        "body": "Give a recipe one to five stars after you've had it. The recipe shows the family's rating and when you last made it."
+      },
+      "dinnerIdeas": {
+        "title": "Dinner ideas",
+        "body": "Short on ideas? On Week, Grocr can suggest dinners for the empty days: favourites you haven't had in a while. Swap or skip any of them."
+      }
+    }
   }
 }

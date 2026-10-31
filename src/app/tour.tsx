@@ -11,6 +11,7 @@ import { Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import { makeStyles, useColors } from '@/lib/appearance';
 import { useFamily, useMe } from '@/lib/session';
+import { LATEST_WHATS_NEW } from '@/lib/whats-new';
 
 const PAGES: TourScene[] = ['loop', 'recipes', 'week', 'groceries', 'family'];
 
@@ -46,7 +47,7 @@ export default function TourScreen() {
     if (leaving.current) return;
     leaving.current = true;
     // Saved in the background: if it fails, the tour just shows again next time.
-    if (!user.tourDone) void finishTour({}).catch(() => undefined);
+    if (!user.tourDone) void finishTour({ whatsNewSeen: LATEST_WHATS_NEW }).catch(() => undefined);
     // Opened from Family it sits on top of the tabs; on first run it is the only screen.
     if (router.canGoBack()) {
       router.back();

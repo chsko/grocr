@@ -3,6 +3,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import TourScreen from '@/app/tour';
 import i18n from '@/lib/i18n';
+import { LATEST_WHATS_NEW } from '@/lib/whats-new';
 import { SessionContext, type Me } from '@/lib/session';
 
 const mockUseQuery = jest.fn();
@@ -32,7 +33,13 @@ jest.mock('expo-router', () => ({
 }));
 
 const me = (tourDone: boolean): Me => ({
-  user: { _id: 'u1' as Me['user']['_id'], name: 'Kari Hansen', email: undefined, tourDone },
+  user: {
+    _id: 'u1' as Me['user']['_id'],
+    name: 'Kari Hansen',
+    email: undefined,
+    tourDone,
+    whatsNewSeen: null,
+  },
   family: {
     groupId: 'g1' as NonNullable<Me['family']>['groupId'],
     name: 'Hansen family',
@@ -78,7 +85,7 @@ describe('get-started tour', () => {
     expect(screen.queryByText('Skip')).toBeNull();
 
     await fireEvent.press(screen.getByText('Add your first recipe'));
-    expect(mockFinish).toHaveBeenCalledTimes(1);
+    expect(mockFinish).toHaveBeenCalledWith({ whatsNewSeen: LATEST_WHATS_NEW });
     expect(mockRouter.replace).toHaveBeenCalledWith('/recipes');
     expect(mockRouter.push).toHaveBeenCalledWith('/recipe/edit');
   });
@@ -99,7 +106,7 @@ describe('get-started tour', () => {
     await render();
     expect(screen.getByText('Velkommen til Grocr')).toBeTruthy();
     await fireEvent.press(screen.getByText('Hopp over'));
-    expect(mockFinish).toHaveBeenCalledTimes(1);
+    expect(mockFinish).toHaveBeenCalledWith({ whatsNewSeen: LATEST_WHATS_NEW });
     expect(mockRouter.replace).toHaveBeenCalledWith('/week');
   });
 

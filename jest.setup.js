@@ -24,6 +24,7 @@ jest.mock('react-native-reanimated', () => {
     default: { View },
     FadeIn: builder,
     FadeOut: builder,
+    FadeInDown: builder,
     FadeInLeft: builder,
     FadeInRight: builder,
     LinearTransition: builder,

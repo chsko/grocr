@@ -27,6 +27,7 @@ export const me = query({
         name: user.name ?? '',
         email: user.email,
         tourDone: user.tourDoneAt !== undefined,
+        whatsNewSeen: user.whatsNewSeen ?? null,
       },
       family:
         membership && group
@@ -55,14 +56,39 @@ export const setName = mutation({
   },
 });
 
-/** Marks the get-started tour as seen, so it no longer opens by itself on any device. */
+/**
+ * Marks the get-started tour as seen, so it no longer opens by itself on any device. A new
+ * member has nothing to catch up on, so the app also passes its newest "What's new" entry.
+ */
 export const finishTour = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { whatsNewSeen: v.optional(v.number()) },
+  handler: async (ctx, { whatsNewSeen }) => {
     const userId = await requireUserId(ctx);
     const user = await ctx.db.get('users', userId);
     if (user && user.tourDoneAt === undefined) {
-      await ctx.db.patch('users', userId, { tourDoneAt: Date.now() });
+      await ctx.db.patch('users', userId, {
+        tourDoneAt: Date.now(),
+        ...seenPatch(user.whatsNewSeen, whatsNewSeen),
+      });
     }
   },
 });
+
+/** Records that they have seen the "What's new" entries up to `upTo` (GRO-66). */
+export const seeWhatsNew = mutation({
+  args: { upTo: v.number() },
+  handler: async (ctx, { upTo }) => {
+    const userId = await requireUserId(ctx);
+    const user = await ctx.db.get('users', userId);
+    if (user === null) return;
+    const patch = seenPatch(user.whatsNewSeen, upTo);
+    if (patch.whatsNewSeen !== undefined) await ctx.db.patch('users', userId, patch);
+  },
+});
+
+/** Only ever moves forward, so an older app version can't show entries again. */
+function seenPatch(current: number | undefined, next: number | undefined) {
+  if (next === undefined || !Number.isInteger(next) || next < 1 || next > 100_000) return {};
+  if (current !== undefined && current >= next) return {};
+  return { whatsNewSeen: next };
+}

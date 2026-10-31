@@ -299,7 +299,8 @@
     "name": "Familienavn",
     "rename": "Endre familienavn",
     "items": "Varer",
-    "staples": "Faste varer"
+    "staples": "Faste varer",
+    "whatsNew": "Hva er nytt"
   },
   "invite": {
     "title": "Inviter til {{family}}",
@@ -436,5 +437,44 @@
     "ready": "Ny versjon er klar",
     "action": "Oppdater",
     "later": "Ikke nå"
+  },
+  "whatsNew": {
+    "title": "Hva er nytt",
+    "sheetTitle": "Nytt i Grocr",
+    "sheetIntro": "Noen ting har blitt bedre siden sist.",
+    "done": "Fint",
+    "showMe": "Vis meg",
+    "unseen": "Nytt",
+    "intro": "Det som er endret i Grocr i det siste, nyeste først.",
+    "entries": {
+      "darkMode": {
+        "title": "Mørk modus",
+        "body": "Grocr følger telefonens lyse eller mørke modus. Vil du velge selv, kan du gå til Familie › Utseende."
+      },
+      "atHome": {
+        "title": "Har hjemme",
+        "body": "Trykk på huset ved en vare dere allerede har. Den flyttes til side, så ingen kjøper den to ganger."
+      },
+      "items": {
+        "title": "Rydd i varene",
+        "body": "Familie › Varer viser alt familien har lagt inn. Gi en vare nytt navn, flytt den til en annen avdeling, eller slå sammen to som er det samme."
+      },
+      "staples": {
+        "title": "Faste varer",
+        "body": "Merk det dere kjøper hver uke, som melk eller kaffe. Hver uke foreslår handlelisten de faste varene som mangler."
+      },
+      "typeAhead": {
+        "title": "Forslag mens du skriver",
+        "body": "Begynn å skrive på handlelisten, så foreslår Grocr varer familien allerede bruker. Da blir melk én vare."
+      },
+      "ratings": {
+        "title": "Gi middagene stjerner",
+        "body": "Gi en oppskrift én til fem stjerner etter at dere har spist den. Oppskriften viser familiens vurdering og når dere laget den sist."
+      },
+      "dinnerIdeas": {
+        "title": "Middagsforslag",
+        "body": "Tom for ideer? På Uke kan Grocr foreslå middager til de tomme dagene: favoritter dere ikke har hatt på en stund. Bytt ut eller hopp over dem du vil."
+      }
+    }
   }
 }

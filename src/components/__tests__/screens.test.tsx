@@ -109,6 +109,7 @@ const me: Me = {
     name: 'Kari Hansen',
     email: 'kari@example.no',
     tourDone: true,
+    whatsNewSeen: 7,
   },
   family: {
     groupId: 'g1' as NonNullable<Me['family']>['groupId'],
