@@ -1,10 +1,12 @@
 import { useMutation, useQuery } from 'convex/react';
 import type { FunctionReturnType } from 'convex/server';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
+import { External } from '@/components/icons';
 import { Button, IconTile, Loading, StarPicker, Text } from '@/components/ui';
 import { Fonts } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
@@ -16,11 +18,12 @@ import { dayLabel, formatAmounts } from '@/lib/format';
 import { relativeDay } from '@/lib/relative';
 import { useFamily } from '@/lib/session';
 import { todayIn } from '@/lib/week';
+import { recipeSite } from '@/convex/lib/recipeLink';
 import { isUnit } from '@/convex/lib/units';
 
 /**
- * One recipe: when it was last cooked, the family's stars (GRO-68), ingredients and steps, with
- * edit and archive (GRO-30).
+ * One recipe: when it was last cooked, the family's stars (GRO-68), ingredients, a link to the
+ * recipe on the web (GRO-71) and steps, with edit and archive (GRO-30).
  */
 export default function RecipeScreen() {
   const colors = useColors();
@@ -123,11 +126,12 @@ export default function RecipeScreen() {
         </View>
       ))}
 
-      {recipe.steps.length > 0 ? (
+      {recipe.steps.length > 0 || recipe.sourceUrl ? (
         <Text variant="section" color={colors.muted} style={styles.section}>
           {t('recipeEdit.steps')}
         </Text>
       ) : null}
+      {recipe.sourceUrl ? <RecipeLink url={recipe.sourceUrl} /> : null}
       {recipe.steps.map((step, index) => (
         <View key={index} style={styles.step}>
           <Text variant="label" color={colors.tomatoDeep} style={styles.stepNumber}>
@@ -149,6 +153,45 @@ export default function RecipeScreen() {
         </Text>
       )}
     </ScrollView>
+  );
+}
+
+/** The recipe's page on the web, opened in the in-app browser. */
+function RecipeLink({ url }: { url: string }) {
+  const colors = useColors();
+  const styles = useStyles();
+  const { t } = useTranslation();
+  const site = recipeSite(url);
+  async function open() {
+    try {
+      await WebBrowser.openBrowserAsync(url, {
+        controlsColor: colors.tomato,
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+      });
+    } catch {
+      // No in-app browser (rare on Android): hand the link to the system.
+      await Linking.openURL(url).catch(() =>
+        Alert.alert(t('errors.title'), t('recipes.openLinkFailed', { site })),
+      );
+    }
+  }
+  return (
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={t('recipes.openLink')}
+      accessibilityHint={t('recipes.openLinkHint', { site })}
+      onPress={() => void open()}
+      style={({ pressed }) => [styles.link, pressed && { opacity: 0.7 }]}>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text variant="item" style={{ fontFamily: Fonts.semibold }}>
+          {t('recipes.openLink')}
+        </Text>
+        <Text variant="small" color={colors.muted} numberOfLines={1}>
+          {site}
+        </Text>
+      </View>
+      <External size={20} color={colors.tomato} />
+    </Pressable>
   );
 }
 
@@ -186,6 +229,17 @@ const useStyles = makeStyles((colors) => ({
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: colors.divider,
+  },
+  link: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minHeight: 56,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 6,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
   },
   step: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', paddingVertical: 6 },
   stepNumber: {

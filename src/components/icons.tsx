@@ -48,6 +48,12 @@ export const ChevronUp = (p: IconProps) => (
     <Path d="M6 15l6-6 6 6" />
   </Stroke>
 );
+/** A box with an arrow out of it: opens somewhere outside the app. */
+export const External = (p: IconProps) => (
+  <Stroke {...p}>
+    <Path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
+  </Stroke>
+);
 export const Plus = (p: IconProps) => (
   <Stroke {...p}>
     <Path d="M12 5v14M5 12h14" />

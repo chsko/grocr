@@ -39,7 +39,10 @@ type Row = {
 let nextKey = 1;
 const emptyRow = (): Row => ({ key: nextKey++, name: '', qty: '' });
 
-/** Create or edit a recipe with structured ingredients and steps (GRO-29). `?id=` edits. */
+/**
+ * Create or edit a recipe with structured ingredients and steps (GRO-29), or a link to the
+ * recipe on the web instead of steps (GRO-71). `?id=` edits.
+ */
 export default function RecipeEditScreen() {
   const colors = useColors();
   const styles = useStyles();
@@ -57,6 +60,7 @@ export default function RecipeEditScreen() {
   const [servings, setServings] = useState(4);
   const [rows, setRows] = useState<Row[]>(() => [emptyRow()]);
   const [steps, setSteps] = useState<string[]>(['']);
+  const [link, setLink] = useState('');
   const [active, setActive] = useState<number | null>(null);
   const [unitFor, setUnitFor] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
@@ -83,6 +87,7 @@ export default function RecipeEditScreen() {
       })),
     );
     setSteps(existing.steps.length > 0 ? existing.steps : ['']);
+    setLink(existing.sourceUrl ?? '');
   }, [existing, i18n.language]);
 
   const activeRow = rows.find((r) => r.key === active);
@@ -137,6 +142,7 @@ export default function RecipeEditScreen() {
         icon: icon ?? '',
         servings,
         steps,
+        sourceUrl: link,
         ingredients: rows
           .filter((r) => r.ingredientId || r.name.trim())
           .map((r) => ({
@@ -299,6 +305,24 @@ export default function RecipeEditScreen() {
             </View>
           ))}
           <Button kind="ghost" title={t('recipeEdit.addIngredient')} onPress={addRow} />
+        </View>
+
+        <View style={{ gap: 6 }}>
+          <Field
+            label={t('recipeEdit.link')}
+            value={link}
+            onChangeText={setLink}
+            placeholder={t('recipeEdit.linkPlaceholder')}
+            keyboardType="url"
+            textContentType="URL"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="off"
+            inputStyle={{ fontSize: 16 }}
+          />
+          <Text variant="small" color={colors.muted}>
+            {t('recipeEdit.linkHint')}
+          </Text>
         </View>
 
         <Text variant="section" color={colors.muted}>

@@ -9,6 +9,7 @@ import { cleanName } from './lib/catalog';
 import { familyRatings, isStars, memberIds, roundRating } from './lib/ratings';
 import { syncEntry } from './lib/groceryRows';
 import { DEFAULT_ICON, guessIcon, isRecipeIcon, recipeIcon } from './lib/recipeIcons';
+import { normalizeRecipeUrl } from './lib/recipeLink';
 import { isUnit } from './lib/units';
 import { todayIn } from './lib/week';
 
@@ -159,7 +160,8 @@ const ingredientInput = v.object({
 
 /**
  * Creates a recipe, or updates one and re-syncs the grocery rows of dinners planned for today or
- * later (Product plan §5.3). Ingredients typed by name join the family catalog.
+ * later (Product plan §5.3). Ingredients typed by name join the family catalog. A recipe can
+ * link to its page on the web instead of (or as well as) listing steps.
  */
 export const save = mutation({
   args: {
@@ -169,6 +171,8 @@ export const save = mutation({
     icon: v.optional(v.string()),
     servings: v.number(),
     steps: v.array(v.string()),
+    /** A link to the recipe on the web (GRO-71); missing keeps the current one, '' removes it. */
+    sourceUrl: v.optional(v.string()),
     ingredients: v.array(ingredientInput),
   },
   handler: async (ctx, args) => {
@@ -199,6 +203,12 @@ export const save = mutation({
       const note = line.note?.trim().slice(0, 80) || undefined;
       ingredients.push({ ingredientId: ingredient._id, qty, unit, note });
     }
+    let sourceUrl = existing?.sourceUrl;
+    if (args.sourceUrl !== undefined) {
+      const url = normalizeRecipeUrl(args.sourceUrl);
+      if (url === null) throw new ConvexError({ code: 'INVALID_URL' });
+      sourceUrl = url === '' ? undefined : url;
+    }
     const steps = args.steps.map((s) => s.trim().slice(0, 2000)).filter((s) => s !== '');
     // A missing icon keeps the current one (older app builds don't send it); '' or an unknown
     // value clears it back to the title's guess.
@@ -212,6 +222,7 @@ export const save = mutation({
       guessedIcon,
       servings: args.servings,
       steps,
+      sourceUrl,
       ingredients,
       updatedAt: Date.now(),
     };

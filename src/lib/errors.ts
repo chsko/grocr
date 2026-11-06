@@ -20,6 +20,7 @@ const KNOWN = new Set([
   'SECTION_EXISTS',
   'TOO_MANY_SECTIONS',
   'ITEM_EXISTS',
+  'INVALID_URL',
 ]);
 
 /** Shows a friendly alert for a failed mutation. */

@@ -31,6 +31,7 @@ import type * as lib_jev from "../lib/jev.js";
 import type * as lib_merge from "../lib/merge.js";
 import type * as lib_ratings from "../lib/ratings.js";
 import type * as lib_recipeIcons from "../lib/recipeIcons.js";
+import type * as lib_recipeLink from "../lib/recipeLink.js";
 import type * as lib_suggest from "../lib/suggest.js";
 import type * as lib_units from "../lib/units.js";
 import type * as lib_week from "../lib/week.js";
@@ -71,6 +72,7 @@ declare const fullApi: ApiFromModules<{
   "lib/merge": typeof lib_merge;
   "lib/ratings": typeof lib_ratings;
   "lib/recipeIcons": typeof lib_recipeIcons;
+  "lib/recipeLink": typeof lib_recipeLink;
   "lib/suggest": typeof lib_suggest;
   "lib/units": typeof lib_units;
   "lib/week": typeof lib_week;

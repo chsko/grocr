@@ -76,6 +76,54 @@ describe('recipes', () => {
     expect(recipe.icon).toBeUndefined();
   });
 
+  test('a recipe can link to its page on the web instead of steps', async () => {
+    const { kari, groupId } = await family();
+    const recipeId = await kari.as.mutation(api.recipes.save, {
+      groupId,
+      ...tacos,
+      steps: [],
+      sourceUrl: ' matprat.no/oppskrifter/tacos ',
+    });
+    let recipe = await kari.as.query(api.recipes.get, { recipeId });
+    expect([recipe.sourceUrl, recipe.steps]).toEqual(['https://matprat.no/oppskrifter/tacos', []]);
+
+    // An older client that doesn't send a link keeps it.
+    await kari.as.mutation(api.recipes.save, { groupId, recipeId, ...tacos });
+    recipe = await kari.as.query(api.recipes.get, { recipeId });
+    expect(recipe.sourceUrl).toBe('https://matprat.no/oppskrifter/tacos');
+
+    for (const bad of ['javascript:alert(1)', 'https://evil.com@matprat.no', 'tacos']) {
+      await expect(
+        kari.as.mutation(api.recipes.save, { groupId, recipeId, ...tacos, sourceUrl: bad }),
+      ).rejects.toThrow(/INVALID_URL/);
+    }
+    recipe = await kari.as.query(api.recipes.get, { recipeId });
+    expect(recipe.sourceUrl).toBe('https://matprat.no/oppskrifter/tacos');
+
+    await kari.as.mutation(api.recipes.save, { groupId, recipeId, ...tacos, sourceUrl: '' });
+    recipe = await kari.as.query(api.recipes.get, { recipeId });
+    expect(recipe.sourceUrl).toBeUndefined();
+  });
+
+  test("another family can't set a link on a recipe", async () => {
+    const { t, kari, groupId } = await family();
+    const recipeId = await kari.as.mutation(api.recipes.save, { groupId, ...tacos });
+    const ingrid = await signedInUser(t, 'Ingrid');
+    const otherGroup = await groupWithMembers(t, [ingrid.userId]);
+    for (const target of [groupId, otherGroup]) {
+      await expect(
+        ingrid.as.mutation(api.recipes.save, {
+          groupId: target,
+          recipeId,
+          ...tacos,
+          sourceUrl: 'https://evil.example.com',
+        }),
+      ).rejects.toThrow();
+    }
+    const recipe = await kari.as.query(api.recipes.get, { recipeId });
+    expect(recipe.sourceUrl).toBeUndefined();
+  });
+
   test('list sorts by title and hides archived recipes', async () => {
     const { kari, groupId } = await family();
     const id = await kari.as.mutation(api.recipes.save, { groupId, ...tacos });

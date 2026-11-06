@@ -25,7 +25,8 @@
     "INVALID_SERVINGS": "Porsjoner må være mellom 1 og 50.",
     "SECTION_EXISTS": "Det finnes allerede en avdeling med det navnet.",
     "TOO_MANY_SECTIONS": "En familie kan ha høyst 30 avdelinger.",
-    "ITEM_EXISTS": "Det finnes allerede en vare med det navnet. Slå dem sammen i stedet."
+    "ITEM_EXISTS": "Det finnes allerede en vare med det navnet. Slå dem sammen i stedet.",
+    "INVALID_URL": "Det ser ikke ut som en nettadresse. Kopier lenken fra oppskriftssiden og lim den inn."
   },
   "signIn": {
     "headline": "Velg ukens middager.",
@@ -147,7 +148,10 @@
     "timesCooked_one": "laget én gang",
     "timesCooked_other": "laget {{count}} ganger",
     "nextPlanned": "Neste gang: {{day}}",
-    "neverCookedLong": "Ikke laget ennå"
+    "neverCookedLong": "Ikke laget ennå",
+    "openLink": "Les oppskriften",
+    "openLinkHint": "Åpner {{site}}",
+    "openLinkFailed": "Klarte ikke å åpne {{site}}. Sjekk lenken under Rediger."
   },
   "rating": {
     "stars_one": "{{count}} stjerne",
@@ -188,7 +192,10 @@
     "addStep": "+ Legg til steg",
     "icon": "Ikon",
     "iconAuto": "Etter tittelen",
-    "qtyPlaceholder": "Ant."
+    "qtyPlaceholder": "Ant.",
+    "link": "Lenke til oppskriften",
+    "linkPlaceholder": "https://",
+    "linkHint": "Fant du oppskriften på nett? Lim inn lenken, så kan du hoppe over fremgangsmåten."
   },
   "groceries": {
     "title": "Handleliste",
@@ -481,6 +488,10 @@
       "newSince": {
         "title": "Nytt siden sist",
         "body": "Varer andre har lagt på handlelisten siden du åpnet den sist, er merket Ny, så du ser med en gang hva som er kommet til."
+      },
+      "recipeLink": {
+        "title": "Lenke til oppskrifter på nett",
+        "body": "Fant du en oppskrift på en nettside? Lim inn lenken i oppskriften, så slipper du å skrive fremgangsmåten. Legg inn ingrediensene, så havner de fortsatt på handlelista."
       }
     }
   }

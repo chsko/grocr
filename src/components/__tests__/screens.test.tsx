@@ -1,5 +1,6 @@
 import { act, fireEvent, render as rtlRender, screen } from '@testing-library/react-native';
 import * as Haptics from 'expo-haptics';
+import * as WebBrowser from 'expo-web-browser';
 import { Alert } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -7,6 +8,7 @@ import FamilyScreen from '@/app/(tabs)/family';
 import { GroceryLineEditor } from '@/components/grocery-line-editor';
 import GroceriesScreen from '@/app/(tabs)/groceries';
 import RecipeEditScreen from '@/app/recipe/edit';
+import RecipeScreen from '@/app/recipe/[id]';
 import WeekScreen from '@/app/(tabs)/week';
 import ItemsScreen from '@/app/items';
 import SectionsScreen from '@/app/sections';
@@ -95,6 +97,10 @@ jest.mock('expo-haptics', () => ({
   notificationAsync: jest.fn(() => Promise.resolve()),
   ImpactFeedbackStyle: { Light: 'light' },
   NotificationFeedbackType: { Success: 'success' },
+}));
+jest.mock('expo-web-browser', () => ({
+  openBrowserAsync: jest.fn(() => Promise.resolve({ type: 'opened' })),
+  WebBrowserPresentationStyle: { PAGE_SHEET: 'pageSheet' },
 }));
 jest.mock('@convex-dev/auth/react', () => ({
   useAuthActions: () => ({ signIn: jest.fn(), signOut: jest.fn() }),
@@ -909,5 +915,64 @@ describe('recipe edit', () => {
     expect(qty.props.returnKeyType).toBe('next');
     await fireEvent(qty, 'submitEditing');
     expect(names()).toHaveLength(1);
+  });
+});
+
+describe('recipe link', () => {
+  const recipe = (fields: Record<string, unknown>) => ({
+    _id: 'r1',
+    groupId: 'g1',
+    title: 'Tacos',
+    shownIcon: '🌮',
+    servings: 4,
+    steps: [],
+    ingredients: [{ ingredientId: 'i1', name: 'Minced beef', qty: 400, unit: 'g' }],
+    lastCooked: null,
+    nextPlanned: null,
+    timesCooked: 0,
+    ratings: [],
+    rating: { average: null, count: 0, mine: null },
+    ...fields,
+  });
+  const show = async (fields: Record<string, unknown>) => {
+    await i18n.changeLanguage('en');
+    mockUseQuery.mockImplementation((name: string) =>
+      name === 'recipes.get' ? recipe(fields) : undefined,
+    );
+    await render(
+      <SessionContext.Provider value={me}>
+        <RecipeScreen />
+      </SessionContext.Provider>,
+    );
+  };
+
+  test('a linked recipe opens its page in the in-app browser', async () => {
+    await show({ sourceUrl: 'https://www.matprat.no/oppskrifter/tacos' });
+    expect(screen.getByText('Steps')).toBeTruthy();
+    expect(screen.getByText('matprat.no')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('link', { name: 'Read the recipe' }));
+    expect(WebBrowser.openBrowserAsync).toHaveBeenCalledWith(
+      'https://www.matprat.no/oppskrifter/tacos',
+      expect.anything(),
+    );
+  });
+
+  test('no link and no steps shows neither', async () => {
+    await show({});
+    expect(screen.queryByText('Steps')).toBeNull();
+    expect(screen.queryByRole('link')).toBeNull();
+  });
+
+  test('the editor fills in the saved link', async () => {
+    await i18n.changeLanguage('en');
+    mockUseQuery.mockImplementation((name: string) =>
+      name === 'recipes.get' ? recipe({ sourceUrl: 'https://nrk.no/mat' }) : undefined,
+    );
+    await render(
+      <SessionContext.Provider value={me}>
+        <RecipeEditScreen />
+      </SessionContext.Provider>,
+    );
+    expect(screen.getByLabelText('Recipe link').props.value).toBe('https://nrk.no/mat');
   });
 });

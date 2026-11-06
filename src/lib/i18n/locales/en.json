@@ -25,7 +25,8 @@
     "INVALID_SERVINGS": "Servings must be between 1 and 50.",
     "SECTION_EXISTS": "There is already a section with that name.",
     "TOO_MANY_SECTIONS": "A family can have at most 30 sections.",
-    "ITEM_EXISTS": "There is already an item with that name. Merge the two instead."
+    "ITEM_EXISTS": "There is already an item with that name. Merge the two instead.",
+    "INVALID_URL": "That doesn't look like a web address. Copy the link from the recipe page and paste it in."
   },
   "signIn": {
     "headline": "Pick the week's dinners.",
@@ -147,7 +148,10 @@
     "timesCooked_one": "cooked once",
     "timesCooked_other": "cooked {{count}} times",
     "nextPlanned": "Next on the menu: {{day}}",
-    "neverCookedLong": "Not cooked yet"
+    "neverCookedLong": "Not cooked yet",
+    "openLink": "Read the recipe",
+    "openLinkHint": "Opens {{site}}",
+    "openLinkFailed": "Couldn't open {{site}}. Check the link under Edit."
   },
   "rating": {
     "stars_one": "{{count}} star",
@@ -188,7 +192,10 @@
     "addStep": "+ Add step",
     "icon": "Icon",
     "iconAuto": "Match the title",
-    "qtyPlaceholder": "Qty"
+    "qtyPlaceholder": "Qty",
+    "link": "Recipe link",
+    "linkPlaceholder": "https://",
+    "linkHint": "Found the recipe online? Paste the link and you can skip the steps."
   },
   "groceries": {
     "title": "Groceries",
@@ -481,6 +488,10 @@
       "newSince": {
         "title": "New since you last looked",
         "body": "Items someone else put on the grocery list since you last opened it are marked New, so you see at once what was added."
+      },
+      "recipeLink": {
+        "title": "Link to a recipe online",
+        "body": "Found a recipe on a website? Paste its link in the recipe and skip typing the steps. Add the ingredients, and they still go on the grocery list."
       }
     }
   }
