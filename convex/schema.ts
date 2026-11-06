@@ -183,6 +183,18 @@ export default defineSchema({
     staplesHandled: v.optional(v.array(v.id('ingredients'))),
   }).index('by_group_startDate', ['groupId', 'startDate']),
 
+  // What a member has seen of a week's grocery list (GRO-70): the createdAt of the newest row
+  // the app showed them, so lines others added after it can be marked as new. Only moves forward.
+  groceryListViews: defineTable({
+    groupId: v.id('groups'),
+    listId: v.id('groceryLists'),
+    userId: v.id('users'),
+    seenAt: v.number(),
+  })
+    .index('by_list_user', ['listId', 'userId'])
+    .index('by_user_group_seenAt', ['userId', 'groupId', 'seenAt'])
+    .index('by_group', ['groupId']),
+
   groceryItems: defineTable({
     groupId: v.id('groups'),
     listId: v.id('groceryLists'),
@@ -202,6 +214,9 @@ export default defineSchema({
     // this dinner's ingredient was handled by hand, so it is not added back.
     removed: v.optional(v.boolean()),
     source: groceryItemSource,
+    // Who made sync add a meal row (planned the dinner, raised servings, edited the recipe), so
+    // GRO-70 can tell their own additions from others'. Missing on older rows: the planner.
+    insertedBy: v.optional(v.id('users')),
     createdAt: v.number(),
   })
     .index('by_list', ['listId'])

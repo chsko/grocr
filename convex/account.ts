@@ -57,9 +57,11 @@ export const deleteAccount = mutation({
           .collect();
         for (const item of items) {
           const manualByUser = item.source.kind === 'manual' && item.source.addedBy === userId;
-          if (!manualByUser && item.checkedBy !== userId) continue;
+          const insertedByUser = item.insertedBy === userId;
+          if (!manualByUser && !insertedByUser && item.checkedBy !== userId) continue;
           await ctx.db.patch('groceryItems', item._id, {
             ...(manualByUser ? { source: { kind: 'manual' as const } } : {}),
+            ...(insertedByUser ? { insertedBy: undefined } : {}),
             ...(item.checkedBy === userId ? { checkedBy: undefined } : {}),
           });
         }

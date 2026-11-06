@@ -19,7 +19,7 @@ import { addDays, isLocalDate, startOfWeek, type Weekday } from './lib/week';
 export const listForWeek = query({
   args: { groupId: v.id('groups'), startDate: v.string() },
   handler: async (ctx, { groupId, startDate }) => {
-    await requireMembership(ctx, groupId);
+    const { userId } = await requireMembership(ctx, groupId);
     const list = await findList(ctx, groupId, startDate);
     const items = list
       ? await ctx.db
@@ -31,11 +31,14 @@ export const listForWeek = query({
 
     const sources: Record<string, { date: string; title: string }> = {};
     const addedBy: Record<string, string> = {};
+    // Who planned each dinner, so its lines count as added by them.
+    const plannedBy = new Map<string, Id<'users'> | undefined>();
     for (const item of items) {
       if (item.source.kind === 'meal') {
         const entryId = item.source.mealPlanEntryId;
-        if (sources[entryId] !== undefined) continue;
+        if (plannedBy.has(entryId)) continue;
         const entry = await ctx.db.get('mealPlanEntries', entryId);
+        plannedBy.set(entryId, entry?.groupId === groupId ? entry.addedBy : undefined);
         const recipe = await ctx.db.get('recipes', item.source.recipeId);
         if (entry && recipe && entry.groupId === groupId && recipe.groupId === groupId) {
           sources[entryId] = { date: entry.date, title: recipe.title };
@@ -86,6 +89,20 @@ export const listForWeek = query({
           .filter((i) => !handled.has(i._id))
           .map((i) => ({ ingredientId: i._id, name: i.name }));
 
+    // What the caller last saw of this list (GRO-70), and of any of the family's lists, which the
+    // app uses for a list they never opened. Null when there is no such look.
+    const view = list
+      ? await ctx.db
+          .query('groceryListViews')
+          .withIndex('by_list_user', (q) => q.eq('listId', list._id).eq('userId', userId))
+          .unique()
+      : null;
+    const latestView = await ctx.db
+      .query('groceryListViews')
+      .withIndex('by_user_group_seenAt', (q) => q.eq('userId', userId).eq('groupId', groupId))
+      .order('desc')
+      .first();
+
     const group = (await ctx.db.get('groups', groupId))!;
     // Lines of a section the family deleted show under "other" until they are sorted again.
     const keys = familySections(group).map((s) => s.key);
@@ -104,13 +121,47 @@ export const listForWeek = query({
         atHome: i.atHome ?? false,
         edited: i.edited,
         source: i.source,
+        createdAt: i.createdAt,
+        // Added by someone else: by hand, or by a change to a dinner they made.
+        byOther:
+          (i.source.kind === 'meal'
+            ? (i.insertedBy ?? plannedBy.get(i.source.mealPlanEntryId))
+            : i.source.addedBy) !== userId,
       })),
+      seenAt: view?.seenAt ?? null,
+      lastSeenAt: latestView?.seenAt ?? null,
       sources,
       addedBy,
       carryOver,
       stapleIds: staples.map((i) => i._id),
       staplesOffer,
     };
+  },
+});
+
+/**
+ * Remembers what the caller has seen of a week's list (GRO-70): every row added up to `upTo`,
+ * the newest row the app showed them. Using that instead of the time the mutation lands means a
+ * mark that waited for a connection never covers rows that reached the list meanwhile. A week
+ * with no list yet has nothing to remember. Only moves forward, and never past now.
+ */
+export const markSeen = mutation({
+  args: { groupId: v.id('groups'), startDate: v.string(), upTo: v.number() },
+  handler: async (ctx, { groupId, startDate, upTo }) => {
+    const { userId } = await requireMembership(ctx, groupId);
+    if (!Number.isFinite(upTo)) throw new ConvexError({ code: 'INVALID_TIME' });
+    const list = await findList(ctx, groupId, startDate);
+    if (list === null) return;
+    const seenAt = Math.min(upTo, Date.now());
+    const view = await ctx.db
+      .query('groceryListViews')
+      .withIndex('by_list_user', (q) => q.eq('listId', list._id).eq('userId', userId))
+      .unique();
+    if (view === null) {
+      await ctx.db.insert('groceryListViews', { groupId, listId: list._id, userId, seenAt });
+    } else if (view.seenAt < seenAt) {
+      await ctx.db.patch('groceryListViews', view._id, { seenAt });
+    }
   },
 });
 

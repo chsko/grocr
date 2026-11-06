@@ -32,6 +32,7 @@ jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   useRoute: () => ({ key: 'week' }),
   useNavigation: () => mockNavigation,
+  useIsFocused: () => true,
   // Header options need a real stack; the screens under test render fine without one.
   Stack: { Screen: () => null },
 }));
@@ -59,7 +60,9 @@ const mockAddStaples = jest.fn((_args: unknown) => Promise.resolve(1));
 const mockDismissStaples = jest.fn((_args: unknown) => Promise.resolve(null));
 const mockSetStaple = jest.fn((_args: unknown) => Promise.resolve(null));
 const mockAddStaple = jest.fn((_args: unknown) => Promise.resolve('ing-new'));
+const mockMarkSeen = jest.fn((_args: unknown) => Promise.resolve(null));
 const mockMutations: Record<string, unknown> = {
+  'grocery.markSeen': mockMarkSeen,
   'grocery.setChecked': { withOptimisticUpdate: () => mockSetChecked },
   'grocery.addStaples': { withOptimisticUpdate: () => mockAddStaples },
   'grocery.dismissStaples': { withOptimisticUpdate: () => mockDismissStaples },
@@ -409,6 +412,78 @@ describe('groceries', () => {
     carryOver: null,
     stapleIds: [] as string[],
     staplesOffer: [] as { ingredientId: string; name: string }[],
+  });
+
+  test('marks lines others added since the last look, and tells the server it was seen', async () => {
+    await i18n.changeLanguage('en');
+    mockMarkSeen.mockClear();
+    const at = (r: ReturnType<typeof row>, createdAt: number, byOther: boolean) => ({
+      ...r,
+      createdAt,
+      byOther,
+    });
+    const items = [
+      at(row('i0', 'Butter'), 50, true),
+      at(row('i1', 'Milk'), 150, true),
+      at(row('i2', 'Eggs'), 160, false),
+      at(row('i3', 'Cheese'), 170, true),
+      at({ ...row('i4', 'Jam'), checked: true }, 180, true),
+    ];
+    // The week shown first; the other week has a list this member never opened.
+    let first: string | undefined;
+    let marked = false;
+    mockUseQuery.mockImplementation((_name: string, args: { startDate: string }) => {
+      first ??= args.startDate;
+      const last = marked ? 180 : 100;
+      return args.startDate === first
+        ? { ...list([]), items, seenAt: last, lastSeenAt: last }
+        : {
+            ...list([]),
+            items: [at(row('n1', 'Bread'), 120, true)],
+            seenAt: null,
+            lastSeenAt: last,
+          };
+    });
+    await render(
+      <SessionContext.Provider value={me}>
+        <GroceriesScreen />
+      </SessionContext.Provider>,
+    );
+    // Milk and Cheese came from someone else after the last look; Eggs is mine, Jam is bought.
+    expect(screen.getAllByText('New')).toHaveLength(2);
+    expect(screen.getByText('2 new items since you last looked')).toBeTruthy();
+    // Everything up to the newest row shown has been seen.
+    expect(mockMarkSeen).toHaveBeenCalledWith({ groupId: 'g1', startDate: first, upTo: 180 });
+
+    // The server now has that look; the marks stay for the rest of this visit.
+    marked = true;
+    await fireEvent(screen.getByLabelText('Add an item'), 'focus');
+    expect(screen.getAllByText('New')).toHaveLength(2);
+
+    // The other week was never opened: it compares with the last look from before this visit,
+    // not with the one this visit just recorded.
+    const other = screen.getAllByRole('tab').find((tab) => !tab.props.accessibilityState?.selected);
+    await fireEvent.press(other!);
+    expect(screen.getByText('Bread')).toBeTruthy();
+    expect(screen.getAllByText('New')).toHaveLength(1);
+  });
+
+  test('nothing is marked for a member who never looked at a list', async () => {
+    await i18n.changeLanguage('en');
+    mockUseQuery.mockImplementation(() => ({
+      ...list([]),
+      items: [{ ...row('i1', 'Milk'), createdAt: 150, byOther: true }],
+      seenAt: null,
+      lastSeenAt: null,
+    }));
+    await render(
+      <SessionContext.Provider value={me}>
+        <GroceriesScreen />
+      </SessionContext.Provider>,
+    );
+    expect(screen.getByText('Milk')).toBeTruthy();
+    expect(screen.queryByText('New')).toBeNull();
+    expect(screen.queryByTestId('new-since')).toBeNull();
   });
 
   test('typing shows Ferdig, which adds what is typed and leaves typing mode', async () => {

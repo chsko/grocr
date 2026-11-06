@@ -234,7 +234,10 @@
     "staplesAddOne": "Add {{name}} to the list",
     "staple": "Buy every week",
     "suggestionAdd": "Add {{name}}",
-    "suggestionOnList": "Already on the list"
+    "suggestionOnList": "Already on the list",
+    "newMark": "New",
+    "newSince_one": "{{count}} new item since you last looked",
+    "newSince_other": "{{count}} new items since you last looked"
   },
   "sections": {
     "produce": "Produce",
@@ -474,6 +477,10 @@
       "dinnerIdeas": {
         "title": "Dinner ideas",
         "body": "Short on ideas? On Week, Grocr can suggest dinners for the empty days: favourites you haven't had in a while. Swap or skip any of them."
+      },
+      "newSince": {
+        "title": "New since you last looked",
+        "body": "Items someone else put on the grocery list since you last opened it are marked New, so you see at once what was added."
       }
     }
   }

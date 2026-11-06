@@ -234,7 +234,10 @@
     "staplesAddOne": "Legg {{name}} på listen",
     "staple": "Kjøpes hver uke",
     "suggestionAdd": "Legg til {{name}}",
-    "suggestionOnList": "Står allerede på listen"
+    "suggestionOnList": "Står allerede på listen",
+    "newMark": "Ny",
+    "newSince_one": "{{count}} ny vare siden sist du så",
+    "newSince_other": "{{count}} nye varer siden sist du så"
   },
   "sections": {
     "produce": "Frukt og grønt",
@@ -474,6 +477,10 @@
       "dinnerIdeas": {
         "title": "Middagsforslag",
         "body": "Tom for ideer? På Uke kan Grocr foreslå middager til de tomme dagene: favoritter dere ikke har hatt på en stund. Bytt ut eller hopp over dem du vil."
+      },
+      "newSince": {
+        "title": "Nytt siden sist",
+        "body": "Varer andre har lagt på handlelisten siden du åpnet den sist, er merket Ny, så du ser med en gang hva som er kommet til."
       }
     }
   }

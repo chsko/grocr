@@ -108,8 +108,18 @@ export const removeMember = mutation({
     const { target, mine } = await ownedMembership(ctx, membershipId);
     if (target._id === mine._id) throw new ConvexError({ code: 'CANNOT_REMOVE_SELF' });
     await ctx.db.delete('memberships', membershipId);
+    await forgetListViews(ctx, target.groupId, target.userId);
   },
 });
+
+/** When someone last looked at a family's lists (GRO-70) only matters while they are in it. */
+async function forgetListViews(ctx: MutationCtx, groupId: Id<'groups'>, userId: Id<'users'>) {
+  const views = await ctx.db
+    .query('groceryListViews')
+    .withIndex('by_user_group_seenAt', (q) => q.eq('userId', userId).eq('groupId', groupId))
+    .collect();
+  for (const doc of views) await ctx.db.delete('groceryListViews', doc._id);
+}
 
 export const transferOwnership = mutation({
   args: { membershipId: v.id('memberships') },
@@ -142,6 +152,7 @@ export const leave = mutation({
 export async function leaveFamily(ctx: MutationCtx, membership: Doc<'memberships'>) {
   const { groupId } = membership;
   await ctx.db.delete('memberships', membership._id);
+  await forgetListViews(ctx, groupId, membership.userId);
   const rest = await ctx.db
     .query('memberships')
     .withIndex('by_group', (q) => q.eq('groupId', groupId))
@@ -206,6 +217,11 @@ async function deleteGroup(ctx: MutationCtx, groupId: Id<'groups'>) {
     .withIndex('by_group_date', (q) => q.eq('groupId', groupId))
     .collect();
   for (const doc of entries) await ctx.db.delete('mealPlanEntries', doc._id);
+  const views = await ctx.db
+    .query('groceryListViews')
+    .withIndex('by_group', (q) => q.eq('groupId', groupId))
+    .collect();
+  for (const doc of views) await ctx.db.delete('groceryListViews', doc._id);
   const lists = await ctx.db
     .query('groceryLists')
     .withIndex('by_group_startDate', (q) => q.eq('groupId', groupId))

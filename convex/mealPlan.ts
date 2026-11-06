@@ -141,7 +141,7 @@ async function insertDinner(
     slot: 'dinner',
     createdAt: Date.now(),
   });
-  await syncEntry(ctx, (await ctx.db.get('mealPlanEntries', entryId))!);
+  await syncEntry(ctx, (await ctx.db.get('mealPlanEntries', entryId))!, dinner.addedBy);
   return entryId;
 }
 
@@ -282,8 +282,8 @@ export const remove = mutation({
 export const setServings = mutation({
   args: { entryId: v.id('mealPlanEntries'), servings: v.number() },
   handler: async (ctx, { entryId, servings }) => {
-    const { doc } = await loadForMember(ctx, 'mealPlanEntries', entryId);
+    const { doc, userId } = await loadForMember(ctx, 'mealPlanEntries', entryId);
     await ctx.db.patch('mealPlanEntries', doc._id, { servings: validServings(servings) });
-    await syncEntry(ctx, (await ctx.db.get('mealPlanEntries', doc._id))!);
+    await syncEntry(ctx, (await ctx.db.get('mealPlanEntries', doc._id))!, userId);
   },
 });

@@ -240,7 +240,7 @@ export const save = mutation({
       .withIndex('by_recipe_date', (q) => q.eq('recipeId', existing._id).gte('date', today))
       .collect();
     for (const entry of upcoming) {
-      if (entry.groupId === args.groupId) await syncEntry(ctx, entry);
+      if (entry.groupId === args.groupId) await syncEntry(ctx, entry, userId);
     }
     return existing._id;
   },

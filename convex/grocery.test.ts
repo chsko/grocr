@@ -24,6 +24,8 @@ describe('grocery.listForWeek', () => {
       listId: null,
       sectionOrder: ['produce', 'meat', 'dairy', 'bakery', 'dry', 'frozen', 'household', 'other'],
       items: [],
+      seenAt: null,
+      lastSeenAt: null,
       sources: {},
       addedBy: {},
       carryOver: null,
@@ -353,4 +355,191 @@ test('editing a merged line puts a row marked at home meanwhile back on the list
   await ada.as.mutation(api.grocery.editMerged, { itemIds, qty: 1, unit: 'pcs' });
   const list = await ada.as.query(api.grocery.listForWeek, { groupId, startDate: MONDAY });
   expect(list.items.map((i) => [i.name, i.qty, i.atHome])).toEqual([['Onion', 1, false]]);
+});
+
+describe('grocery.markSeen (GRO-70)', () => {
+  test("remembers what each member saw and tells their own lines from others'", async () => {
+    const t = setup();
+    const ada = await signedInUser(t, 'ada');
+    const bob = await signedInUser(t, 'bob');
+    const groupId = await groupWithMembers(t, [ada.userId, bob.userId]);
+    const args = { groupId, startDate: MONDAY };
+    await ada.as.mutation(api.grocery.addManual, { ...args, name: 'Milk' });
+    const first = await ada.as.query(api.grocery.listForWeek, args);
+    expect(first.seenAt).toBeNull();
+    expect(first.lastSeenAt).toBeNull();
+
+    const milkAt = first.items[0].createdAt;
+    await ada.as.mutation(api.grocery.markSeen, { ...args, upTo: milkAt });
+    const seen = await ada.as.query(api.grocery.listForWeek, args);
+    expect(seen.seenAt).toBe(milkAt);
+    expect(seen.lastSeenAt).toBe(milkAt);
+    // Bob has not looked yet.
+    expect((await bob.as.query(api.grocery.listForWeek, args)).seenAt).toBeNull();
+
+    await bob.as.mutation(api.grocery.addManual, { ...args, name: 'Bread' });
+    const byName = Object.fromEntries(
+      (await ada.as.query(api.grocery.listForWeek, args)).items.map((i) => [i.name, i]),
+    );
+    expect(byName.Milk.byOther).toBe(false);
+    expect(byName.Bread.byOther).toBe(true);
+    const bobsView = (await bob.as.query(api.grocery.listForWeek, args)).items;
+    expect(bobsView.find((i) => i.name === 'Milk')?.byOther).toBe(true);
+
+    // Only forward, never past now, one row per member and list.
+    await ada.as.mutation(api.grocery.markSeen, { ...args, upTo: milkAt - 50 });
+    expect((await ada.as.query(api.grocery.listForWeek, args)).seenAt).toBe(milkAt);
+    await ada.as.mutation(api.grocery.markSeen, { ...args, upTo: Date.now() + 3_600_000 });
+    const views = await t.run((ctx) => ctx.db.query('groceryListViews').collect());
+    expect(views).toHaveLength(1);
+    expect(views[0].seenAt).toBeLessThanOrEqual(Date.now());
+    await expect(
+      ada.as.mutation(api.grocery.markSeen, { ...args, upTo: Number.NaN }),
+    ).rejects.toThrow(/INVALID_TIME/);
+  });
+
+  test('meal lines belong to whoever made sync add them, else the planner', async () => {
+    const t = setup();
+    const ada = await signedInUser(t, 'ada');
+    const bob = await signedInUser(t, 'bob');
+    const groupId = await groupWithMembers(t, [ada.userId, bob.userId]);
+    await t.run(async (ctx) => {
+      const listId = await ctx.db.insert('groceryLists', {
+        groupId,
+        startDate: MONDAY,
+        endDate: '2026-11-01',
+      });
+      const recipeId = await ctx.db.insert('recipes', {
+        groupId,
+        title: 'Tacos',
+        servings: 4,
+        steps: [],
+        tags: [],
+        ingredients: [],
+        updatedAt: 0,
+      });
+      const mealPlanEntryId = await ctx.db.insert('mealPlanEntries', {
+        groupId,
+        date: MONDAY,
+        slot: 'dinner',
+        recipeId,
+        servings: 4,
+        addedBy: bob.userId,
+        createdAt: 0,
+      });
+      const meal = { kind: 'meal' as const, mealPlanEntryId, recipeId };
+      const base = { groupId, listId, section: 'dry', checked: false, edited: false, createdAt: 1 };
+      await ctx.db.insert('groceryItems', { ...base, name: 'Tortillas', source: meal });
+      // Ada raised the servings, which added this row.
+      await ctx.db.insert('groceryItems', {
+        ...base,
+        name: 'Salsa',
+        source: meal,
+        insertedBy: ada.userId,
+      });
+    });
+    const args = { groupId, startDate: MONDAY };
+    const byOther = async (who: typeof ada) =>
+      Object.fromEntries(
+        (await who.as.query(api.grocery.listForWeek, args)).items.map((i) => [i.name, i.byOther]),
+      );
+    expect(await byOther(ada)).toEqual({ Tortillas: true, Salsa: false });
+    expect(await byOther(bob)).toEqual({ Tortillas: false, Salsa: true });
+  });
+
+  test('a recipe edit credits the rows it adds to the member who edited', async () => {
+    const t = setup();
+    const ada = await signedInUser(t, 'ada');
+    const bob = await signedInUser(t, 'bob');
+    const groupId = await groupWithMembers(t, [ada.userId, bob.userId]);
+    const date = '2099-01-06';
+    const startDate = '2099-01-05';
+    const recipeId = await ada.as.mutation(api.recipes.save, {
+      groupId,
+      title: 'Tacos',
+      servings: 4,
+      steps: [],
+      ingredients: [{ name: 'Tortillas' }],
+    });
+    await ada.as.mutation(api.mealPlan.set, { groupId, date, recipeId });
+    await bob.as.mutation(api.recipes.save, {
+      groupId,
+      recipeId,
+      title: 'Tacos',
+      servings: 4,
+      steps: [],
+      ingredients: [{ name: 'Tortillas' }, { name: 'Avocado' }],
+    });
+    const items = (await ada.as.query(api.grocery.listForWeek, { groupId, startDate })).items;
+    expect(Object.fromEntries(items.map((i) => [i.name, i.byOther]))).toEqual({
+      Tortillas: false,
+      Avocado: true,
+    });
+  });
+
+  test("lastSeenAt is the member's latest look at any of the family's lists", async () => {
+    const t = setup();
+    const ada = await signedInUser(t, 'ada');
+    const groupId = await groupWithMembers(t, [ada.userId]);
+    const next = '2026-11-02';
+    await listWithItems(t, groupId, MONDAY, ['Milk']);
+    await listWithItems(t, groupId, next, ['Bread']);
+    await ada.as.mutation(api.grocery.markSeen, { groupId, startDate: MONDAY, upTo: 1000 });
+    const never = await ada.as.query(api.grocery.listForWeek, { groupId, startDate: next });
+    expect(never.seenAt).toBeNull();
+    expect(never.lastSeenAt).toBe(1000);
+    const noList = await ada.as.query(api.grocery.listForWeek, {
+      groupId,
+      startDate: '2026-11-09',
+    });
+    expect(noList.lastSeenAt).toBe(1000);
+  });
+
+  test('a week with no list records nothing', async () => {
+    const t = setup();
+    const ada = await signedInUser(t, 'ada');
+    const groupId = await groupWithMembers(t, [ada.userId]);
+    await ada.as.mutation(api.grocery.markSeen, { groupId, startDate: MONDAY, upTo: 1 });
+    expect(await t.run((ctx) => ctx.db.query('groceryListViews').collect())).toEqual([]);
+    expect(await t.run((ctx) => ctx.db.query('groceryLists').collect())).toEqual([]);
+  });
+
+  test('other families and signed-out callers are rejected', async () => {
+    const t = setup();
+    const ada = await signedInUser(t, 'ada');
+    const eve = await signedInUser(t, 'eve');
+    const groupId = await groupWithMembers(t, [ada.userId]);
+    await groupWithMembers(t, [eve.userId]);
+    await listWithItems(t, groupId, MONDAY, ['Milk']);
+    const args = { groupId, startDate: MONDAY, upTo: 1 };
+    await expect(eve.as.mutation(api.grocery.markSeen, args)).rejects.toThrow(/NOT_FOUND/);
+    await expect(t.mutation(api.grocery.markSeen, args)).rejects.toThrow(/UNAUTHENTICATED/);
+    expect(await t.run((ctx) => ctx.db.query('groceryListViews').collect())).toEqual([]);
+  });
+
+  test('leaving or being removed from the family forgets their looks', async () => {
+    const t = setup();
+    const ada = await signedInUser(t, 'ada');
+    const bob = await signedInUser(t, 'bob');
+    const cy = await signedInUser(t, 'cy');
+    const groupId = await groupWithMembers(t, [ada.userId, bob.userId, cy.userId]);
+    const args = { groupId, startDate: MONDAY, upTo: 1 };
+    await listWithItems(t, groupId, MONDAY, ['Milk']);
+    for (const member of [ada, bob, cy]) await member.as.mutation(api.grocery.markSeen, args);
+
+    await bob.as.mutation(api.groups.leave, { groupId });
+    const cyMembership = await t.run((ctx) =>
+      ctx.db
+        .query('memberships')
+        .withIndex('by_group_user', (q) => q.eq('groupId', groupId).eq('userId', cy.userId))
+        .unique(),
+    );
+    await ada.as.mutation(api.groups.removeMember, { membershipId: cyMembership!._id });
+    const left = await t.run((ctx) => ctx.db.query('groceryListViews').collect());
+    expect(left.map((v) => v.userId)).toEqual([ada.userId]);
+
+    // The last member leaving deletes the family, looks included.
+    await ada.as.mutation(api.groups.leave, { groupId });
+    expect(await t.run((ctx) => ctx.db.query('groceryListViews').collect())).toEqual([]);
+  });
 });

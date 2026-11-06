@@ -92,7 +92,12 @@ async function wantedRows(ctx: QueryCtx, recipe: Doc<'recipes'>, servings: numbe
  * Brings an entry's grocery rows in line with its recipe and servings, following the rules at
  * the top of this file. An entry without a recipe (a note like "Pizza night") wants nothing.
  */
-export async function syncEntry(ctx: MutationCtx, entry: Doc<'mealPlanEntries'>) {
+export async function syncEntry(
+  ctx: MutationCtx,
+  entry: Doc<'mealPlanEntries'>,
+  /** The member whose change this is; rows it adds are theirs (GRO-70). */
+  actor: Id<'users'>,
+) {
   const group = await ctx.db.get('groups', entry.groupId);
   if (group === null) return;
   const recipe = entry.recipeId ? await ctx.db.get('recipes', entry.recipeId) : null;
@@ -154,6 +159,7 @@ export async function syncEntry(ctx: MutationCtx, entry: Doc<'mealPlanEntries'>)
         checked: false,
         edited: false,
         source: { kind: 'meal', mealPlanEntryId: entry._id, recipeId: entry.recipeId! },
+        insertedBy: actor,
         createdAt: now,
       });
     }

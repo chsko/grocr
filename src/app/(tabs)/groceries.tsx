@@ -31,6 +31,7 @@ import { parseItemInput } from '@/lib/parse-item';
 import { useSectionName } from '@/lib/sections';
 import { useFamily } from '@/lib/session';
 import { useFreshIds } from '@/lib/fresh-ids';
+import { newSince, useSeenSince } from '@/lib/list-seen';
 import { EASE_OUT, fadeIn, fadeOut, reflow } from '@/lib/motion';
 import { addDays, defaultGroceryWeek, startOfWeek, todayIn, type Weekday } from '@/lib/week';
 
@@ -146,12 +147,17 @@ export default function GroceriesScreen() {
   ).slice(0, MAX_SUGGESTIONS);
 
   const lines = useMemo(() => mergeRows(data?.items ?? [], data?.sectionOrder), [data]);
+  // Rows someone else added since this member's last look are marked New for this visit (GRO-70).
+  const since = useSeenSince(family.groupId, startDate, data);
+  const unseen = useMemo(() => newSince(data?.items ?? [], since), [data, since]);
   // While the carry-over card offers last week's items, the staples card leaves them out.
   const carryShown = startDate === thisWeek && data?.carryOver ? data.carryOver : null;
   const staplesOffer = (data?.staplesOffer ?? []).filter(
     (s) => !carryShown?.ingredientIds.some((id) => id === s.ingredientId),
   );
   const open = lines.filter((l) => !l.checked && !l.atHome);
+  const isNew = (line: GroceryLine) => line.itemIds.some((id) => unseen.has(id));
+  const newCount = open.filter(isNew).length;
   const home = lines.filter((l) => l.atHome);
   const editing = lines.find((l) => l.key === editingKey) ?? null;
   const cart = lines.filter((l) => l.checked);
@@ -462,6 +468,21 @@ export default function GroceriesScreen() {
               </Animated.View>
             ) : null}
 
+            {newCount > 0 ? (
+              <Animated.View
+                testID="new-since"
+                accessibilityLiveRegion="polite"
+                entering={fadeIn}
+                exiting={fadeOut}
+                layout={reflow}
+                style={styles.newSince}>
+                <View style={styles.newDot} />
+                <Text variant="small" color={colors.muted}>
+                  {t('groceries.newSince', { count: newCount })}
+                </Text>
+              </Animated.View>
+            ) : null}
+
             {lines.length === 0 ? (
               <Animated.View entering={fadeIn} exiting={fadeOut} layout={reflow}>
                 <Text color={colors.muted} style={{ marginTop: 24 }}>
@@ -542,7 +563,19 @@ export default function GroceriesScreen() {
                           <View style={styles.box} />
                         )}
                         <View style={{ flex: 1, gap: 2 }}>
-                          <Text variant="item">{line.name}</Text>
+                          <View style={styles.nameRow}>
+                            <Text variant="item" style={{ flexShrink: 1 }}>
+                              {line.name}
+                            </Text>
+                            {isNew(line) ? (
+                              <Text
+                                variant="label"
+                                color={colors.saffronInk}
+                                style={styles.newPill}>
+                                {t('groceries.newMark')}
+                              </Text>
+                            ) : null}
+                          </View>
                           {sourceText(line) ? (
                             <Text variant="small" color={colors.muted}>
                               {sourceText(line)}
@@ -744,6 +777,17 @@ const useStyles = makeStyles((colors) => ({
   suggestionDivider: { borderTopWidth: 1, borderTopColor: colors.divider },
   done: { minHeight: 44, justifyContent: 'center' },
   flash: { left: -10, right: -10, borderRadius: 10 },
+  newSince: { marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  newDot: { width: 8, height: 8, borderRadius: Radius.pill, backgroundColor: colors.tomato },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  newPill: {
+    backgroundColor: colors.saffronPill,
+    borderRadius: Radius.pill,
+    paddingHorizontal: 8,
+    overflow: 'hidden',
+    fontSize: 12,
+    lineHeight: 18,
+  },
   addInput: { flex: 1, fontFamily: Fonts.medium, fontSize: 16, color: colors.ink, height: '100%' },
   carry: {
     marginTop: 14,
