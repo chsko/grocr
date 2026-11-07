@@ -10,6 +10,11 @@ import {
   requireUserId,
 } from './lib/access';
 import { cleanName, familySections, reorderSections } from './lib/catalog';
+import { getOrCreateList } from './lib/groceryRows';
+import { addDays, isWeekday, realignedWeekStart, startOfWeek, todayIn } from './lib/week';
+
+/** How far back a week start change still moves dinner lines between lists (GRO-72). */
+const REALIGN_LINES_DAYS = 56;
 
 function validName(name: string) {
   const clean = cleanName(name).slice(0, 60);
@@ -53,6 +58,80 @@ export const rename = mutation({
   handler: async (ctx, { groupId, name }) => {
     await requireMembership(ctx, groupId);
     await ctx.db.patch('groups', groupId, { name: validName(name) });
+  },
+});
+
+/**
+ * Any member can pick the day the family's weeks start on (GRO-72). Grocery lists are keyed by
+ * their week's first day, so each one moves to the new week that covers most of its days, and
+ * lines from a dinner then follow that dinner's date (ADR 0001). Dinners keep their dates.
+ */
+export const setWeekStart = mutation({
+  args: { groupId: v.id('groups'), weekStartsOn: v.number() },
+  handler: async (ctx, { groupId, weekStartsOn }) => {
+    await requireMembership(ctx, groupId);
+    if (!isWeekday(weekStartsOn)) throw new ConvexError({ code: 'INVALID_DAY' });
+    const group = (await ctx.db.get('groups', groupId))!;
+    if (group.weekStartsOn === weekStartsOn) return;
+    await ctx.db.patch('groups', groupId, { weekStartsOn });
+
+    const lists = await ctx.db
+      .query('groceryLists')
+      .withIndex('by_group_startDate', (q) => q.eq('groupId', groupId))
+      .collect();
+    // Lists of distinct old weeks land on distinct new weeks. Should two ever meet (a list that
+    // was not on a week start), the later one's lines join the first and it goes away.
+    const byStart = new Map<string, Id<'groceryLists'>>();
+    const moved: { listId: Id<'groceryLists'>; oldStart: string; newStart: string }[] = [];
+    for (const list of lists) {
+      const startDate = realignedWeekStart(list.startDate, weekStartsOn);
+      const kept = byStart.get(startDate);
+      if (kept === undefined) {
+        byStart.set(startDate, list._id);
+        moved.push({ listId: list._id, oldStart: list.startDate, newStart: startDate });
+        await ctx.db.patch('groceryLists', list._id, { startDate, endDate: addDays(startDate, 6) });
+        continue;
+      }
+      const items = await ctx.db
+        .query('groceryItems')
+        .withIndex('by_list', (q) => q.eq('listId', list._id))
+        .collect();
+      for (const item of items) await ctx.db.patch('groceryItems', item._id, { listId: kept });
+      const views = await ctx.db
+        .query('groceryListViews')
+        .withIndex('by_list_user', (q) => q.eq('listId', list._id))
+        .collect();
+      for (const view of views) await ctx.db.delete('groceryListViews', view._id);
+      await ctx.db.delete('groceryLists', list._id);
+    }
+
+    // A dinner on a day that now belongs to the neighbouring week takes its lines along. Only
+    // lines still on their dinner's own week move: one carried over to a later week by hand
+    // stays where the family put it. Lists that ended long ago are only re-dated, which keeps
+    // this mutation small for families with years of lists.
+    const recent = addDays(todayIn(group.timezone), -REALIGN_LINES_DAYS);
+    for (const { listId, oldStart, newStart } of moved) {
+      if (addDays(oldStart, 6) < recent) continue;
+      const oldEnd = addDays(oldStart, 6);
+      const items = await ctx.db
+        .query('groceryItems')
+        .withIndex('by_list', (q) => q.eq('listId', listId))
+        .collect();
+      for (const item of items) {
+        if (item.source.kind !== 'meal') continue;
+        const entry = await ctx.db.get('mealPlanEntries', item.source.mealPlanEntryId);
+        if (entry === null || entry.groupId !== groupId) continue;
+        if (entry.date < oldStart || entry.date > oldEnd) continue;
+        const want = startOfWeek(entry.date, weekStartsOn);
+        if (want === newStart) continue;
+        let target = byStart.get(want);
+        if (target === undefined) {
+          target = await getOrCreateList(ctx, groupId, want, addDays(want, 6));
+          byStart.set(want, target);
+        }
+        await ctx.db.patch('groceryItems', item._id, { listId: target });
+      }
+    }
   },
 });
 

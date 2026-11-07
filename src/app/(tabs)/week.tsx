@@ -6,16 +6,18 @@ import { Pressable, View } from 'react-native';
 import Animated, { FadeInLeft, FadeInRight } from 'react-native-reanimated';
 
 import { Highlight } from '@/components/highlight';
-import { Basket, ChevronLeft, ChevronRight, Plus, Sparkle } from '@/components/icons';
-import { Button, IconButton, IconTile, TabScreen, Text } from '@/components/ui';
-import { Fonts, Radius } from '@/constants/theme';
+import { Basket, ChevronRight, Plus, Sparkle } from '@/components/icons';
+import { Button, IconTile, TabScreen, Text } from '@/components/ui';
+import { WeekHeader } from '@/components/week-header';
+import { Fonts } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import { DEFAULT_ICON } from '@/convex/lib/recipeIcons';
 import { makeStyles, useColors } from '@/lib/appearance';
-import { dayShort, weekSpan, weekTitle } from '@/lib/format';
+import { dayShort } from '@/lib/format';
 import { useFreshIds } from '@/lib/fresh-ids';
 import { useFamily } from '@/lib/session';
-import { addDays, defaultGroceryWeek, startOfWeek, todayIn, type Weekday } from '@/lib/week';
+import { useShownWeek } from '@/lib/shown-week';
+import { addDays } from '@/lib/week';
 
 /** One dinner per day for a calendar week (GRO-32). Tapping a day plans or changes it. */
 export default function WeekScreen() {
@@ -23,39 +25,23 @@ export default function WeekScreen() {
   const styles = useStyles();
   const { t } = useTranslation();
   const family = useFamily();
-  const weekStartsOn = family.weekStartsOn as Weekday;
-  const today = todayIn(family.timezone);
-  const thisWeek = startOfWeek(today, weekStartsOn);
-  // From Friday the family plans and shops for next week, so open on that.
-  const [startDate, setStartDate] = useState(
-    () => defaultGroceryWeek(today, weekStartsOn).startDate,
-  );
+  // One week for Week and Groceries, remembered on this device (GRO-72).
+  const shown = useShownWeek(family);
+  const { startDate, today } = shown;
   const week = useQuery(api.mealPlan.week, { groupId: family.groupId, startDate });
   // Keep the neighbouring weeks subscribed so stepping to them shows data at once instead of
   // a frame of empty days.
   useQuery(api.mealPlan.week, { groupId: family.groupId, startDate: addDays(startDate, -7) });
   useQuery(api.mealPlan.week, { groupId: family.groupId, startDate: addDays(startDate, 7) });
   // Which way the last step went, so the new week slides in from that side. None on first show.
-  const [direction, setDirection] = useState<-1 | 1 | null>(null);
-  const step = (by: -1 | 1) => {
-    setDirection(by);
-    setStartDate(addDays(startDate, 7 * by));
-  };
+  // Kept with the week it led to, so a week changed from elsewhere (the Groceries tab, a new
+  // week starting) does not slide in from a stale side.
+  const [lastStep, setLastStep] = useState<{ by: -1 | 1; to: string } | null>(null);
+  const direction = lastStep?.to === startDate ? lastStep.by : null;
   // A short fade and nudge; Reanimated skips it when the system asks for reduced motion.
   const entering =
     direction === null ? undefined : (direction > 0 ? FadeInRight : FadeInLeft).duration(220);
 
-  const offset = Math.round(
-    (Date.parse(startDate) - Date.parse(thisWeek)) / (7 * 24 * 3600 * 1000),
-  );
-  const relative =
-    offset === 0
-      ? t('week.thisWeek')
-      : offset === 1
-        ? t('week.nextWeek')
-        : offset === -1
-          ? t('week.lastWeek')
-          : null;
   const days = Array.from({ length: 7 }, (_, i) => addDays(startDate, i));
   // A dinner planned or changed while the week is on screen (here, in Suggest a week, or by
   // another member) gets a saffron wash, so coming back from the picker shows what changed.
@@ -69,28 +55,11 @@ export default function WeekScreen() {
   return (
     <TabScreen>
       <View style={styles.header}>
-        <Animated.View key={startDate} entering={entering} style={{ gap: 4, flex: 1 }}>
-          {/* The pill's line is always there so the header keeps its height on far weeks. */}
-          {relative ? (
-            <Text variant="label" color={colors.saffronInk} style={styles.pill}>
-              {relative}
-            </Text>
-          ) : (
-            <View style={styles.pillSpace} />
-          )}
-          <Text variant="display">{weekTitle(t, startDate)}</Text>
-          <Text color={colors.muted} style={{ fontSize: 15 }}>
-            {weekSpan(t, startDate)}
-          </Text>
-        </Animated.View>
-        <View style={{ flexDirection: 'row', gap: 6 }}>
-          <IconButton outlined label={t('week.previous')} onPress={() => step(-1)}>
-            <ChevronLeft size={20} />
-          </IconButton>
-          <IconButton outlined label={t('week.next')} onPress={() => step(1)}>
-            <ChevronRight size={20} />
-          </IconButton>
-        </View>
+        <WeekHeader
+          shown={shown}
+          direction={direction}
+          onStep={(by, to) => setLastStep({ by, to })}
+        />
       </View>
 
       <Animated.View key={startDate} entering={entering} style={{ gap: 8 }}>
@@ -106,6 +75,8 @@ export default function WeekScreen() {
                 styles.day,
                 dinner || !week ? null : styles.dayEmpty,
                 date === today && styles.dayToday,
+                // Days already gone are faded, so where "now" is shows at a glance.
+                date < today && styles.dayGone,
                 pressed && { opacity: 0.7 },
               ]}>
               {dinner && freshDinners.has(dinnerKey(dinner)) ? (
@@ -170,7 +141,7 @@ export default function WeekScreen() {
       {week && week.openLines > 0 ? (
         <Pressable
           accessibilityRole="link"
-          onPress={() => router.navigate({ pathname: '/groceries', params: { start: startDate } })}
+          onPress={() => router.navigate('/groceries')}
           style={({ pressed }) => [styles.banner, pressed && { opacity: 0.8 }]}>
           <Basket color={colors.tomato} size={20} />
           <Text variant="item" style={{ flex: 1, fontSize: 16 }}>
@@ -184,24 +155,7 @@ export default function WeekScreen() {
 }
 
 const useStyles = makeStyles((colors) => ({
-  header: {
-    paddingTop: 24,
-    paddingBottom: 14,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-  },
-  pill: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 2,
-    borderRadius: Radius.pill,
-    backgroundColor: colors.saffronSoft,
-    overflow: 'hidden',
-    fontSize: 13,
-  },
-  // Same height as the pill: label line height plus its vertical padding.
-  pillSpace: { height: 24 },
+  header: { paddingTop: 16, paddingBottom: 14 },
   // The three day styles differ in border width, so each trims its padding by the extra
   // border to keep the date tile and text in the same place whichever style a day has.
   day: {
@@ -243,6 +197,7 @@ const useStyles = makeStyles((colors) => ({
     justifyContent: 'center',
   },
   dateTileToday: { backgroundColor: colors.saffronPill },
+  dayGone: { opacity: 0.5 },
   addDinner: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
   banner: {
     marginTop: 16,

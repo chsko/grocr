@@ -1,12 +1,12 @@
 import { useMutation, useQuery } from 'convex/react';
 import * as Haptics from 'expo-haptics';
-import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   AccessibilityInfo,
   Alert,
   Keyboard,
+  Platform,
   Pressable,
   type ScrollViewInstance,
   TextInput,
@@ -19,13 +19,14 @@ import { GroceryLineEditor } from '@/components/grocery-line-editor';
 import { Highlight } from '@/components/highlight';
 import { AtHome, Check, ChevronRight, Plus } from '@/components/icons';
 import { Button, Chip, TabScreen, Text } from '@/components/ui';
+import { WeekHeader } from '@/components/week-header';
 import { Fonts, Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { mergeRows, type GroceryLine } from '@/convex/lib/merge';
 import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
-import { dayShort, formatAmounts, weekSpan, weekTitle } from '@/lib/format';
+import { dayShort, formatAmounts, weekTitle } from '@/lib/format';
 import { useItemSuggestions, type ItemSuggestion } from '@/lib/item-suggestions';
 import { parseItemInput } from '@/lib/parse-item';
 import { useSectionName } from '@/lib/sections';
@@ -33,7 +34,7 @@ import { useFamily } from '@/lib/session';
 import { useFreshIds } from '@/lib/fresh-ids';
 import { newSince, useSeenSince } from '@/lib/list-seen';
 import { EASE_OUT, fadeIn, fadeOut, reflow } from '@/lib/motion';
-import { addDays, defaultGroceryWeek, startOfWeek, todayIn, type Weekday } from '@/lib/week';
+import { useShownWeek } from '@/lib/shown-week';
 
 /** Suggestions under the add field; more would push the list itself off screen. */
 const MAX_SUGGESTIONS = 5;
@@ -53,21 +54,9 @@ export default function GroceriesScreen() {
   const { t, i18n } = useTranslation();
   const family = useFamily();
   const sectionName = useSectionName();
-  const { start } = useLocalSearchParams<{ start?: string }>();
-  const weekStartsOn = family.weekStartsOn as Weekday;
-  const thisWeek = startOfWeek(todayIn(family.timezone), weekStartsOn);
-  const nextWeek = addDays(thisWeek, 7);
-  // The Week tab's banner opens a given week; a later banner tap wins over the switcher.
-  const [picked, setPicked] = useState<string | null>(null);
-  const [seenStart, setSeenStart] = useState(start);
-  if (start !== seenStart) {
-    setSeenStart(start);
-    setPicked(null);
-  }
-  const fromBanner = start === thisWeek || start === nextWeek ? start : null;
-  const startDate =
-    picked ?? fromBanner ?? defaultGroceryWeek(todayIn(family.timezone), weekStartsOn).startDate;
-  const setStartDate = setPicked;
+  // One week for Week and Groceries, remembered on this device (GRO-72).
+  const shown = useShownWeek(family);
+  const { startDate, thisWeek, shoppingWeek } = shown;
 
   const args = { groupId: family.groupId, startDate };
   const data = useQuery(api.grocery.listForWeek, args);
@@ -239,13 +228,51 @@ export default function GroceriesScreen() {
     }
   }
 
-  /** Adds what is typed; a picked suggestion is that item, with the typed amount. */
+  /**
+   * Adds what is typed; a picked suggestion is that item, with the typed amount. On a past
+   * week's list it asks first and offers the shopping week instead (GRO-72).
+   */
   async function add(pick?: ItemSuggestion) {
     const typed = parseItemInput(text);
     const parsed = pick ? { ...typed, ingredientId: pick._id, name: pick.name } : typed;
     if (!parsed.name) return;
+    if (shown.kind === 'past') {
+      // The field keeps the text until a choice is made, so Cancel loses nothing.
+      const there = () => {
+        setText('');
+        shown.setStartDate(shoppingWeek);
+        void addTo(shoppingWeek, parsed);
+      };
+      const anyway = () => {
+        setText('');
+        void addTo(startDate, parsed);
+      };
+      const title = t('groceries.pastTitle', { week: weekTitle(t, startDate) });
+      const body = t('groceries.pastBody', { name: parsed.name, week: weekTitle(t, shoppingWeek) });
+      if (Platform.OS === 'web') {
+        // react-native-web has no Alert; OK goes to the shopping week, Cancel keeps the text.
+        if (globalThis.confirm?.(`${title}\n\n${body}`)) there();
+        return;
+      }
+      // Cancel first, so Android puts the recommended choice on its primary button.
+      Alert.alert(title, body, [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('groceries.pastAddAnyway', { week: weekTitle(t, startDate) }), onPress: anyway },
+        { text: t('groceries.pastAddThere', { week: weekTitle(t, shoppingWeek) }), onPress: there },
+      ]);
+      return;
+    }
     setText('');
-    const id = await attempt(t, () => addManual({ ...args, ...parsed }));
+    await addTo(startDate, parsed);
+  }
+
+  async function addTo(
+    weekStart: string,
+    parsed: ReturnType<typeof parseItemInput> & { ingredientId?: Id<'ingredients'> },
+  ) {
+    const id = await attempt(t, () =>
+      addManual({ groupId: family.groupId, startDate: weekStart, ...parsed }),
+    );
     if (!id) return;
     setAdded(id);
     setTimeout(() => setAdded((current) => (current === id ? null : current)), 2500);
@@ -295,27 +322,8 @@ export default function GroceriesScreen() {
     <View style={styles.header}>
       <View style={styles.titleRow}>
         <Text variant="title">{t('groceries.title')}</Text>
-        <Text color={colors.muted} style={{ fontSize: 15 }}>
-          {`${weekTitle(t, startDate)} · ${weekSpan(t, startDate)}`}
-        </Text>
       </View>
-      <View accessibilityRole="tablist" style={styles.switcher}>
-        {[
-          { date: thisWeek, label: t('groceries.thisWeek') },
-          { date: nextWeek, label: t('groceries.nextWeek') },
-        ].map((option) => (
-          <Pressable
-            key={option.date}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: startDate === option.date }}
-            onPress={() => setStartDate(option.date)}
-            style={[styles.switch, startDate === option.date && styles.switchOn]}>
-            <Text variant="item" style={{ fontSize: 15 }}>
-              {option.label}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+      <WeekHeader shown={shown} compact />
       <View style={styles.addRow}>
         <View style={[styles.add, typing && styles.addTyping]}>
           <Plus color={typing ? colors.tomato : colors.muted} size={20} />
@@ -325,9 +333,9 @@ export default function GroceriesScreen() {
             onChangeText={setText}
             onFocus={() => setTyping(true)}
             onBlur={() => setTyping(false)}
-            placeholder={t('groceries.addPlaceholder')}
+            placeholder={t('groceries.addToWeek', { week: weekTitle(t, startDate) })}
             placeholderTextColor={colors.checkbox}
-            accessibilityLabel={t('groceries.addLabel')}
+            accessibilityLabel={t('groceries.addToWeekLabel', { week: weekTitle(t, startDate) })}
             // Return adds the item and keeps the keyboard up for the next one; Done puts it away.
             returnKeyType="next"
             submitBehavior="submit"
@@ -738,15 +746,6 @@ const useStyles = makeStyles((colors) => ({
     justifyContent: 'space-between',
     gap: 8,
   },
-  switcher: {
-    flexDirection: 'row',
-    gap: 4,
-    padding: 4,
-    borderRadius: Radius.field,
-    backgroundColor: colors.surface,
-  },
-  switch: { flex: 1, height: 38, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
-  switchOn: { backgroundColor: colors.raised },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   add: {
     flex: 1,

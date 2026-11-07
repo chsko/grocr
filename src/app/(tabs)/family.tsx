@@ -28,6 +28,8 @@ import { sheetIn } from '@/lib/motion';
 // Each language is named in itself, so it can be found from either.
 const LANGUAGE_NAMES = { nb: 'Norsk', en: 'English' } as const;
 
+const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
+
 /** Members, invites and settings (GRO-26). The owner manages members; anyone can leave. */
 export default function FamilyScreen() {
   const colors = useColors();
@@ -227,10 +229,18 @@ export default function FamilyScreen() {
           {family!.name}
         </Text>
       </Pressable>
-      <View style={styles.setting}>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.push('/week-start')}
+        style={styles.setting}>
         <Text>{t('family.weekStarts')}</Text>
-        <Text color={colors.muted}>{t('dates.dayLong.mon')}</Text>
-      </View>
+        <View style={styles.settingEnd}>
+          <Text color={colors.muted}>
+            {t(`dates.dayLong.${DAY_KEYS[family!.weekStartsOn] ?? 'mon'}`)}
+          </Text>
+          <ChevronRight color={colors.muted} size={18} />
+        </View>
+      </Pressable>
       <Pressable
         accessibilityRole="button"
         onPress={() => router.push('/tour')}

@@ -23,8 +23,9 @@ import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
 import { dayLabel, weekTitle } from '@/lib/format';
 import { relativeDay } from '@/lib/relative';
+import { relativeWeek } from '@/components/week-header';
 import { useFamily } from '@/lib/session';
-import { isLocalDate, startOfWeek, todayIn, type Weekday } from '@/lib/week';
+import { isLocalDate, startOfWeek, todayIn, weeksBetween, type Weekday } from '@/lib/week';
 
 const NOTES = ['leftovers', 'pizzaNight', 'eatingOut'] as const;
 
@@ -38,6 +39,7 @@ export default function PickDinnerScreen() {
   const { date: dateParam } = useLocalSearchParams<{ date: string }>();
   const date = dateParam && isLocalDate(dateParam) ? dateParam : todayIn(family.timezone);
   const startDate = startOfWeek(date, family.weekStartsOn as Weekday);
+  const thisWeek = startOfWeek(todayIn(family.timezone), family.weekStartsOn as Weekday);
   const week = useQuery(api.mealPlan.week, { groupId: family.groupId, startDate });
   const recipes = useQuery(api.recipes.list, { groupId: family.groupId });
   const setDinner = useMutation(api.mealPlan.set);
@@ -100,9 +102,13 @@ export default function PickDinnerScreen() {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.content}>
         <View style={styles.titleRow}>
-          <Text variant="heading" style={{ flex: 1 }}>
-            {t('pick.title', { day: dayLabel(t, date) })}
-          </Text>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text variant="heading">{t('pick.title', { day: dayLabel(t, date) })}</Text>
+            {/* Which week this day is in, so a dinner is not planned in the wrong one (GRO-72). */}
+            <Text variant="small" color={colors.muted}>
+              {`${weekTitle(t, startDate)} · ${relativeWeek(t, weeksBetween(thisWeek, startDate))}`}
+            </Text>
+          </View>
           <IconButton label={t('common.close')} onPress={() => router.back()}>
             <Close />
           </IconButton>

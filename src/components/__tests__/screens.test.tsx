@@ -21,6 +21,7 @@ import * as build from '@/lib/build';
 import { SUGGEST_DELAY_MS } from '@/lib/item-suggestions';
 import i18n from '@/lib/i18n';
 import { SessionContext, type Me } from '@/lib/session';
+import { resetShownWeek } from '@/lib/shown-week';
 
 // A stand-in tab navigator: the Week tab, with Groceries next to it.
 const mockNav = {
@@ -132,6 +133,7 @@ const me: Me = {
 };
 
 beforeEach(() => {
+  resetShownWeek();
   mockUseQuery.mockReset();
   mockAddManual.mockReset();
   mockNav.index = 0;
@@ -395,7 +397,11 @@ describe('week', () => {
 
 describe('groceries', () => {
   // Adding sets a timer that lets go of the flash; fake timers keep it from outliving the test.
-  beforeEach(() => jest.useFakeTimers());
+  beforeEach(() => {
+    // A Wednesday, so this week is also the shopping week.
+    jest.useFakeTimers({ now: new Date('2026-11-04T12:00:00Z') });
+    resetShownWeek();
+  });
   afterEach(() => {
     jest.clearAllTimers();
     jest.useRealTimers();
@@ -463,13 +469,12 @@ describe('groceries', () => {
 
     // The server now has that look; the marks stay for the rest of this visit.
     marked = true;
-    await fireEvent(screen.getByLabelText('Add an item'), 'focus');
+    await fireEvent(screen.getByLabelText(/^Add an item to Week \d+$/), 'focus');
     expect(screen.getAllByText('New')).toHaveLength(2);
 
     // The other week was never opened: it compares with the last look from before this visit,
     // not with the one this visit just recorded.
-    const other = screen.getAllByRole('tab').find((tab) => !tab.props.accessibilityState?.selected);
-    await fireEvent.press(other!);
+    await fireEvent.press(screen.getByLabelText('Next week'));
     expect(screen.getByText('Bread')).toBeTruthy();
     expect(screen.getAllByText('New')).toHaveLength(1);
   });
@@ -501,7 +506,7 @@ describe('groceries', () => {
         <GroceriesScreen />
       </SessionContext.Provider>,
     );
-    const field = screen.getByLabelText('Legg til en vare');
+    const field = screen.getByLabelText(/^Legg til en vare i Uke \d+$/);
     expect(screen.queryByText('Ferdig')).toBeNull();
     await fireEvent(field, 'focus');
     await fireEvent.changeText(field, '2 l melk');
@@ -509,6 +514,45 @@ describe('groceries', () => {
     expect(mockAddManual).toHaveBeenCalledWith(expect.objectContaining({ name: 'melk', qty: 2 }));
     await fireEvent(field, 'blur');
     expect(screen.queryByText('Ferdig')).toBeNull();
+  });
+
+  test('a past week looks past, and adding to it asks first and offers the shopping week (GRO-72)', async () => {
+    await i18n.changeLanguage('en');
+    mockAddManual.mockResolvedValue('i1');
+    const alert = jest.spyOn(Alert, 'alert');
+    mockUseQuery.mockReturnValue(list([]));
+    await render(
+      <SessionContext.Provider value={me}>
+        <GroceriesScreen />
+      </SessionContext.Provider>,
+    );
+    const shopping = () =>
+      mockUseQuery.mock.calls
+        .map((c) => (c[1] as { startDate?: string } | undefined)?.startDate)
+        .filter(Boolean)
+        .at(-1);
+    const shoppingWeek = shopping();
+    expect(screen.queryByText(/^Go to (this|next) week$/)).toBeNull();
+    await fireEvent.press(screen.getByLabelText('Previous week'));
+    await fireEvent.press(screen.getByLabelText('Previous week'));
+    expect(screen.getByTestId('week-header-past')).toBeTruthy();
+    expect(screen.getByText(/^Go to (this|next) week$/)).toBeTruthy();
+
+    const field = screen.getByLabelText(/^Add an item to Week \d+$/);
+    await fireEvent(field, 'focus');
+    await fireEvent.changeText(field, 'Coffee');
+    await act(() => fireEvent(field, 'submitEditing'));
+    expect(mockAddManual).not.toHaveBeenCalled();
+    const [title, body, buttons] = alert.mock.calls.at(-1)!;
+    expect(title).toMatch(/^Week \d+ is over$/);
+    expect(body).toMatch(/^Add Coffee to Week \d+ instead\?$/);
+    await act(() => buttons!.at(-1)!.onPress!());
+    expect(mockAddManual).toHaveBeenCalledWith(
+      expect.objectContaining({ startDate: shoppingWeek, name: 'Coffee' }),
+    );
+    // It also went back to the shopping week.
+    expect(shopping()).toBe(shoppingWeek);
+    alert.mockRestore();
   });
 
   test('lines name their dinner only when the list has more than one', async () => {
@@ -556,10 +600,10 @@ describe('groceries', () => {
       </SessionContext.Provider>
     );
     await render(ui);
-    await fireEvent.changeText(screen.getByLabelText('Add an item'), 'milk');
+    await fireEvent.changeText(screen.getByLabelText(/^Add an item to Week \d+$/), 'milk');
     // The list updates with the new row before the mutation resolves.
     mockUseQuery.mockReturnValue(list([row('i0', 'Butter'), row('i1', 'Milk')]));
-    await act(() => fireEvent(screen.getByLabelText('Add an item'), 'submitEditing'));
+    await act(() => fireEvent(screen.getByLabelText(/^Add an item to Week \d+$/), 'submitEditing'));
     expect(screen.getAllByTestId('added-flash')).toHaveLength(1);
     expect(Haptics.impactAsync).toHaveBeenCalledWith('light');
     // The flash is let go after a moment, so unticking the item later does not flash it again.
@@ -587,7 +631,7 @@ describe('groceries', () => {
         <GroceriesScreen />
       </SessionContext.Provider>,
     );
-    const field = screen.getByLabelText('Legg til en vare');
+    const field = screen.getByLabelText(/^Legg til en vare i Uke \d+$/);
     await fireEvent(field, 'focus');
     await fireEvent.changeText(field, '2 l m');
     await fireEvent.changeText(field, '2 l me');
@@ -702,6 +746,11 @@ describe('groceries', () => {
 });
 
 describe('staples offer', () => {
+  beforeEach(() => {
+    jest.useFakeTimers({ now: new Date('2026-11-07T12:00:00Z') });
+    resetShownWeek();
+  });
+  afterEach(() => jest.useRealTimers());
   const offer = {
     items: [],
     sources: {},
@@ -749,12 +798,15 @@ describe('staples offer', () => {
         <GroceriesScreen />
       </SessionContext.Provider>,
     );
-    await fireEvent.press(screen.getByText('This week'));
+    // Saturday: the list opens on next week; the carry-over card is this week's.
+    expect(screen.getByText('Next week')).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText('Previous week'));
+    expect(screen.getByText('Go to next week')).toBeTruthy();
     expect(screen.getByText('Move 1 item')).toBeTruthy();
     expect(screen.getByLabelText('Add Brød to the list')).toBeTruthy();
     expect(screen.queryByLabelText('Add Melk to the list')).toBeNull();
     // Next week has no carry-over card, so it offers both.
-    await fireEvent.press(screen.getByText('Next week'));
+    await fireEvent.press(screen.getByLabelText('Next week'));
     expect(screen.getByLabelText('Add Melk to the list')).toBeTruthy();
   });
 

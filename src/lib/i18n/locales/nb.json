@@ -84,7 +84,13 @@
     "addDinner": "Legg til middag",
     "groceryBanner_one": "{{count}} vare på handlelisten",
     "groceryBanner_other": "{{count}} varer på handlelisten",
-    "suggest": "Foreslå middager"
+    "suggest": "Foreslå middager",
+    "inWeeks_one": "Om {{count}} uke",
+    "inWeeks_other": "Om {{count}} uker",
+    "weeksAgo_one": "For {{count}} uke siden",
+    "weeksAgo_other": "For {{count}} uker siden",
+    "goToThis": "Gå til denne uka",
+    "goToNext": "Gå til neste uke"
   },
   "pick": {
     "title": "Middag {{day}}",
@@ -199,11 +205,7 @@
   },
   "groceries": {
     "title": "Handleliste",
-    "thisWeek": "Denne uka",
-    "nextWeek": "Neste uke",
     "empty": "Ingenting på listen ennå. Planlegg middager under Uke, eller legg til varer over.",
-    "addPlaceholder": "Legg til en vare, f.eks. 2 l melk",
-    "addLabel": "Legg til en vare",
     "done": "Ferdig",
     "added": "{{name}} er lagt til",
     "addedBy": "Lagt til av {{name}}",
@@ -244,7 +246,13 @@
     "suggestionOnList": "Står allerede på listen",
     "newMark": "Ny",
     "newSince_one": "{{count}} ny vare siden sist du så",
-    "newSince_other": "{{count}} nye varer siden sist du så"
+    "newSince_other": "{{count}} nye varer siden sist du så",
+    "addToWeek": "Legg til i {{week}}, f.eks. 2 l melk",
+    "addToWeekLabel": "Legg til en vare i {{week}}",
+    "pastTitle": "{{week}} er over",
+    "pastBody": "Vil du legge {{name}} i {{week}} i stedet?",
+    "pastAddThere": "Legg i {{week}}",
+    "pastAddAnyway": "Legg i {{week}} likevel"
   },
   "sections": {
     "produce": "Frukt og grønt",
@@ -492,7 +500,17 @@
       "recipeLink": {
         "title": "Lenke til oppskrifter på nett",
         "body": "Fant du en oppskrift på en nettside? Lim inn lenken i oppskriften, så slipper du å skrive fremgangsmåten. Legg inn ingrediensene, så havner de fortsatt på handlelista."
+      },
+      "rightWeek": {
+        "title": "Alltid riktig uke",
+        "body": "Grocr husker uka du var på, og begynner på riktig uke når en ny uke starter. Tidligere uker er grå, denne uka er gul, og feltet sier hvilken uke du legger til i. Velg hvilken dag uka starter under Familie › Uka starter på."
       }
     }
+  },
+  "weekStart": {
+    "intro": "Dagen familiens uke begynner. Det gjelder alle i familien. De tre siste dagene i en uke åpner Grocr på neste uke.",
+    "confirmTitle": "Start uka på {{day}}?",
+    "confirmBody": "Dette endres for hele familien. Handlelistene flyttes til de nye ukene, og middagene blir på sine dager.",
+    "confirm": "Endre"
   }
 }

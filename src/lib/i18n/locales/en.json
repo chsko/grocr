@@ -84,7 +84,13 @@
     "addDinner": "Add dinner",
     "groceryBanner_one": "{{count}} item on the grocery list",
     "groceryBanner_other": "{{count}} items on the grocery list",
-    "suggest": "Suggest dinners"
+    "suggest": "Suggest dinners",
+    "inWeeks_one": "In {{count}} week",
+    "inWeeks_other": "In {{count}} weeks",
+    "weeksAgo_one": "{{count}} week ago",
+    "weeksAgo_other": "{{count}} weeks ago",
+    "goToThis": "Go to this week",
+    "goToNext": "Go to next week"
   },
   "pick": {
     "title": "Dinner for {{day}}",
@@ -199,11 +205,7 @@
   },
   "groceries": {
     "title": "Groceries",
-    "thisWeek": "This week",
-    "nextWeek": "Next week",
     "empty": "Nothing on this list yet. Plan dinners on the Week tab, or add items above.",
-    "addPlaceholder": "Add an item, e.g. 2 l milk",
-    "addLabel": "Add an item",
     "done": "Done",
     "added": "Added {{name}}",
     "addedBy": "Added by {{name}}",
@@ -244,7 +246,13 @@
     "suggestionOnList": "Already on the list",
     "newMark": "New",
     "newSince_one": "{{count}} new item since you last looked",
-    "newSince_other": "{{count}} new items since you last looked"
+    "newSince_other": "{{count}} new items since you last looked",
+    "addToWeek": "Add to {{week}}, e.g. 2 l milk",
+    "addToWeekLabel": "Add an item to {{week}}",
+    "pastTitle": "{{week}} is over",
+    "pastBody": "Add {{name}} to {{week}} instead?",
+    "pastAddThere": "Add to {{week}}",
+    "pastAddAnyway": "Add to {{week}} anyway"
   },
   "sections": {
     "produce": "Produce",
@@ -492,7 +500,17 @@
       "recipeLink": {
         "title": "Link to a recipe online",
         "body": "Found a recipe on a website? Paste its link in the recipe and skip typing the steps. Add the ingredients, and they still go on the grocery list."
+      },
+      "rightWeek": {
+        "title": "Always the right week",
+        "body": "Grocr remembers the week you were on, and starts over on the right week when a new one begins. Past weeks are grey, this week is yellow, and the add field says which week you add to. Pick the day your week starts under Family › Week starts on."
       }
     }
+  },
+  "weekStart": {
+    "intro": "The day your family's week begins. It applies to everyone in the family. From the last three days of a week, Grocr opens on next week.",
+    "confirmTitle": "Start weeks on {{day}}?",
+    "confirmBody": "This changes it for the whole family. Grocery lists move to the new weeks, and dinners stay on their days.",
+    "confirm": "Change"
   }
 }

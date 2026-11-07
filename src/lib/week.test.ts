@@ -5,7 +5,10 @@ import {
   isoWeekNumber,
   startOfWeek,
   todayIn,
+  realignedWeekStart,
+  weekNumber,
   weekRange,
+  weeksBetween,
 } from './week';
 
 describe('week helpers', () => {
@@ -55,5 +58,37 @@ describe('week helpers', () => {
     expect(isLocalDate('26-10-24')).toBe(false);
     expect(isLocalDate('2026-10-24')).toBe(true);
     expect(() => addDays('nope', 1)).toThrow();
+  });
+});
+
+describe('week start day (GRO-72)', () => {
+  test('a list moves to the new week that covers most of its days', () => {
+    // Monday 2026-11-02 week: Sunday start -> Sunday before; Saturday start -> Saturday before.
+    expect(realignedWeekStart('2026-11-02', 0)).toBe('2026-11-01');
+    expect(realignedWeekStart('2026-11-02', 6)).toBe('2026-10-31');
+    expect(realignedWeekStart('2026-11-02', 4)).toBe('2026-11-05');
+    expect(realignedWeekStart('2026-11-02', 1)).toBe('2026-11-02');
+    // Distinct weeks never collide.
+    const starts = [0, 7, 14].map((d) => realignedWeekStart(addDays('2026-11-02', d), 3));
+    expect(new Set(starts).size).toBe(3);
+  });
+
+  test('the shopping week turns over in the last three days, whatever the start day', () => {
+    // Sunday start: Thu-Sat open next week.
+    expect(defaultGroceryWeek('2026-11-04', 0).startDate).toBe('2026-11-01'); // Wed
+    expect(defaultGroceryWeek('2026-11-05', 0).startDate).toBe('2026-11-08'); // Thu
+    expect(defaultGroceryWeek('2026-11-07', 0).startDate).toBe('2026-11-08'); // Sat
+  });
+
+  test('weeksBetween counts whole weeks either way', () => {
+    expect(weeksBetween('2026-11-02', '2026-11-16')).toBe(2);
+    expect(weeksBetween('2026-11-02', '2026-10-19')).toBe(-2);
+    expect(weeksBetween('2026-10-19', '2026-11-02')).toBe(2); // across the DST change
+  });
+
+  test('the week number is the one most of the week is in', () => {
+    // Sunday 2026-11-01 is ISO week 44, but Mon-Sat after it are week 45.
+    expect(weekNumber('2026-11-01')).toBe(45);
+    expect(weekNumber('2026-11-02')).toBe(45);
   });
 });

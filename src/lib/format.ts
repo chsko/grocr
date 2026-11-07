@@ -1,7 +1,7 @@
 import type { TFunction } from 'i18next';
 
 import { formatQty, type Amount } from '@/convex/lib/units';
-import { addDays, isoWeekNumber, weekday, type LocalDate } from '@/lib/week';
+import { addDays, weekday, weekNumber, type LocalDate } from '@/lib/week';
 
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 const MONTHS = [
@@ -46,7 +46,7 @@ export function weekSpan(t: TFunction, startDate: LocalDate) {
 }
 
 export function weekTitle(t: TFunction, startDate: LocalDate) {
-  return t('dates.weekNumber', { week: isoWeekNumber(startDate) });
+  return t('dates.weekNumber', { week: weekNumber(startDate) });
 }
 
 /** "1 can + 200 g", with translated unit names and a decimal comma in Norwegian. */

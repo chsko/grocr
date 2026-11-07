@@ -26,10 +26,12 @@ import {
 import { convex, tokenStorage } from '@/lib/convex';
 import { restoreLanguage } from '@/lib/i18n/preference';
 import { SessionContext } from '@/lib/session';
+import { restoreShownWeek, useShownWeekRestored } from '@/lib/shown-week';
 import { useForegroundUpdateCheck } from '@/lib/updates';
 
 void restoreLanguage();
 void restoreAppearance();
+void restoreShownWeek();
 
 void SplashScreen.preventAutoHideAsync();
 // The splash is saffron and light screens are white, so fade rather than cut between them.
@@ -94,9 +96,14 @@ function AppStack() {
   const { isLoading, isAuthenticated } = useConvexAuth();
   const me = useQuery(api.users.me, isAuthenticated ? {} : 'skip');
   const appearanceRestored = useAppearanceRestored();
+  const weekRestored = useShownWeekRestored();
   useForegroundUpdateCheck();
   const ready =
-    fontsLoaded && appearanceRestored && !isLoading && (!isAuthenticated || me !== undefined);
+    fontsLoaded &&
+    appearanceRestored &&
+    weekRestored &&
+    !isLoading &&
+    (!isAuthenticated || me !== undefined);
 
   useEffect(() => {
     if (ready) void SplashScreen.hideAsync();
@@ -146,6 +153,7 @@ function AppStack() {
           <Stack.Screen name="sections" options={{ ...header, title: t('storeOrder.title') }} />
           <Stack.Screen name="items" options={{ ...header, title: t('items.title') }} />
           <Stack.Screen name="staples" options={{ ...header, title: t('staples.title') }} />
+          <Stack.Screen name="week-start" options={{ ...header, title: t('family.weekStarts') }} />
           <Stack.Screen name="whats-new" options={{ ...header, title: t('whatsNew.title') }} />
         </Stack.Protected>
       </Stack>

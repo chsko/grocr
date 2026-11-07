@@ -90,3 +90,26 @@ export function isoWeekNumber(date: LocalDate): number {
   firstThursday.setUTCDate(firstThursday.getUTCDate() + 3 - ((firstThursday.getUTCDay() + 6) % 7));
   return 1 + Math.round((thursday.getTime() - firstThursday.getTime()) / (7 * 24 * 3600 * 1000));
 }
+
+/**
+ * Where a week's grocery list goes when the family picks another week start day (ADR 0001):
+ * the new week that covers most of its days, which is the one holding its fourth day. Distinct
+ * old weeks always land on distinct new weeks.
+ */
+export function realignedWeekStart(oldStart: LocalDate, weekStartsOn: Weekday): LocalDate {
+  return startOfWeek(addDays(oldStart, 3), weekStartsOn);
+}
+
+/** Whole weeks from `from` to `to`, both week starts (negative when `to` is earlier). */
+export function weeksBetween(from: LocalDate, to: LocalDate): number {
+  return Math.round((toUtc(to).getTime() - toUtc(from).getTime()) / (7 * 24 * 3600 * 1000));
+}
+
+export function isWeekday(value: number): value is Weekday {
+  return Number.isInteger(value) && value >= 0 && value <= 6;
+}
+
+/** The week's number on a calendar: the ISO week most of its days are in (its fourth day's). */
+export function weekNumber(startDate: LocalDate): number {
+  return isoWeekNumber(addDays(startDate, 3));
+}

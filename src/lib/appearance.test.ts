@@ -97,6 +97,10 @@ const textPairs: [keyof Palette, keyof Palette][] = [
   ['tomato', 'saffronTint'],
   ['tomato', 'surface'],
   ['ink', 'chipSelected'],
+  // The this-week band (GRO-72): title, dates and the jump link sit on saffronSoft.
+  ['ink', 'saffronSoft'],
+  ['muted', 'saffronSoft'],
+  ['tomato', 'saffronSoft'],
 ];
 
 describe.each(['light', 'dark'] as const)('%s palette contrast', (scheme) => {
