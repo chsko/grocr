@@ -3,8 +3,11 @@
 Family weekly dinner planner: your own recipes, a week menu, and a shared grocery list that
 fills itself from the menu. iOS and Android, built with Expo and Convex.
 
-Planning, decisions and the architecture doc live in Linear (team **Grocr**, project
-**Grocr MVP**).
+Work is tracked in [GitHub Issues](https://github.com/chsko/grocr/issues) and the Grocr GitHub
+Project. Planning docs are in `docs/` ([product](docs/product-ux-plan.md),
+[architecture](docs/architecture.md), [decision records](docs/adr/)), terms in `GLOSSARY.md`.
+Older commits refer to Linear ids (`GRO-<n>`); [docs/linear-migration.md](docs/linear-migration.md)
+maps them to GitHub issues.
 
 ## Stack
 

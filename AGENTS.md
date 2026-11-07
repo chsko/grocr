@@ -42,6 +42,7 @@ Docs: https://docs.expo.dev/eas/index.md
 
 ## Grocr conventions
 
+- Tracking: GitHub Issues on chsko/grocr (Linear is retired). `GRO-<n>` ids in old commits map to issues via `docs/linear-migration.md`. Planning docs live in `docs/`, decisions in `docs/adr/`.
 - Dependencies: pnpm with a 7-day cooldown (`minimumReleaseAge` in `pnpm-workspace.yaml`). Don't bypass it with `minimumReleaseAgeExclude` without asking Christian. New install scripts must be allowed explicitly under `allowBuilds`.
 - Run `pnpm check` before declaring a change done (format, lint, typecheck, Jest, Vitest).
 - Colors come from the active palette (light or dark): `useColors()` and `makeStyles((colors) => ({...}))` from `src/lib/appearance.ts`, never hex literals. Use `tomato` for text and icons, `tomatoFill` with `onTomato` for filled buttons and checks.
