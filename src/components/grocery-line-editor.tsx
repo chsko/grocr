@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from 'convex/react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Alert,
@@ -16,9 +16,10 @@ import { Button, Chip, Field, Text } from '@/components/ui';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import type { GroceryLine } from '@/convex/lib/merge';
-import { formatQty, parseQty, UNITS, type Unit } from '@/convex/lib/units';
+import { convertQty, formatQty, parseQty, sumAmounts, UNITS, type Unit } from '@/convex/lib/units';
 import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
+import { formatAmounts } from '@/lib/format';
 import { sectionName } from '@/lib/sections';
 import { useFamily } from '@/lib/session';
 import Animated from 'react-native-reanimated';
@@ -27,14 +28,18 @@ import { sheetIn } from '@/lib/motion';
 /**
  * Edit or remove a merged grocery line (long press). Saving puts the new amount on one row and
  * marks it edited, so planning changes leave it alone (Product plan §5.3). Its item can also be
- * made a staple, which every week's list then offers (GRO-62).
+ * made a staple, which every week's list then offers (GRO-62). "Have at home" says how much of
+ * it the family already has ("4 of the 12 carrots"), so only the rest is left to buy.
  */
 export function GroceryLineEditor({
   line,
+  homeLine,
   isStaple,
   onClose,
 }: {
   line: GroceryLine;
+  /** The part of the same item marked as at home, if any. */
+  homeLine: GroceryLine | null;
   isStaple: boolean;
   onClose: () => void;
 }) {
@@ -43,6 +48,7 @@ export function GroceryLineEditor({
   const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
   const editMerged = useMutation(api.grocery.editMerged);
+  const setAtHomeAmount = useMutation(api.grocery.setAtHomeAmount);
   const remove = useMutation(api.grocery.remove);
   const setSection = useMutation(api.ingredients.setSection);
   const setStaple = useMutation(api.staples.set);
@@ -63,11 +69,57 @@ export function GroceryLineEditor({
   const [unit, setUnit] = useState<Unit | undefined>(start.unit);
   const itemIds = line.itemIds as Id<'groceryItems'>[];
 
+  // What is at home is counted against the whole need (to buy + at home), which only works when
+  // that adds up to one amount: "12 carrots" yes, "salt" or "1 can + 200 g" no.
+  const [home] = useState(() => {
+    const parts = sumAmounts([...line.amounts, ...(homeLine?.amounts ?? [])]);
+    const total = parts.length === 1 ? parts[0] : undefined;
+    if (total?.qty === undefined) return null;
+    const had = homeLine?.amounts.length === 1 ? homeLine.amounts[0] : undefined;
+    const hadQty = had?.qty !== undefined ? convertQty(had.qty, had.unit, total.unit) : undefined;
+    return {
+      total: { qty: total.qty, unit: total.unit },
+      start: hadQty !== undefined ? formatQty(hadQty, i18n.language) : '',
+    };
+  });
+  const [homeText, setHomeText] = useState(home?.start ?? '');
+  // Blank or 0 is nothing at home; anything else that does not read as a number is ignored.
+  const homeQty =
+    homeText.trim() === '' || /^0+([.,]0*)?$/.test(homeText.trim()) ? 0 : parseQty(homeText);
+
+  const [saving, setSaving] = useState(false);
+  // A ref as well as state, so two taps before a re-render cannot both start a save.
+  const savingRef = useRef(false);
+
   async function save() {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    try {
+      await saveChanges();
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  }
+
+  async function saveChanges() {
+    let open = itemIds;
+    if (home && homeText !== home.start && homeQty !== undefined) {
+      const result = await attempt(t, () =>
+        setAtHomeAmount({
+          itemIds: [...itemIds, ...((homeLine?.itemIds ?? []) as Id<'groceryItems'>[])],
+          qty: homeQty,
+          unit: home.total.unit,
+        }),
+      );
+      if (result === undefined) return;
+      open = result;
+    }
     // Saving without touching the amount (e.g. after only picking a section) is no edit, so the
     // rows keep following their dinners. The line may also have grown since the editor opened.
-    if (qty !== start.qty || unit !== start.unit) {
-      await attempt(t, () => editMerged({ itemIds, qty: parseQty(qty), unit }));
+    if ((qty !== start.qty || unit !== start.unit) && open.length > 0) {
+      await attempt(t, () => editMerged({ itemIds: open, qty: parseQty(qty), unit }));
     }
     onClose();
   }
@@ -130,6 +182,34 @@ export function GroceryLineEditor({
                 />
               ))}
             </ScrollView>
+            {home ? (
+              <View style={{ gap: 6 }}>
+                <Field
+                  label={
+                    home.total.unit
+                      ? t('groceries.haveAtHomeUnit', { unit: t(`units.${home.total.unit}`) })
+                      : t('groceries.haveAtHome')
+                  }
+                  value={homeText}
+                  onChangeText={setHomeText}
+                  keyboardType="decimal-pad"
+                  placeholder="0"
+                />
+                {homeQty !== undefined && homeQty > 0 ? (
+                  <Text variant="small" color={colors.muted}>
+                    {t('groceries.toBuyAfterHome', {
+                      total: formatAmounts(t, i18n.language, [home.total]),
+                      rest: formatAmounts(t, i18n.language, [
+                        {
+                          qty: Math.max(0, Math.round((home.total.qty - homeQty) * 100) / 100),
+                          unit: home.total.unit,
+                        },
+                      ]),
+                    })}
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
             {line.ingredientId ? (
               <>
                 <Text variant="label" color={colors.muted}>
@@ -198,7 +278,12 @@ export function GroceryLineEditor({
                 </View>
               </View>
             ) : null}
-            <Button title={t('common.save')} onPress={() => void save()} />
+            <Button
+              title={t('common.save')}
+              // "Have at home" must read as an amount ("4", "1,5"); anything else is not saved.
+              disabled={saving || (home !== null && homeQty === undefined)}
+              onPress={() => void save()}
+            />
             <Button
               kind="danger"
               title={t('groceries.removeLine')}

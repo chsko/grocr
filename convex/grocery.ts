@@ -4,7 +4,16 @@ import type { Doc, Id } from './_generated/dataModel';
 import { mutation, query, type MutationCtx } from './_generated/server';
 import { resolveIngredient } from './ingredients';
 import { getMembership, requireMemberOf, requireMembership, requireUserId } from './lib/access';
-import { findList, getOrCreateList } from './lib/groceryRows';
+import {
+  cleanQty,
+  findList,
+  fromBase,
+  getOrCreateList,
+  itemRowsOnList,
+  setAtHomeOnRows,
+  siblingKey,
+  toBase,
+} from './lib/groceryRows';
 import { isUnit, sumAmounts } from './lib/units';
 import { familySections, placeSection } from './lib/catalog';
 import { familyStaples } from './staples';
@@ -531,14 +540,80 @@ export const setChecked = mutation({
 /**
  * Marks the rows behind a line as already at home ("we have milk in the fridge"), or puts them
  * back on the list. Like `setChecked` it sets absolute state. Rows someone already bought are
- * left alone, so a tap from a screen that has not caught up does not undo a purchase.
+ * left alone, so a tap from a screen that has not caught up does not undo a purchase. A row that
+ * was split off by `setAtHomeAmount` ("4 of the 12 carrots") goes back into the row it came
+ * from, so the line reads 12 again rather than 8 + 4.
  */
 export const setAtHome = mutation({
   args: { itemIds: v.array(v.id('groceryItems')), atHome: v.boolean() },
   handler: async (ctx, { itemIds, atHome }) => {
-    return await patchOwnRows(ctx, itemIds, (item) => {
-      if ((item.atHome ?? false) === atHome || (atHome && item.checked)) return null;
-      return atHome ? { atHome: true } : { atHome: undefined };
+    if (atHome) {
+      return await patchOwnRows(ctx, itemIds, (item) =>
+        item.atHome || item.checked ? null : { atHome: true },
+      );
+    }
+    const back: Id<'groceryItems'>[] = [];
+    const changed = await patchOwnRows(ctx, itemIds, (item) => {
+      if (!item.atHome) return null;
+      back.push(item._id);
+      return { atHome: undefined };
     });
+    // Rows now back on the list fold into an open sibling from the same source, if any.
+    for (const id of back) {
+      const row = await ctx.db.get('groceryItems', id);
+      if (row !== null && !row.atHome) await foldIntoSibling(ctx, row);
+    }
+    return changed;
+  },
+});
+
+/** Adds an open row's amount to another open row of its sibling group and deletes it. */
+async function foldIntoSibling(ctx: MutationCtx, row: Doc<'groceryItems'>) {
+  if (row.qty === undefined) return;
+  const key = siblingKey(row);
+  const sibling = (
+    await ctx.db
+      .query('groceryItems')
+      .withIndex('by_list', (q) => q.eq('listId', row.listId))
+      .collect()
+  ).find(
+    (r) =>
+      r._id !== row._id &&
+      !r.removed &&
+      !r.checked &&
+      !r.atHome &&
+      r.qty !== undefined &&
+      siblingKey(r) === key,
+  );
+  if (sibling === undefined) return;
+  const base = toBase(sibling.qty!, sibling.unit) + toBase(row.qty, row.unit);
+  await ctx.db.patch('groceryItems', sibling._id, { qty: cleanQty(fromBase(base, sibling.unit)) });
+  await ctx.db.delete('groceryItems', row._id);
+}
+
+/**
+ * Says how much of a line the family has at home ("4 of the 12 carrots"), so only the rest is
+ * left to buy. `itemIds` name the line; the server takes every row of that item on that list,
+ * open and at home alike, so the amount is absolute: afterwards that much (at most everything)
+ * is at home and the rest is open, however often it is sent and whatever ids the caller had.
+ * 0 puts it all back on the list. See `setAtHomeOnRows` for how rows are split. Returns the open
+ * rows behind the line afterwards.
+ */
+export const setAtHomeAmount = mutation({
+  args: {
+    itemIds: v.array(v.id('groceryItems')),
+    qty: v.number(),
+    unit: v.optional(v.string()),
+  },
+  handler: async (ctx, { itemIds, qty, unit }) => {
+    if (!Number.isFinite(qty) || qty < 0) throw new ConvexError({ code: 'INVALID_AMOUNT' });
+    if (unit !== undefined && !isUnit(unit)) throw new ConvexError({ code: 'INVALID_AMOUNT' });
+    const given = (await loadRows(ctx, itemIds)).filter((r) => !r.removed);
+    if (given.length === 0) return [];
+    const rows = await itemRowsOnList(ctx, given[0]);
+    await setAtHomeOnRows(ctx, rows, toBase(qty, unit), unit);
+    const open: Id<'groceryItems'>[] = [];
+    for (const row of await itemRowsOnList(ctx, given[0])) if (!row.atHome) open.push(row._id);
+    return open;
   },
 });

@@ -175,6 +175,78 @@ describe('planning a dinner', () => {
     ]);
   });
 
+  test('part of a line at home: only the rest is bought, and it follows servings', async () => {
+    const { t, kari, groupId, recipeId } = await family();
+    const entryId = await kari.as.mutation(api.mealPlan.set, {
+      groupId,
+      date: TUESDAY,
+      recipeId,
+      servings: 12,
+    });
+    const onionRows = async () =>
+      (await t.run((ctx) => ctx.db.query('groceryItems').collect()))
+        .filter((i) => i.name === 'Onion' && !i.removed)
+        .map((i) => [i.qty, i.atHome ?? false])
+        .sort((a, b) => Number(a[1]) - Number(b[1]));
+    const onion = await rowId(t, 'Onion');
+    // 6 onions for 12 servings; 4 at home.
+    const open = await kari.as.mutation(api.grocery.setAtHomeAmount, {
+      itemIds: [onion],
+      qty: 4,
+      unit: 'pcs',
+    });
+    expect(open).toEqual([onion]);
+    expect(await onionRows()).toEqual([
+      [2, false],
+      [4, true],
+    ]);
+    // Up to 16 servings (8 onions): the at-home part stays, the rest grows.
+    await kari.as.mutation(api.mealPlan.setServings, { entryId, servings: 16 });
+    expect(await onionRows()).toEqual([
+      [4, false],
+      [4, true],
+    ]);
+    // Down to 4 servings (2 onions): nothing left to buy.
+    await kari.as.mutation(api.mealPlan.setServings, { entryId, servings: 4 });
+    expect(await onionRows()).toEqual([[4, true]]);
+    // Back up to 12, then all back on the list: one row of 6 again.
+    await kari.as.mutation(api.mealPlan.setServings, { entryId, servings: 12 });
+    const ids = (await t.run((ctx) => ctx.db.query('groceryItems').collect()))
+      .filter((i) => i.name === 'Onion')
+      .map((i) => i._id);
+    await kari.as.mutation(api.grocery.setAtHome, { itemIds: ids, atHome: false });
+    expect(await onionRows()).toEqual([[6, false]]);
+    // Removing the dinner takes a partly-at-home line off entirely.
+    await kari.as.mutation(api.grocery.setAtHomeAmount, { itemIds: ids, qty: 1, unit: 'pcs' });
+    await kari.as.mutation(api.mealPlan.remove, { entryId });
+    expect(await onionRows()).toEqual([]);
+  });
+
+  test('removing one of two dinners keeps what is at home on the other', async () => {
+    const { t, kari, groupId, recipeId } = await family();
+    const tacos = await kari.as.mutation(api.mealPlan.set, { groupId, date: TUESDAY, recipeId });
+    await kari.as.mutation(api.mealPlan.set, { groupId, date: addDays(TUESDAY, 1), recipeId });
+    const onions = async () =>
+      (await t.run((ctx) => ctx.db.query('groceryItems').collect()))
+        .filter((i) => i.name === 'Onion' && !i.removed)
+        .map((i) => [i.qty, i.atHome ?? false])
+        .sort((a, b) => Number(a[1]) - Number(b[1]) || Number(a[0]) - Number(b[0]));
+    // 2 + 2 onions, 3 at home: the first dinner's 2 and 1 of the second's.
+    await kari.as.mutation(api.grocery.setAtHomeAmount, {
+      itemIds: [await rowId(t, 'Onion')],
+      qty: 3,
+      unit: 'pcs',
+    });
+    expect(await onions()).toEqual([
+      [1, false],
+      [1, true],
+      [2, true],
+    ]);
+    await kari.as.mutation(api.mealPlan.remove, { entryId: tacos });
+    // The second dinner's 2 onions are now both covered.
+    expect(await onions()).toEqual([[2, true]]);
+  });
+
   test('editing the recipe re-syncs planned dinners but leaves edited lines alone', async () => {
     const { t, kari, groupId, recipeId } = await family();
     await kari.as.mutation(api.mealPlan.set, { groupId, date: TUESDAY, recipeId });

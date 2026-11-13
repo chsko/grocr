@@ -152,6 +152,9 @@ export default function GroceriesScreen() {
   const isNew = (line: GroceryLine) => line.itemIds.some((id) => unseen.has(id));
   const newCount = open.filter(isNew).length;
   const home = lines.filter((l) => l.atHome);
+  /** The at-home part of an open line's item, when only part of it is at home. */
+  const homeFor = (line: GroceryLine) =>
+    home.find((h) => h.key === `home|${line.key.slice('open|'.length)}`) ?? null;
   const editing = lines.find((l) => l.key === editingKey) ?? null;
   const cart = lines.filter((l) => l.checked);
   const sections = useMemo(() => {
@@ -169,6 +172,7 @@ export default function GroceriesScreen() {
   const dinnerCount = useMemo(() => new Set(lines.flatMap((l) => l.entryIds)).size, [lines]);
 
   function sourceText(line: GroceryLine) {
+    const homeAmount = formatAmounts(t, i18n.language, homeFor(line)?.amounts ?? []);
     const meals = (dinnerCount > 1 ? line.entryIds : [])
       .map((id) => data?.sources[id])
       .filter((s) => s !== undefined)
@@ -177,7 +181,13 @@ export default function GroceriesScreen() {
       .map((id) => data?.addedBy[id])
       .filter(Boolean)
       .map((name) => t('groceries.addedBy', { name }));
-    return [...meals, ...people].join(' · ');
+    return [
+      homeAmount ? t('groceries.partAtHome', { amount: homeAmount }) : '',
+      ...meals,
+      ...people,
+    ]
+      .filter(Boolean)
+      .join(' · ');
   }
 
   /** Called when an open line leaves for the cart or the at-home group. */
@@ -634,6 +644,8 @@ export default function GroceriesScreen() {
                           accessibilityRole="button"
                           accessibilityLabel={t('groceries.markAtHome', { name: line.name })}
                           onPress={() => markAtHome(line, true)}
+                          // Long press asks how much is at home ("4 of the 12 carrots").
+                          onLongPress={() => setEditingKey(line.key)}
                           hitSlop={{ top: 6, bottom: 6, left: 4, right: 8 }}
                           style={({ pressed }) => [styles.homeButton, pressed && { opacity: 0.5 }]}>
                           <AtHome color={colors.muted} size={20} strokeWidth={1.8} />
@@ -757,6 +769,7 @@ export default function GroceriesScreen() {
         <GroceryLineEditor
           key={editing.key}
           line={editing}
+          homeLine={homeFor(editing)}
           isStaple={
             editing.ingredientId !== null &&
             data!.stapleIds.some((id) => id === editing.ingredientId)

@@ -65,9 +65,11 @@ const mockSetStaple = jest.fn((_args: unknown) => Promise.resolve(null));
 const mockAddStaple = jest.fn((_args: unknown) => Promise.resolve('ing-new'));
 const mockMarkSeen = jest.fn((_args: unknown) => Promise.resolve(null));
 const mockMoveOpen = jest.fn((_args: unknown) => Promise.resolve(2));
+const mockSetAtHomeAmount = jest.fn((_args: unknown) => Promise.resolve(['i0']));
 const mockMutations: Record<string, unknown> = {
   'grocery.markSeen': mockMarkSeen,
   'grocery.moveOpen': mockMoveOpen,
+  'grocery.setAtHomeAmount': mockSetAtHomeAmount,
   'grocery.setChecked': { withOptimisticUpdate: () => mockSetChecked },
   'grocery.addStaples': { withOptimisticUpdate: () => mockAddStaples },
   'grocery.dismissStaples': { withOptimisticUpdate: () => mockDismissStaples },
@@ -930,7 +932,7 @@ describe('grocery line editor', () => {
     const onClose = jest.fn();
     await render(
       <SessionContext.Provider value={me}>
-        <GroceryLineEditor line={line} isStaple={false} onClose={onClose} />
+        <GroceryLineEditor line={line} homeLine={null} isStaple={false} onClose={onClose} />
       </SessionContext.Provider>,
     );
     await fireEvent.press(screen.getByText('Frozen'));
@@ -945,7 +947,7 @@ describe('grocery line editor', () => {
     mockSetStaple.mockClear();
     const view = await render(
       <SessionContext.Provider value={me}>
-        <GroceryLineEditor line={line} isStaple={false} onClose={jest.fn()} />
+        <GroceryLineEditor line={line} homeLine={null} isStaple={false} onClose={jest.fn()} />
       </SessionContext.Provider>,
     );
     await fireEvent.press(screen.getByRole('switch', { name: 'Buy every week' }));
@@ -953,7 +955,7 @@ describe('grocery line editor', () => {
     await view.rerender(
       <SafeAreaProvider initialMetrics={metrics}>
         <SessionContext.Provider value={me}>
-          <GroceryLineEditor line={line} isStaple onClose={jest.fn()} />
+          <GroceryLineEditor line={line} homeLine={null} isStaple onClose={jest.fn()} />
         </SessionContext.Provider>
       </SafeAreaProvider>,
     );
@@ -966,12 +968,57 @@ describe('grocery line editor', () => {
     mockEditMerged.mockClear();
     await render(
       <SessionContext.Provider value={me}>
-        <GroceryLineEditor line={line} isStaple={false} onClose={jest.fn()} />
+        <GroceryLineEditor line={line} homeLine={null} isStaple={false} onClose={jest.fn()} />
       </SessionContext.Provider>,
     );
     await fireEvent.changeText(screen.getByDisplayValue('4'), '3');
     await act(() => fireEvent.press(screen.getByText('Save')));
     expect(mockEditMerged).toHaveBeenCalledWith({ itemIds: ['i0', 'i1'], qty: 3, unit: 'pcs' });
+  });
+
+  test('"Have at home" counts against the whole need and leaves the rest to buy', async () => {
+    await i18n.changeLanguage('en');
+    mockEditMerged.mockClear();
+    mockSetAtHomeAmount.mockClear();
+    // 4 onions to buy, and 2 already marked at home: 6 in all.
+    const homeLine = {
+      ...line,
+      key: 'home|ing-onion',
+      atHome: true,
+      itemIds: ['h0'],
+      amounts: [{ qty: 2, unit: 'pcs' as const }],
+    };
+    await render(
+      <SessionContext.Provider value={me}>
+        <GroceryLineEditor line={line} homeLine={homeLine} isStaple={false} onClose={jest.fn()} />
+      </SessionContext.Provider>,
+    );
+    const field = screen.getByLabelText('Have at home (pcs)');
+    expect(field.props.value).toBe('2');
+    await fireEvent.changeText(field, '5');
+    expect(screen.getByText('Of 6 pcs, so 1 pcs left to buy')).toBeTruthy();
+    await act(() => fireEvent.press(screen.getByText('Save')));
+    expect(mockSetAtHomeAmount).toHaveBeenCalledWith({
+      itemIds: ['i0', 'i1', 'h0'],
+      qty: 5,
+      unit: 'pcs',
+    });
+    expect(mockEditMerged).not.toHaveBeenCalled();
+  });
+
+  test('items without one amount do not offer "Have at home"', async () => {
+    await i18n.changeLanguage('en');
+    await render(
+      <SessionContext.Provider value={me}>
+        <GroceryLineEditor
+          line={{ ...line, amounts: [{}] }}
+          homeLine={null}
+          isStaple={false}
+          onClose={jest.fn()}
+        />
+      </SessionContext.Provider>,
+    );
+    expect(screen.queryByLabelText(/Have at home/)).toBeNull();
   });
 });
 

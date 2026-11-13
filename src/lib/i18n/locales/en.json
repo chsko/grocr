@@ -233,6 +233,10 @@
     "markAtHome": "Have at home: {{name}}",
     "atHome": "At home · {{count}}",
     "backOnList": "Put {{name}} back on the list",
+    "haveAtHome": "Have at home",
+    "haveAtHomeUnit": "Have at home ({{unit}})",
+    "toBuyAfterHome": "Of {{total}}, so {{rest}} left to buy",
+    "partAtHome": "{{amount}} at home",
     "clearChecked": "Clear checked",
     "amount": "Amount",
     "removeLine": "Remove from list",
@@ -516,6 +520,10 @@
       "moveOpen": {
         "title": "Move what's left to next week",
         "body": "Didn't get everything? At the bottom of a week's grocery list, move the unfinished items to the next week. They join that week's list, and the same item is shown as one line."
+      },
+      "partAtHome": {
+        "title": "Some of it at home",
+        "body": "Need 12 carrots and have 4? Hold the house on a grocery item and type 4. The list then says 8 to buy, and it stays right if you change servings."
       }
     }
   },

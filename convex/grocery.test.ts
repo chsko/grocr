@@ -421,6 +421,130 @@ describe('grocery.setAtHome', () => {
   });
 });
 
+describe('grocery.setAtHomeAmount', () => {
+  async function carrots(qty: number[], unit?: string) {
+    const t = setup();
+    const ada = await signedInUser(t, 'ada');
+    const groupId = await groupWithMembers(t, [ada.userId]);
+    const { itemIds } = await listWithItems(
+      t,
+      groupId,
+      MONDAY,
+      qty.map(() => 'Carrot'),
+    );
+    await t.run(async (ctx) => {
+      for (const [i, id] of itemIds.entries()) await ctx.db.patch(id, { qty: qty[i], unit });
+    });
+    const state = async () =>
+      (await t.run((ctx) => ctx.db.query('groceryItems').collect()))
+        .map((i) => [i.qty, i.unit, i.atHome ?? false])
+        .sort((a, b) => Number(a[2]) - Number(b[2]) || Number(a[0]) - Number(b[0]));
+    const allIds = async () =>
+      (await ada.as.query(api.grocery.listForWeek, { groupId, startDate: MONDAY })).items.map(
+        (i) => i._id,
+      );
+    return { t, ada, groupId, itemIds, state, allIds };
+  }
+
+  test('splits off what is at home, absolutely and idempotently', async () => {
+    const { ada, itemIds, state, allIds } = await carrots([12]);
+    const set = async (qty: number, ids = itemIds) =>
+      await ada.as.mutation(api.grocery.setAtHomeAmount, { itemIds: ids, qty });
+    // The part still to buy keeps the line's id.
+    expect(await set(4)).toEqual(itemIds);
+    expect(await state()).toEqual([
+      [8, undefined, false],
+      [4, undefined, true],
+    ]);
+    const both = await allIds();
+    await set(4, both);
+    expect(await state()).toEqual([
+      [8, undefined, false],
+      [4, undefined, true],
+    ]);
+    await set(5, both);
+    expect(await state()).toEqual([
+      [7, undefined, false],
+      [5, undefined, true],
+    ]);
+    expect(await set(20, both)).toEqual([]);
+    expect(await state()).toEqual([[12, undefined, true]]);
+    expect(await set(0, await allIds())).toHaveLength(1);
+    expect(await state()).toEqual([[12, undefined, false]]);
+  });
+
+  test('a resend with the ids from before the split does not stack', async () => {
+    const { ada, itemIds, state } = await carrots([12]);
+    // A double tap, a resend, or a second member with the editor open on the unsplit line.
+    await ada.as.mutation(api.grocery.setAtHomeAmount, { itemIds, qty: 4 });
+    await ada.as.mutation(api.grocery.setAtHomeAmount, { itemIds, qty: 4 });
+    expect(await state()).toEqual([
+      [8, undefined, false],
+      [4, undefined, true],
+    ]);
+  });
+
+  test('converts within a unit family and leaves other units and amounts alone', async () => {
+    const { t, ada, itemIds, state } = await carrots([1, 500], 'g');
+    await t.run((ctx) => ctx.db.patch(itemIds[0], { qty: 1, unit: 'kg' }));
+    // 1 kg + 500 g, of which 0.2 kg is at home.
+    await ada.as.mutation(api.grocery.setAtHomeAmount, { itemIds, qty: 0.2, unit: 'kg' });
+    // Both rows are one sibling group: one row keeps the rest, the other holds what is at home.
+    expect(await state()).toEqual([
+      [1.3, 'kg', false],
+      [200, 'g', true],
+    ]);
+    // A count does not touch rows in grams.
+    await ada.as.mutation(api.grocery.setAtHomeAmount, {
+      itemIds: (await t.run((ctx) => ctx.db.query('groceryItems').collect())).map((i) => i._id),
+      qty: 3,
+      unit: 'pcs',
+    });
+    expect(await state()).toEqual([
+      [1.3, 'kg', false],
+      [200, 'g', true],
+    ]);
+  });
+
+  test('putting the at-home part back merges it into the line again', async () => {
+    const { ada, itemIds, state, allIds } = await carrots([12]);
+    await ada.as.mutation(api.grocery.setAtHomeAmount, { itemIds, qty: 4 });
+    const home = (await allIds()).filter((id) => id !== itemIds[0]);
+    expect(await ada.as.mutation(api.grocery.setAtHome, { itemIds: home, atHome: false })).toBe(1);
+    expect(await state()).toEqual([[12, undefined, false]]);
+    expect(await allIds()).toEqual(itemIds);
+  });
+
+  test('bought rows are left alone', async () => {
+    const { ada, itemIds, state } = await carrots([5, 5]);
+    await ada.as.mutation(api.grocery.setChecked, { itemIds: [itemIds[0]], checked: true });
+    await ada.as.mutation(api.grocery.setAtHomeAmount, { itemIds, qty: 7 });
+    const rows = await state();
+    expect(rows).toEqual([
+      [5, undefined, false],
+      [5, undefined, true],
+    ]);
+  });
+
+  test('rejects bad amounts and other families', async () => {
+    const { t, ada, itemIds } = await carrots([12]);
+    const eve = await signedInUser(t, 'eve');
+    await groupWithMembers(t, [eve.userId]);
+    await expect(
+      ada.as.mutation(api.grocery.setAtHomeAmount, { itemIds, qty: -1 }),
+    ).rejects.toThrow(/INVALID_AMOUNT/);
+    await expect(
+      ada.as.mutation(api.grocery.setAtHomeAmount, { itemIds, qty: 1, unit: 'bucket' }),
+    ).rejects.toThrow(/INVALID_AMOUNT/);
+    await expect(eve.as.mutation(api.grocery.setAtHomeAmount, { itemIds, qty: 1 })).rejects.toThrow(
+      /NOT_FOUND/,
+    );
+    await expect(t.mutation(api.grocery.setAtHomeAmount, { itemIds, qty: 1 })).rejects.toThrow(
+      /UNAUTHENTICATED/,
+    );
+  });
+});
+
 test('editing a merged line puts a row marked at home meanwhile back on the list', async () => {
   const t = setup();
   const ada = await signedInUser(t, 'ada');

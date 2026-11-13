@@ -111,6 +111,18 @@ function family(unit: Unit | undefined): 'mass' | 'volume' | undefined {
   return undefined;
 }
 
+/**
+ * Converts an amount between units of one family (g <-> kg, ml <-> dl), or keeps it for the same
+ * unit. Undefined when the units do not convert (pieces to grams, cans to pieces).
+ */
+export function convertQty(qty: number, from: Unit | undefined, to: Unit | undefined) {
+  if (from === to) return qty;
+  const f = family(from);
+  if (f === undefined || f !== family(to)) return undefined;
+  const table = f === 'mass' ? MASS : VOLUME;
+  return Math.round(((qty * table[from!]!) / table[to!]!) * 1e6) / 1e6;
+}
+
 /** Rounds a scaled amount to a sensible step for its unit. */
 export function roundQty(qty: number, unit: Unit | undefined): number {
   if (unit !== undefined && WHOLE.has(unit)) return Math.max(1, Math.ceil(qty - 1e-9));

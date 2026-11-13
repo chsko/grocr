@@ -233,6 +233,10 @@
     "markAtHome": "Har hjemme: {{name}}",
     "atHome": "Har hjemme · {{count}}",
     "backOnList": "Sett {{name}} på listen igjen",
+    "haveAtHome": "Har hjemme",
+    "haveAtHomeUnit": "Har hjemme ({{unit}})",
+    "toBuyAfterHome": "Av {{total}}, så {{rest}} igjen å kjøpe",
+    "partAtHome": "{{amount}} hjemme",
     "clearChecked": "Fjern avkryssede",
     "amount": "Mengde",
     "removeLine": "Fjern fra listen",
@@ -516,6 +520,10 @@
       "moveOpen": {
         "title": "Flytt resten til neste uke",
         "body": "Fikk dere ikke handlet alt? Nederst på ukas handleliste kan du flytte det som gjenstår til neste uke. Varene havner på den ukas liste, og like varer vises som én linje."
+      },
+      "partAtHome": {
+        "title": "Noe av det hjemme",
+        "body": "Trenger dere 12 gulrøtter og har 4? Hold inne huset på en vare og skriv 4. Da står det 8 å kjøpe, og det stemmer fortsatt om du endrer porsjoner."
       }
     }
   },
