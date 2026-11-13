@@ -76,8 +76,8 @@ describe("what's new sheet", () => {
     expect(screen.queryByText('New in Grocr')).toBeNull();
     await act(() => jest.advanceTimersByTime(1000));
     expect(screen.getByText('New in Grocr')).toBeTruthy();
-    expect(screen.getByText('Always the right week')).toBeTruthy();
-    expect(screen.queryByText('Link to a recipe online')).toBeNull();
+    expect(screen.getByText("Move what's left to next week")).toBeTruthy();
+    expect(screen.queryByText('Always the right week')).toBeNull();
   });
 
   test('stays away when everything is seen, or before the tour is done', async () => {
@@ -130,9 +130,11 @@ describe("what's new sheet", () => {
 
   test('"Show me" closes it and opens the feature', async () => {
     await openSheet(me(LATEST_WHATS_NEW - 1));
-    await fireEvent.press(screen.getByRole('link', { name: 'Show me: Always the right week' }));
+    await fireEvent.press(
+      screen.getByRole('link', { name: "Show me: Move what's left to next week" }),
+    );
     expect(mockSee).toHaveBeenCalledWith({ upTo: LATEST_WHATS_NEW });
-    expect(mockRouter.navigate).toHaveBeenCalledWith('/week');
+    expect(mockRouter.navigate).toHaveBeenCalledWith('/groceries');
     expect(screen.queryByText('New in Grocr')).toBeNull();
   });
 
@@ -140,7 +142,7 @@ describe("what's new sheet", () => {
     await i18n.changeLanguage('nb');
     await openSheet(me(LATEST_WHATS_NEW - 1));
     expect(screen.getByText('Nytt i Grocr')).toBeTruthy();
-    expect(screen.getByText('Alltid riktig uke')).toBeTruthy();
+    expect(screen.getByText('Flytt resten til neste uke')).toBeTruthy();
     expect(screen.getByText('Fint')).toBeTruthy();
   });
 });

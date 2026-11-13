@@ -218,6 +218,14 @@
     "carryBody": "Vil du flytte dem til denne uka?",
     "carryMove_one": "Flytt {{count}} vare",
     "carryMove_other": "Flytt {{count}} varer",
+    "moveOpen_one": "Flytt {{count}} vare som gjenstår til {{week}}",
+    "moveOpen_other": "Flytt {{count}} varer som gjenstår til {{week}}",
+    "moveTitle_one": "Flytte {{count}} vare til {{week}}?",
+    "moveTitle_other": "Flytte {{count}} varer til {{week}}?",
+    "moveBody": "De havner på listen for {{week}}, sammen med det som allerede står der. Kjøpte varer og det dere har hjemme blir igjen.",
+    "moveConfirm": "Flytt",
+    "movedTo_one": "Flyttet {{count}} vare til {{week}}",
+    "movedTo_other": "Flyttet {{count}} varer til {{week}}",
     "carryDismiss": "Nei takk",
     "allShopped": "Alt er handlet",
     "allShoppedBody": "Alt på listen ligger i kurven eller er hjemme.",
@@ -504,6 +512,10 @@
       "rightWeek": {
         "title": "Alltid riktig uke",
         "body": "Grocr husker uka du var på, og begynner på riktig uke når en ny uke starter. Tidligere uker er grå, denne uka er gul, og feltet sier hvilken uke du legger til i. Velg hvilken dag uka starter under Familie › Uka starter på."
+      },
+      "moveOpen": {
+        "title": "Flytt resten til neste uke",
+        "body": "Fikk dere ikke handlet alt? Nederst på ukas handleliste kan du flytte det som gjenstår til neste uke. Varene havner på den ukas liste, og like varer vises som én linje."
       }
     }
   },

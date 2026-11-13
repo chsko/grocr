@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
 import { api } from './_generated/api';
+import { mergeRows } from './lib/merge';
 import { groupWithMembers, listWithItems, setup, signedInUser } from './test.setup';
 
 const MONDAY = '2026-10-26';
@@ -258,6 +259,80 @@ describe('manual items and list upkeep', () => {
     await expect(
       ada.as.mutation(api.grocery.editMerged, { itemIds: [...a.itemIds, ...b.itemIds], qty: 1 }),
     ).rejects.toThrow(/NOT_FOUND/);
+  });
+});
+
+describe('grocery.moveOpen', () => {
+  const NEXT = '2026-11-02';
+
+  test("moves a week's open rows to the next week and merges them with what is there", async () => {
+    const t = setup();
+    const ada = await signedInUser(t, 'Ada');
+    const groupId = await groupWithMembers(t, [ada.userId]);
+    const { itemIds } = await listWithItems(t, groupId, MONDAY, ['Milk', 'Bread', 'Eggs', 'Tea']);
+    await listWithItems(t, groupId, NEXT, ['Milk']);
+    await ada.as.mutation(api.grocery.setChecked, { itemIds: [itemIds[1]], checked: true });
+    await ada.as.mutation(api.grocery.setAtHome, { itemIds: [itemIds[2]], atHome: true });
+
+    expect(await ada.as.mutation(api.grocery.moveOpen, { groupId, from: MONDAY, to: NEXT })).toBe(
+      2,
+    );
+    const from = await ada.as.query(api.grocery.listForWeek, { groupId, startDate: MONDAY });
+    expect(from.items.map((i) => i.name).sort()).toEqual(['Bread', 'Eggs']);
+    const to = await ada.as.query(api.grocery.listForWeek, { groupId, startDate: NEXT });
+    expect(to.items.map((i) => i.name).sort()).toEqual(['Milk', 'Milk', 'Tea']);
+    expect(mergeRows(to.items).map((l) => [l.name, l.itemIds.length])).toEqual([
+      ['Milk', 2],
+      ['Tea', 1],
+    ]);
+    // A resend finds nothing left to move.
+    expect(await ada.as.mutation(api.grocery.moveOpen, { groupId, from: MONDAY, to: NEXT })).toBe(
+      0,
+    );
+  });
+
+  test('creates the target list, and moved rows count as edited so sync keeps them', async () => {
+    const t = setup();
+    const ada = await signedInUser(t, 'Ada');
+    const groupId = await groupWithMembers(t, [ada.userId]);
+    const { itemIds } = await listWithItems(t, groupId, MONDAY, ['Onion']);
+    expect(await ada.as.mutation(api.grocery.moveOpen, { groupId, from: MONDAY, to: NEXT })).toBe(
+      1,
+    );
+    const row = await t.run((ctx) => ctx.db.get(itemIds[0]));
+    const list = await t.run((ctx) => ctx.db.get(row!.listId));
+    expect(list).toMatchObject({ startDate: NEXT, endDate: '2026-11-08' });
+    expect(row?.edited).toBe(true);
+  });
+
+  test('a week with no list moves nothing; bad or backward weeks are refused', async () => {
+    const t = setup();
+    const ada = await signedInUser(t, 'Ada');
+    const groupId = await groupWithMembers(t, [ada.userId]);
+    expect(await ada.as.mutation(api.grocery.moveOpen, { groupId, from: MONDAY, to: NEXT })).toBe(
+      0,
+    );
+    await listWithItems(t, groupId, NEXT, ['Milk']);
+    await expect(
+      ada.as.mutation(api.grocery.moveOpen, { groupId, from: NEXT, to: MONDAY }),
+    ).rejects.toThrow(/INVALID_DATE/);
+    await expect(
+      ada.as.mutation(api.grocery.moveOpen, { groupId, from: NEXT, to: '2026-11-10' }),
+    ).rejects.toThrow(/INVALID_DATE/);
+  });
+
+  test("another family can't move this family's list", async () => {
+    const t = setup();
+    const ada = await signedInUser(t, 'Ada');
+    const eve = await signedInUser(t, 'Eve');
+    const groupId = await groupWithMembers(t, [ada.userId]);
+    await groupWithMembers(t, [eve.userId]);
+    const { listId } = await listWithItems(t, groupId, MONDAY, ['Milk']);
+    await expect(
+      eve.as.mutation(api.grocery.moveOpen, { groupId, from: MONDAY, to: NEXT }),
+    ).rejects.toThrow(/NOT_FOUND/);
+    const rows = await t.run((ctx) => ctx.db.query('groceryItems').collect());
+    expect(rows.map((r) => r.listId)).toEqual([listId]);
   });
 });
 

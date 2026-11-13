@@ -35,6 +35,7 @@ import { useFreshIds } from '@/lib/fresh-ids';
 import { newSince, useSeenSince } from '@/lib/list-seen';
 import { EASE_OUT, fadeIn, fadeOut, reflow } from '@/lib/motion';
 import { useShownWeek } from '@/lib/shown-week';
+import { addDays } from '@/lib/week';
 
 /** Suggestions under the add field; more would push the list itself off screen. */
 const MAX_SUGGESTIONS = 5;
@@ -105,6 +106,9 @@ export default function GroceriesScreen() {
   const addManual = useMutation(api.grocery.addManual);
   const clearChecked = useMutation(api.grocery.clearChecked);
   const carryOver = useMutation(api.grocery.carryOver);
+  const moveOpen = useMutation(api.grocery.moveOpen);
+  // A move on its way, so a double tap on the confirm does not send a second one.
+  const moving = useRef(false);
 
   const [text, setText] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
@@ -315,6 +319,39 @@ export default function GroceriesScreen() {
         style: 'destructive',
         onPress: () => void attempt(t, () => clearChecked(args)),
       },
+    ]);
+  }
+
+  // Where "Move unfinished" sends the open lines (#74): the next week, or this week for a list
+  // whose next week is over too.
+  const nextWeek = addDays(startDate, 7);
+  const moveTo = nextWeek < thisWeek ? thisWeek : nextWeek;
+
+  /** Moves the open lines to `moveTo`, after asking, and follows them there. */
+  function confirmMove() {
+    const count = open.length;
+    const week = weekTitle(t, moveTo);
+    const run = async () => {
+      if (moving.current) return;
+      moving.current = true;
+      const moved = await attempt(t, () =>
+        moveOpen({ groupId: family.groupId, from: startDate, to: moveTo }),
+      );
+      moving.current = false;
+      // Nothing left: someone else moved or bought them first, and the list already shows that.
+      if (moved === undefined || moved === 0) return;
+      shown.setStartDate(moveTo);
+      AccessibilityInfo.announceForAccessibility(t('groceries.movedTo', { count, week }));
+    };
+    const title = t('groceries.moveTitle', { count, week });
+    const body = t('groceries.moveBody', { week });
+    if (Platform.OS === 'web') {
+      if (globalThis.confirm?.(`${title}\n\n${body}`)) void run();
+      return;
+    }
+    Alert.alert(title, body, [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('groceries.moveConfirm'), onPress: () => void run() },
     ]);
   }
 
@@ -608,6 +645,21 @@ export default function GroceriesScreen() {
               </Animated.View>
             ))}
 
+            {open.length > 0 ? (
+              <Animated.View entering={fadeIn} exiting={fadeOut} layout={reflow}>
+                <Pressable
+                  testID="move-open"
+                  accessibilityRole="button"
+                  onPress={confirmMove}
+                  style={({ pressed }) => [styles.moveOpen, pressed && { opacity: 0.6 }]}>
+                  <Text variant="item" color={colors.tomato} style={styles.moveOpenText}>
+                    {t('groceries.moveOpen', { count: open.length, week: weekTitle(t, moveTo) })}
+                  </Text>
+                  <ChevronRight color={colors.tomato} size={18} />
+                </Pressable>
+              </Animated.View>
+            ) : null}
+
             {home.length > 0 ? (
               <Animated.View
                 entering={fadeIn}
@@ -856,6 +908,15 @@ const useStyles = makeStyles((colors) => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  moveOpen: {
+    marginTop: 12,
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 4,
+  },
+  moveOpenText: { fontSize: 15, fontFamily: Fonts.bold, flexShrink: 1, textAlign: 'right' },
   cartHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   cartLine: {
     minHeight: 48,

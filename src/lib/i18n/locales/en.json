@@ -218,6 +218,14 @@
     "carryBody": "Move them to this week?",
     "carryMove_one": "Move {{count}} item",
     "carryMove_other": "Move {{count}} items",
+    "moveOpen_one": "Move {{count}} unfinished item to {{week}}",
+    "moveOpen_other": "Move {{count}} unfinished items to {{week}}",
+    "moveTitle_one": "Move {{count}} item to {{week}}?",
+    "moveTitle_other": "Move {{count}} items to {{week}}?",
+    "moveBody": "They go on {{week}}'s list, together with what's already there. Bought items and things you have at home stay.",
+    "moveConfirm": "Move",
+    "movedTo_one": "Moved {{count}} item to {{week}}",
+    "movedTo_other": "Moved {{count}} items to {{week}}",
     "carryDismiss": "No thanks",
     "allShopped": "All shopped",
     "allShoppedBody": "Everything on the list is in the cart or at home.",
@@ -504,6 +512,10 @@
       "rightWeek": {
         "title": "Always the right week",
         "body": "Grocr remembers the week you were on, and starts over on the right week when a new one begins. Past weeks are grey, this week is yellow, and the add field says which week you add to. Pick the day your week starts under Family › Week starts on."
+      },
+      "moveOpen": {
+        "title": "Move what's left to next week",
+        "body": "Didn't get everything? At the bottom of a week's grocery list, move the unfinished items to the next week. They join that week's list, and the same item is shown as one line."
       }
     }
   },

@@ -64,8 +64,10 @@ const mockDismissStaples = jest.fn((_args: unknown) => Promise.resolve(null));
 const mockSetStaple = jest.fn((_args: unknown) => Promise.resolve(null));
 const mockAddStaple = jest.fn((_args: unknown) => Promise.resolve('ing-new'));
 const mockMarkSeen = jest.fn((_args: unknown) => Promise.resolve(null));
+const mockMoveOpen = jest.fn((_args: unknown) => Promise.resolve(2));
 const mockMutations: Record<string, unknown> = {
   'grocery.markSeen': mockMarkSeen,
+  'grocery.moveOpen': mockMoveOpen,
   'grocery.setChecked': { withOptimisticUpdate: () => mockSetChecked },
   'grocery.addStaples': { withOptimisticUpdate: () => mockAddStaples },
   'grocery.dismissStaples': { withOptimisticUpdate: () => mockDismissStaples },
@@ -552,6 +554,44 @@ describe('groceries', () => {
     );
     // It also went back to the shopping week.
     expect(shopping()).toBe(shoppingWeek);
+    alert.mockRestore();
+  });
+
+  test('moves the unfinished lines to the next week, or to this week from an older list (#74)', async () => {
+    await i18n.changeLanguage('en');
+    const alert = jest.spyOn(Alert, 'alert');
+    mockUseQuery.mockReturnValue(
+      list([row('i1', 'Milk'), row('i2', 'Butter'), row('i3', 'Cheese', true)]),
+    );
+    await render(
+      <SessionContext.Provider value={me}>
+        <GroceriesScreen />
+      </SessionContext.Provider>,
+    );
+    const shown = () =>
+      mockUseQuery.mock.calls
+        .map((c) => (c[1] as { startDate?: string } | undefined)?.startDate)
+        .filter(Boolean)
+        .at(-1);
+    // Wednesday 4 November: this week is week 45; the at-home cheese stays.
+    await fireEvent.press(screen.getByText('Move 2 unfinished items to Week 46'));
+    const [title, , buttons] = alert.mock.calls.at(-1)!;
+    expect(title).toBe('Move 2 items to Week 46?');
+    await act(() => buttons!.at(-1)!.onPress!());
+    expect(mockMoveOpen).toHaveBeenCalledWith({
+      groupId: 'g1',
+      from: '2026-11-02',
+      to: '2026-11-09',
+    });
+    // It follows the lines to the week they went to.
+    expect(shown()).toBe('2026-11-09');
+
+    // Two weeks back, the next week is over too, so they go to this week.
+    await fireEvent.press(screen.getByLabelText('Previous week'));
+    await fireEvent.press(screen.getByLabelText('Previous week'));
+    await fireEvent.press(screen.getByLabelText('Previous week'));
+    expect(shown()).toBe('2026-10-19');
+    expect(screen.getByText('Move 2 unfinished items to Week 45')).toBeTruthy();
     alert.mockRestore();
   });
 

@@ -412,8 +412,33 @@ export const clearChecked = mutation({
 });
 
 /**
- * Moves last week's unchecked rows (not the ones someone had at home) to this week's list as manual items, or (with `move` false)
- * just stops offering to. Either way the offer is gone for this week.
+ * Moves a list's open rows (not bought, not at home, not removed) to another list, where they
+ * merge with lines of the same item. Things someone had at home were never needed, so they stay
+ * behind. Meal rows keep their dinner but count as edited, so syncing that dinner later neither
+ * duplicates them nor pulls them back. Returns how many rows moved.
+ */
+async function moveOpenRows(
+  ctx: MutationCtx,
+  fromListId: Id<'groceryLists'>,
+  toListId: Id<'groceryLists'>,
+) {
+  const open = await ctx.db
+    .query('groceryItems')
+    .withIndex('by_list', (q) => q.eq('listId', fromListId))
+    .filter((q) => q.eq(q.field('checked'), false))
+    .collect();
+  let moved = 0;
+  for (const row of open) {
+    if (row.removed || row.atHome) continue;
+    await ctx.db.patch('groceryItems', row._id, { listId: toListId, edited: true });
+    moved++;
+  }
+  return moved;
+}
+
+/**
+ * Moves last week's open rows to this week's list, or (with `move` false) just stops offering
+ * to. Either way the offer is gone for this week.
  */
 export const carryOver = mutation({
   args: { groupId: v.id('groups'), startDate: v.string(), move: v.boolean() },
@@ -422,23 +447,29 @@ export const carryOver = mutation({
     const listId = await weekList(ctx, groupId, startDate);
     let moved = 0;
     const previous = await findList(ctx, groupId, addDays(startDate, -7));
-    if (move && previous !== null) {
-      const open = await ctx.db
-        .query('groceryItems')
-        .withIndex('by_list', (q) => q.eq('listId', previous._id))
-        .filter((q) => q.eq(q.field('checked'), false))
-        .collect();
-      for (const row of open) {
-        // Things someone had at home were never needed, so they stay behind.
-        if (row.removed || row.atHome) continue;
-        // Meal rows keep their dinner but count as edited, so syncing that dinner later
-        // neither duplicates them nor pulls them back.
-        await ctx.db.patch('groceryItems', row._id, { listId, edited: true });
-        moved++;
-      }
-    }
+    if (move && previous !== null) moved = await moveOpenRows(ctx, previous._id, listId);
     await ctx.db.patch('groceryLists', listId, { carryOverDismissed: true });
     return moved;
+  },
+});
+
+/**
+ * Moves a week's unfinished list to a later week (#74): every open row goes to `to`'s list,
+ * created if missing, and merges with what is there. The app sends the next week, or this week
+ * for an older list. Bought and at-home rows stay. Returns how many rows moved; a resend after
+ * they moved finds none.
+ */
+export const moveOpen = mutation({
+  args: { groupId: v.id('groups'), from: v.string(), to: v.string() },
+  handler: async (ctx, { groupId, from, to }) => {
+    await requireMembership(ctx, groupId);
+    if (!isLocalDate(from) || !isLocalDate(to) || to <= from) {
+      throw new ConvexError({ code: 'INVALID_DATE' });
+    }
+    const source = await findList(ctx, groupId, from);
+    if (source === null) return 0;
+    const listId = await weekList(ctx, groupId, to);
+    return await moveOpenRows(ctx, source._id, listId);
   },
 });
 
