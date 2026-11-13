@@ -1,0 +1,77 @@
+{
+  "configVersion": 0,
+  "apple": {
+    "copyright": "2026 Christian Skovborg Gule",
+    "categories": ["FOOD_AND_DRINK", "PRODUCTIVITY"],
+    "release": {
+      "automaticRelease": false
+    },
+    "advisory": {
+      "alcoholTobaccoOrDrugUseOrReferences": "NONE",
+      "contests": "NONE",
+      "gamblingSimulated": "NONE",
+      "horrorOrFearThemes": "NONE",
+      "matureOrSuggestiveThemes": "NONE",
+      "medicalOrTreatmentInformation": "NONE",
+      "profanityOrCrudeHumor": "NONE",
+      "sexualContentGraphicAndNudity": "NONE",
+      "sexualContentOrNudity": "NONE",
+      "violenceCartoonOrFantasy": "NONE",
+      "violenceRealistic": "NONE",
+      "violenceRealisticProlongedGraphicOrSadistic": "NONE",
+      "gambling": false,
+      "unrestrictedWebAccess": false,
+      "kidsAgeBand": null,
+      "ageRatingOverride": "NONE",
+      "koreaAgeRatingOverride": "NONE"
+    },
+    "info": {
+      "no": {
+        "title": "Grocr",
+        "subtitle": "Middagsplan og handleliste",
+        "promoText": "Velg ukens middager. Handlelisten skriver seg selv.",
+        "description": "Grocr er familiens middagsplanlegger. Legg inn oppskriftene dere faktisk lager, velg middager for uka, og ingrediensene havner på en felles handleliste som alle i familien ser og krysser av i sanntid.\n\nUKEMENY\nVelg en middag for hver dag, eller la Grocr foreslå en uke ut fra det familien liker best. Du ser med en gang hvilken uke du planlegger.\n\nHANDLELISTE\nÉn liste per uke, sortert etter avdelingene i butikken. Legg til egne varer, merk det dere har hjemme, og ta med det som ble igjen til neste uke. Faste varer kommer på listen av seg selv.\n\nOPPSKRIFTER\nFamiliens egne oppskrifter med ingredienser og fremgangsmåte, eller bare en lenke til oppskriften på nettet. Alle kan gi stjerner, så dere ser hva som er favorittene.\n\nFOR HELE FAMILIEN\nInviter resten av familien med en kode. Alle ser det samme, og endringer vises med en gang på alle telefonene.\n\nGrocr har ingen reklame og ingen sporing. Logg inn med Apple eller Google.",
+        "keywords": [
+          "middag",
+          "ukemeny",
+          "handleliste",
+          "oppskrifter",
+          "familie",
+          "matplan",
+          "handle",
+          "middagsplan",
+          "måltid"
+        ],
+        "marketingUrl": "https://grocr.io",
+        "supportUrl": "https://grocr.io/support",
+        "privacyPolicyUrl": "https://grocr.io/privacy"
+      },
+      "en-US": {
+        "title": "Grocr",
+        "subtitle": "Dinner plan & grocery list",
+        "promoText": "Pick the week's dinners. The grocery list writes itself.",
+        "description": "Grocr is your family's dinner planner. Add the recipes you actually cook, pick dinners for the week, and the ingredients land on one shared grocery list that everyone in the family sees and ticks off in real time.\n\nWEEK MENU\nPick a dinner for each day, or let Grocr suggest a week based on what your family likes best. You always see which week you're planning.\n\nGROCERY LIST\nOne list per week, sorted by store section. Add your own items, mark what you already have at home, and carry over what's left to next week. Staples are added for you.\n\nRECIPES\nYour family's own recipes with ingredients and steps, or just a link to the recipe on the web. Everyone can rate them, so you see the favorites.\n\nFOR THE WHOLE FAMILY\nInvite the rest of the family with a code. Everyone sees the same thing, and changes show up instantly on every phone.\n\nGrocr has no ads and no tracking. Sign in with Apple or Google.",
+        "keywords": [
+          "dinner",
+          "meal plan",
+          "grocery list",
+          "recipes",
+          "family",
+          "shopping list",
+          "weekly menu",
+          "meal"
+        ],
+        "marketingUrl": "https://grocr.io",
+        "supportUrl": "https://grocr.io/support",
+        "privacyPolicyUrl": "https://grocr.io/privacy"
+      }
+    },
+    "review": {
+      "firstName": "Christian",
+      "lastName": "Skovborg Gule",
+      "email": "support@grocr.io",
+      "demoRequired": false,
+      "notes": "Grocr is a dinner planner for families and friends. It is intended for UNLISTED distribution: we will request unlisted app distribution for this app right after submitting, and it is shared by direct link with the families who use it.\n\nSign-in: please use Sign in with Apple (or Google) with any account. No demo account is needed; a new account starts empty.\n\nTo try it: after signing in, tap \"Create a family\". Add a recipe under Recipes (title and a few ingredients, e.g. \"2 tomatoes\"), open Week and pick it for a day, then open Groceries to see the ingredients on the list. Family > Invite creates a code another person can join with. Family > Delete account deletes the account in the app (and revokes the Apple sign-in token).\n\nThe app needs an internet connection. It has no ads, tracking or purchases."
+    }
+  }
+}

@@ -1,0 +1,37 @@
+# Deploys convex/ to the PRODUCTION Convex deployment (the App Store app's backend).
+# Manual only: run it from Actions > "Deploy backend (production)" > Run workflow, on main,
+# after the change has been tried on the dev deployment (silent-otter-909).
+# Needs the repository secret GROCR_CONVEX_PROD_DEPLOY_KEY (Convex dashboard > grocr >
+# Production > Settings > Generate Production Deploy Key). Never use CONVEX_DEPLOY_KEY from any
+# other environment: it may belong to another app.
+name: Deploy backend (production)
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-backend-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Check and deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test:convex
+      - name: Deploy to production
+        run: pnpm exec convex deploy
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.GROCR_CONVEX_PROD_DEPLOY_KEY }}
