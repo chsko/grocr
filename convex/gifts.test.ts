@@ -496,3 +496,58 @@ describe('idea bank', () => {
     expect(groupId).toBeDefined();
   });
 });
+
+describe('earlier Christmases', () => {
+  test('a past Christmas lists only recipients with gifts or a budget, and can be filled in', async () => {
+    const { ada, groupId, granny, bobR } = await planned();
+    let past = await ada.as.query(api.gifts.christmas, { groupId, year: 2025 });
+    expect(past).toMatchObject({ year: 2025, currentYear: 2026, recipients: [] });
+    expect(past.others.map((r) => r.name)).toEqual(['Bob', 'Granny']);
+
+    await ada.as.mutation(api.gifts.addGift, { recipientId: granny, title: 'Candles', year: 2025 });
+    await ada.as.mutation(api.gifts.setBudget, { recipientId: bobR, year: 2025, amount: 400 });
+    past = await ada.as.query(api.gifts.christmas, { groupId, year: 2025 });
+    expect(past.recipients.map((r) => [r.name, r.gifts.map((g) => g.title), r.budget])).toEqual([
+      ['Bob', [], 400],
+      ['Granny', ['Candles'], null],
+    ]);
+    expect(past.others).toEqual([]);
+    // This Christmas is untouched, and still shows everyone.
+    const now = await ada.as.query(api.gifts.christmas, { groupId });
+    expect(now.recipients.map((r) => [r.name, r.gifts.length])).toEqual([
+      ['Bob', 1],
+      ['Granny', 1],
+    ]);
+    expect(now.others).toEqual([]);
+  });
+
+  test('the linked member is not among the others either', async () => {
+    const { bob, groupId } = await planned();
+    const past = await bob.as.query(api.gifts.christmas, { groupId, year: 2025 });
+    expect(past.others.map((r) => r.name)).toEqual(['Granny']);
+  });
+
+  test('years outside 2000 to 2100 are refused', async () => {
+    const { ada, groupId, granny } = await planned();
+    await expect(ada.as.query(api.gifts.christmas, { groupId, year: 1999 })).rejects.toThrow(
+      /INVALID_YEAR/,
+    );
+    await expect(
+      ada.as.mutation(api.gifts.addGift, { recipientId: granny, title: 'x', year: 2101 }),
+    ).rejects.toThrow(/INVALID_YEAR/);
+  });
+
+  test('this Christmas switches on 1 January in the family’s timezone', async () => {
+    // 23:30 in UTC on New Year's Eve is already 1 January in Oslo.
+    vi.setSystemTime(new Date('2026-12-31T22:30:00Z'));
+    const f = await planned();
+    expect((await f.ada.as.query(api.gifts.christmas, { groupId: f.groupId })).year).toBe(2026);
+    vi.setSystemTime(new Date('2026-12-31T23:30:00Z'));
+    const xmas = await f.ada.as.query(api.gifts.christmas, { groupId: f.groupId });
+    expect(xmas.year).toBe(2027);
+    expect(xmas.recipients.map((r) => [r.name, r.gifts.length])).toEqual([
+      ['Bob', 0],
+      ['Granny', 0],
+    ]);
+  });
+});

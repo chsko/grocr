@@ -220,12 +220,22 @@ export const christmas = query({
     let budget: number | null = null;
     let spent = 0;
     let planned = 0;
+    // Recipients with nothing in this Christmas, so the app can add a gift to an earlier one.
+    const others = [];
     for (const recipient of await visibleRecipients(ctx, args.groupId, userId)) {
-      if (recipient.archivedAt !== undefined) continue;
       const gifts = await giftsFor(ctx, recipient._id, year);
+      const own = (await budgetFor(ctx, recipient._id, year))?.amount ?? null;
+      // Active recipients are always in this Christmas and later ones. Earlier Christmases, and
+      // archived recipients, list only who has gifts or a budget there.
+      const always = recipient.archivedAt === undefined && year >= thisYear;
+      if (!always && gifts.length === 0 && own === null) {
+        if (recipient.archivedAt === undefined) {
+          others.push({ _id: recipient._id, name: recipient.name });
+        }
+        continue;
+      }
       const sums = tally(gifts);
       for (const key of GIFT_STATUSES) totals[key] += sums.counts[key];
-      const own = (await budgetFor(ctx, recipient._id, year))?.amount ?? null;
       if (own !== null) budget = (budget ?? 0) + own;
       spent += sums.spent;
       planned += sums.planned;
@@ -245,7 +255,7 @@ export const christmas = query({
       spent: round(spent),
       planned: round(planned),
     };
-    return { year, currentYear: thisYear, recipients, totals: { ...totals, ...money } };
+    return { year, currentYear: thisYear, recipients, others, totals: { ...totals, ...money } };
   },
 });
 

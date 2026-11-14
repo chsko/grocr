@@ -653,6 +653,10 @@
     "filterAll": "Alle",
     "boughtOf": "{{done}} av {{count}} kjøpt",
     "filterHint": "Vis gaver",
-    "newIdeaFor": "Ny idé til {{name}}"
+    "newIdeaFor": "Ny idé til {{name}}",
+    "previousYearLabel": "Forrige jul",
+    "nextYearLabel": "Neste jul",
+    "thisYear": "I år",
+    "addPastFor": "Legg til gave til"
   }
 }

@@ -13,8 +13,12 @@ import { SessionContext, type Me } from '@/lib/session';
 // `mockQueries` by function name, mutations are recorded in `mockCalls`.
 const mockQueries: Record<string, unknown> = {};
 const mockCalls: [string, unknown][] = [];
+const mockArgs: Record<string, unknown> = {};
 jest.mock('convex/react', () => ({
-  useQuery: (name: string, args: unknown) => (args === 'skip' ? undefined : mockQueries[name]),
+  useQuery: (name: string, args: unknown) => {
+    mockArgs[name] = args;
+    return args === 'skip' ? undefined : mockQueries[name];
+  },
   useMutation: (name: string) => {
     const fn = (args: unknown) => {
       mockCalls.push([name, args]);
@@ -115,6 +119,7 @@ describe('one gift list', () => {
           gifts: [gift('c', 'Lego', 'wrapped')],
         },
       ],
+      others: [],
       totals: { idea: 1, bought: 1, wrapped: 1, budget: 1300, spent: 1200, planned: 0 },
     };
   });
@@ -200,6 +205,7 @@ describe('one gift list', () => {
       year: 2026,
       currentYear: 2026,
       recipients: [],
+      others: [],
       totals: { idea: 0, bought: 0, wrapped: 0, budget: null, spent: 0, planned: 0 },
     };
     await render(<GiftsScreen />);
@@ -251,6 +257,44 @@ describe('recipients', () => {
   });
 });
 
+describe('earlier Christmases', () => {
+  test('steps back a year and fills in a gift for someone not listed yet', async () => {
+    mockQueries['gifts.christmas'] = {
+      year: 2026,
+      currentYear: 2026,
+      recipients: [],
+      others: [],
+      totals: { idea: 0, bought: 0, wrapped: 0, budget: null, spent: 0, planned: 0 },
+    };
+    const view = await render(<GiftsScreen />);
+    expect(screen.queryByRole('button', { name: 'Neste jul' })).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Forrige jul' }));
+    expect(mockArgs['gifts.christmas']).toEqual({ groupId: 'g1', year: 2025 });
+
+    mockQueries['gifts.christmas'] = {
+      ...(mockQueries['gifts.christmas'] as object),
+      year: 2025,
+      others: [{ _id: 'r3', name: 'Per' }],
+    };
+    await view.rerender(
+      <SafeAreaProvider initialMetrics={metrics}>
+        <SessionContext.Provider value={me}>
+          <GiftsScreen />
+        </SessionContext.Provider>
+      </SafeAreaProvider>,
+    );
+    expect(screen.getByText('Ingen gaver ble planlagt denne julen.')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Per' }));
+    await fireEvent.changeText(screen.getByLabelText('Ny gave til Per'), 'Termos');
+    await fireEvent(screen.getByLabelText('Ny gave til Per'), 'submitEditing');
+    expect(mockCalls).toEqual([
+      ['gifts.addGift', { recipientId: 'r3', title: 'Termos', year: 2025 }],
+    ]);
+    await fireEvent.press(screen.getByRole('button', { name: 'I år' }));
+    expect(mockArgs['gifts.christmas']).toEqual({ groupId: 'g1' });
+  });
+});
+
 describe('idea bank tab', () => {
   beforeEach(() => {
     mockQueries['gifts.christmas'] = {
@@ -270,6 +314,7 @@ describe('idea bank tab', () => {
           gifts: [],
         },
       ],
+      others: [],
       totals: { idea: 0, bought: 0, wrapped: 0, budget: null, spent: 0, planned: 0 },
     };
     mockQueries['gifts.ideas'] = {

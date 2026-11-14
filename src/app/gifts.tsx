@@ -11,12 +11,18 @@ import {
   StatusPill,
   useMoneyLine,
 } from '@/components/gift-parts';
-import { ChevronRight, Plus } from '@/components/icons';
-import { Button, Chip, Field, Loading, Text } from '@/components/ui';
+import { ChevronLeft, ChevronRight, Plus } from '@/components/icons';
+import { Button, Chip, Field, IconButton, Loading, Text } from '@/components/ui';
 import { Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
-import { GIFT_STATUSES, isSpent, type GiftStatus } from '@/convex/lib/gifts';
+import {
+  GIFT_STATUSES,
+  isSpent,
+  MAX_GIFT_YEAR,
+  MIN_GIFT_YEAR,
+  type GiftStatus,
+} from '@/convex/lib/gifts';
 import { recipeSite } from '@/convex/lib/recipeLink';
 import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
@@ -33,7 +39,14 @@ export default function GiftsScreen() {
   const styles = useStyles();
   const { t, i18n } = useTranslation();
   const family = useFamily();
-  const xmas = useQuery(api.gifts.christmas, { groupId: family.groupId });
+  // Null is this Christmas, which moves on by itself on 1 January.
+  const [year, setYear] = useState<number | null>(null);
+  const xmas = useQuery(
+    api.gifts.christmas,
+    year === null ? { groupId: family.groupId } : { groupId: family.groupId, year },
+  );
+  // Recipients picked to fill in an earlier Christmas they have nothing in yet.
+  const [extra, setExtra] = useState<Id<'giftRecipients'>[]>([]);
   const addRecipient = useMutation(api.gifts.addRecipient);
   const setStatus = useSetGiftStatus();
   const [adding, setAdding] = useState(false);
@@ -55,6 +68,14 @@ export default function GiftsScreen() {
   const total = idea + bought + wrapped;
   const totalMoney = moneyLine(xmas.totals.spent, xmas.totals.budget);
   const editing = xmas.recipients.find((r) => r._id === budgetFor);
+  const past = xmas.year < xmas.currentYear;
+  const picked = xmas.others.filter((r) => extra.includes(r._id));
+  const unpicked = xmas.others.filter((r) => !extra.includes(r._id));
+  function go(next: number | null) {
+    setYear(next === xmas?.currentYear ? null : next);
+    setExtra([]);
+    setFilter(null);
+  }
 
   return (
     <ScrollView
@@ -81,8 +102,31 @@ export default function GiftsScreen() {
       </View>
 
       {tab === 'bank' ? <IdeaBank /> : null}
-      {tab === 'christmas' && groups.length === 0 ? (
-        <Text color={colors.muted}>{`${t('gifts.intro')} ${t('gifts.empty')}`}</Text>
+      {tab === 'christmas' ? (
+        <View style={styles.stepper}>
+          <IconButton
+            label={t('gifts.previousYearLabel')}
+            disabled={xmas.year <= MIN_GIFT_YEAR}
+            onPress={() => go(xmas.year - 1)}>
+            <ChevronLeft color={colors.ink} size={22} />
+          </IconButton>
+          {xmas.year !== xmas.currentYear ? (
+            <Chip title={t('gifts.thisYear')} onPress={() => go(null)} />
+          ) : null}
+          {xmas.year <= xmas.currentYear && xmas.year < MAX_GIFT_YEAR ? (
+            <IconButton label={t('gifts.nextYearLabel')} onPress={() => go(xmas.year + 1)}>
+              <ChevronRight color={colors.ink} size={22} />
+            </IconButton>
+          ) : (
+            <View style={{ width: 44 }} />
+          )}
+        </View>
+      ) : null}
+
+      {tab === 'christmas' && groups.length === 0 && picked.length === 0 ? (
+        <Text color={colors.muted}>
+          {past ? t('gifts.noPeopleThisYear') : `${t('gifts.intro')} ${t('gifts.empty')}`}
+        </Text>
       ) : null}
 
       {tab === 'christmas' && total > 0 ? (
@@ -176,6 +220,27 @@ export default function GiftsScreen() {
           ) : null}
         </View>
       ))}
+
+      {tab === 'christmas'
+        ? picked.map((r) => (
+            <View key={r._id} style={styles.group}>
+              <Text variant="item">{r.name}</Text>
+              <AddGift recipientId={r._id} name={r.name} year={xmas.year} />
+            </View>
+          ))
+        : null}
+      {tab === 'christmas' && past && unpicked.length > 0 ? (
+        <View style={{ gap: 8 }}>
+          <Text variant="label" color={colors.muted}>
+            {t('gifts.addPastFor')}
+          </Text>
+          <View style={styles.wrap}>
+            {unpicked.map((r) => (
+              <Chip key={r._id} dashed title={r.name} onPress={() => setExtra([...extra, r._id])} />
+            ))}
+          </View>
+        </View>
+      ) : null}
 
       <Button
         kind="ghost"
@@ -404,6 +469,8 @@ const useStyles = makeStyles((colors) => ({
     borderRadius: Radius.pill,
   },
   tabOn: { backgroundColor: colors.raised },
+  stepper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   summary: { gap: 10, padding: 16, borderRadius: Radius.card, backgroundColor: colors.saffronTint },
   chips: { gap: 8 },
   list: { borderRadius: Radius.card, backgroundColor: colors.surface, paddingHorizontal: 14 },

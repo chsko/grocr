@@ -653,6 +653,10 @@
     "filterAll": "All",
     "boughtOf": "{{done}} of {{count}} bought",
     "filterHint": "Show gifts",
-    "newIdeaFor": "New idea for {{name}}"
+    "newIdeaFor": "New idea for {{name}}",
+    "previousYearLabel": "Previous Christmas",
+    "nextYearLabel": "Next Christmas",
+    "thisYear": "This year",
+    "addPastFor": "Add a gift for"
   }
 }
