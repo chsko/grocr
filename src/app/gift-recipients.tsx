@@ -115,7 +115,8 @@ export default function GiftRecipientsScreen() {
               r.linkedName
                 ? t('gifts.people_screen.linked', { name: r.linkedName })
                 : t('gifts.people_screen.notLinked'),
-              groupNameOf(r.giftGroupId),
+              // Active people already stand under their group's heading.
+              r.archived ? groupNameOf(r.giftGroupId) : null,
             ]
               .filter((part) => part !== null)
               .join(' · ')}
@@ -224,7 +225,7 @@ export default function GiftRecipientsScreen() {
             />
           </View>
 
-          <View style={{ gap: 8 }}>
+          <View style={{ gap: 12 }}>
             <Text variant="label" color={colors.muted} accessibilityRole="header">
               {t('gifts.groups')}
             </Text>
