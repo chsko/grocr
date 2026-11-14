@@ -746,3 +746,25 @@ describe('Week card', () => {
     ).rejects.toThrow(/NOT_FOUND/);
   });
 });
+
+describe('review fixes', () => {
+  test('a signed-out caller cannot tell a real gift from a missing one', async () => {
+    const { t, ada, scarf, watch } = await planned();
+    await ada.as.mutation(api.gifts.removeGift, { giftId: watch });
+    for (const giftId of [scarf, watch]) {
+      await expect(t.query(api.gifts.gift, { giftId })).rejects.toThrow(/UNAUTHENTICATED/);
+      await expect(t.mutation(api.gifts.removeGift, { giftId })).rejects.toThrow(/UNAUTHENTICATED/);
+    }
+  });
+
+  test('deleting an account unlinks it in families it left earlier too', async () => {
+    const { t, ada, bob, groupId, bobR } = await planned();
+    await bob.as.mutation(api.groups.leave, { groupId });
+    await bob.as.mutation(api.account.deleteAccount, {});
+    const link = await t.run(
+      async (ctx) => (await ctx.db.get('giftRecipients', bobR))?.memberUserId,
+    );
+    expect(link ?? null).toBeNull();
+    expect(ada).toBeDefined();
+  });
+});

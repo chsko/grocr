@@ -43,6 +43,8 @@ export async function requireMembership(ctx: QueryCtx, groupId: Id<'groups'>) {
 
 /** Checks that the signed-in user is a member of the group a loaded document belongs to. */
 export async function requireMemberOf(ctx: QueryCtx, doc: { groupId: Id<'groups'> } | null) {
+  // Signed out comes first, so a signed-out caller can't tell a real id from a missing one.
+  await requireUserId(ctx);
   if (doc === null) throw accessError('NOT_FOUND');
   return await requireMembership(ctx, doc.groupId);
 }

@@ -3,7 +3,13 @@ import { ConvexError, v } from 'convex/values';
 import type { Doc, Id } from './_generated/dataModel';
 import { mutation, query, type MutationCtx, type QueryCtx } from './_generated/server';
 import { giftStatus } from './schema';
-import { accessError, getMembership, requireMemberOf, requireMembership } from './lib/access';
+import {
+  accessError,
+  getMembership,
+  requireMemberOf,
+  requireMembership,
+  requireUserId,
+} from './lib/access';
 import { cleanName } from './lib/catalog';
 import {
   christmasYear,
@@ -56,6 +62,8 @@ async function orNull<T>(load: () => Promise<T>): Promise<T | null> {
 
 /** Loads a gift whose recipient the caller may see. */
 async function loadGift(ctx: Ctx, giftId: Id<'gifts'>) {
+  // Signed out first, so a signed-out caller can't tell a real gift from a missing one.
+  await requireUserId(ctx);
   const gift = await ctx.db.get('gifts', giftId);
   if (gift === null) throw accessError('NOT_FOUND');
   const access = await loadRecipient(ctx, gift.recipientId);
@@ -652,3 +660,14 @@ export const setCardStart = mutation({
     });
   },
 });
+
+/** A deleted account is unlinked everywhere, also in families it left before (ADR 0002). */
+export async function forgetGiftLinks(ctx: MutationCtx, userId: Id<'users'>) {
+  const linked = await ctx.db
+    .query('giftRecipients')
+    .withIndex('by_member', (q) => q.eq('memberUserId', userId))
+    .collect();
+  for (const recipient of linked) {
+    await ctx.db.patch('giftRecipients', recipient._id, { memberUserId: undefined });
+  }
+}

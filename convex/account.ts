@@ -1,6 +1,6 @@
 import { internal } from './_generated/api';
 import { mutation } from './_generated/server';
-import { forgetGiftMember } from './gifts';
+import { forgetGiftLinks, forgetGiftMember } from './gifts';
 import { leaveFamily } from './groups';
 import { requireUserId } from './lib/access';
 
@@ -16,6 +16,7 @@ export const deleteAccount = mutation({
   handler: async (ctx) => {
     const userId = await requireUserId(ctx);
 
+    await forgetGiftLinks(ctx, userId);
     const memberships = await ctx.db
       .query('memberships')
       .withIndex('by_user', (q) => q.eq('userId', userId))

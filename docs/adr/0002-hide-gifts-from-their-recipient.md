@@ -23,3 +23,14 @@ nothing. Only deleting the account removes it.
 
 Totals are computed per viewer. The link between recipient and member is now security relevant:
 a missing link exposes gifts, so the app suggests links when names match or a member joins.
+
+Hiding follows the account, not the person. An adversarial review (#87) found three ways around
+it that the app does not close, because each needs a deliberate act and closing them would mean
+guessing who a new account belongs to:
+
+- A member who joins the family with a second account sees the recipient linked to their first.
+- A member who deletes their account (which unlinks them) and joins again with a new one sees
+  their old recipient and its history.
+- A recipient that is created without a link is visible to the member it is for until someone
+  links it; once linked it disappears for them, which tells them it was them. The suggestions on
+  the recipients screen are there to make linking the first step.

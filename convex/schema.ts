@@ -237,7 +237,8 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index('by_group', ['groupId'])
-    .index('by_group_member', ['groupId', 'memberUserId']),
+    .index('by_group_member', ['groupId', 'memberUserId'])
+    .index('by_member', ['memberUserId']),
 
   // A gift for one occasion (Christmas of a year), or an idea in the recipient's idea bank when
   // the occasion fields are missing. Both occasion fields are set together or not at all.
