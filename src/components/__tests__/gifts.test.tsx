@@ -225,6 +225,7 @@ describe('recipients', () => {
         { userId: 'u2', name: 'Ola', linked: true, match: null },
         { userId: 'u3', name: 'Emma', linked: false, match: null },
       ],
+      cardStart: '11-01',
     };
   });
 
@@ -285,6 +286,16 @@ describe('recipients', () => {
     await fireEvent.changeText(screen.getByDisplayValue('Bestemor'), 'Oldemor');
     await fireEvent.press(screen.getByRole('button', { name: 'Lagre' }));
     expect(mockCalls).toEqual([['gifts.renameRecipient', { recipientId: 'r1', name: 'Oldemor' }]]);
+  });
+
+  test('sets the day the card on Week starts showing', async () => {
+    await render(<GiftRecipientsScreen />);
+    expect(screen.getByText('1. nov.')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Vis på Uke fra' }));
+    await fireEvent.press(screen.getByLabelText('Måned −'));
+    await fireEvent.press(screen.getByLabelText('Dag +'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Lagre' }));
+    expect(mockCalls).toEqual([['gifts.setCardStart', { groupId: 'g1', start: '10-02' }]]);
   });
 
   test('shows who is in the family', async () => {

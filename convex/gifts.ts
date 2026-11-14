@@ -8,7 +8,10 @@ import { cleanName } from './lib/catalog';
 import {
   christmasYear,
   cleanPrice,
+  DEFAULT_GIFT_CARD_START,
+  giftCardShowing,
   GIFT_STATUSES,
+  isGiftCardStart,
   isSpent,
   MAX_GIFT_YEAR,
   MIN_GIFT_YEAR,
@@ -259,6 +262,45 @@ export const christmas = query({
   },
 });
 
+/**
+ * The Christmas gifts card on Week: null outside the family's window (start day to Christmas
+ * Eve) or with no active recipients the caller may see. Counts and money leave out the
+ * caller's own recipient, like everything else.
+ */
+export const weekCard = query({
+  args: { groupId: v.id('groups') },
+  handler: async (ctx, { groupId }) => {
+    const { userId } = await requireMembership(ctx, groupId);
+    const group = (await ctx.db.get('groups', groupId))!;
+    const today = todayIn(group.timezone);
+    if (!giftCardShowing(today, group.giftCardStart ?? DEFAULT_GIFT_CARD_START)) return null;
+    const year = christmasYear(today);
+    const recipients = (await visibleRecipients(ctx, groupId, userId)).filter(
+      (r) => r.archivedAt === undefined,
+    );
+    if (recipients.length === 0) return null;
+    let done = 0;
+    let total = 0;
+    let spent = 0;
+    let budget: number | null = null;
+    for (const recipient of recipients) {
+      const sums = tally(await giftsFor(ctx, recipient._id, year));
+      done += sums.counts.bought + sums.counts.wrapped;
+      total += sums.counts.idea + sums.counts.bought + sums.counts.wrapped;
+      spent += sums.spent;
+      const own = (await budgetFor(ctx, recipient._id, year))?.amount;
+      if (own !== undefined) budget = (budget ?? 0) + own;
+    }
+    return {
+      year,
+      done,
+      total,
+      spent: round(spent),
+      budget: budget === null ? null : round(budget),
+    };
+  },
+});
+
 /** The idea bank: ideas for every recipient the caller may see, waiting for a Christmas. */
 export const ideas = query({
   args: { groupId: v.id('groups') },
@@ -331,7 +373,8 @@ export const recipients = query({
         );
         return { ...m, linked: isLinked, match: !isLinked && same ? same._id : null };
       });
-    return { recipients: rows, members };
+    const group = (await ctx.db.get('groups', groupId))!;
+    return { recipients: rows, members, cardStart: group.giftCardStart ?? DEFAULT_GIFT_CARD_START };
   },
 });
 
@@ -597,3 +640,15 @@ export async function forgetGiftMember(
     }
   }
 }
+
+/** From which day ("MM-DD", up to 24 December) the gifts card shows on Week. */
+export const setCardStart = mutation({
+  args: { groupId: v.id('groups'), start: v.string() },
+  handler: async (ctx, { groupId, start }) => {
+    await requireMembership(ctx, groupId);
+    if (!isGiftCardStart(start)) throw new ConvexError({ code: 'INVALID_DATE' });
+    await ctx.db.patch('groups', groupId, {
+      giftCardStart: start === DEFAULT_GIFT_CARD_START ? undefined : start,
+    });
+  },
+});

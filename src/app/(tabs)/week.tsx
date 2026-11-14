@@ -5,15 +5,16 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 import Animated, { FadeInLeft, FadeInRight } from 'react-native-reanimated';
 
+import { ProgressBar } from '@/components/gift-parts';
 import { Highlight } from '@/components/highlight';
-import { Basket, ChevronRight, Plus, Sparkle } from '@/components/icons';
+import { Basket, ChevronRight, Gift, Plus, Sparkle } from '@/components/icons';
 import { Button, IconTile, TabScreen, Text } from '@/components/ui';
 import { WeekHeader } from '@/components/week-header';
 import { Fonts } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import { DEFAULT_ICON } from '@/convex/lib/recipeIcons';
 import { makeStyles, useColors } from '@/lib/appearance';
-import { dayShort } from '@/lib/format';
+import { dayShort, formatKroner } from '@/lib/format';
 import { useFreshIds } from '@/lib/fresh-ids';
 import { useFamily } from '@/lib/session';
 import { useShownWeek } from '@/lib/shown-week';
@@ -61,6 +62,8 @@ export default function WeekScreen() {
           onStep={(by, to) => setLastStep({ by, to })}
         />
       </View>
+
+      <GiftsCard />
 
       <Animated.View key={startDate} entering={entering} style={{ gap: 8 }}>
         {days.map((date, index) => {
@@ -154,8 +157,59 @@ export default function WeekScreen() {
   );
 }
 
+/**
+ * Christmas gifts on Week (#86), from the family's start day to Christmas Eve. The server
+ * answers null outside that window or when there is no one the viewer may see gifts for.
+ */
+function GiftsCard() {
+  const colors = useColors();
+  const styles = useStyles();
+  const { t, i18n } = useTranslation();
+  const family = useFamily();
+  const card = useQuery(api.gifts.weekCard, { groupId: family.groupId });
+  if (!card) return null;
+  const progress =
+    card.total === 0
+      ? t('gifts.weekCardEmpty')
+      : t('gifts.boughtOf', { done: card.done, count: card.total });
+  const rest = card.budget === null ? null : Math.round((card.budget - card.spent) * 100) / 100;
+  const money =
+    rest === null
+      ? null
+      : rest >= 0
+        ? t('gifts.weekCardLeft', { amount: formatKroner(i18n.language, rest) })
+        : t('gifts.over', { amount: formatKroner(i18n.language, -rest) });
+  return (
+    <Pressable
+      accessibilityRole="link"
+      onPress={() => router.push('/gifts')}
+      style={({ pressed }) => [styles.gifts, pressed && { opacity: 0.8 }]}>
+      <Gift color={colors.saffronInk} size={22} />
+      <View style={{ flex: 1, gap: 6 }}>
+        <Text variant="item" style={{ fontSize: 16 }}>
+          {t('gifts.weekCard')}
+        </Text>
+        <Text variant="small" color={colors.muted}>
+          {money ? `${progress} · ${money}` : progress}
+        </Text>
+        {card.total > 0 ? <ProgressBar bought={card.done} wrapped={0} total={card.total} /> : null}
+      </View>
+      <ChevronRight color={colors.muted} size={18} />
+    </Pressable>
+  );
+}
+
 const useStyles = makeStyles((colors) => ({
   header: { paddingTop: 16, paddingBottom: 14 },
+  gifts: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    marginBottom: 12,
+    borderRadius: 16,
+    backgroundColor: colors.saffronTint,
+  },
   // The three day styles differ in border width, so each trims its padding by the extra
   // border to keep the date tile and text in the same place whichever style a day has.
   day: {

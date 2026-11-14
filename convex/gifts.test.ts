@@ -666,3 +666,83 @@ describe('recipient lifecycle', () => {
     expect(left).toEqual([0, 0, 0]);
   });
 });
+
+describe('Week card', () => {
+  test('shows from 1 November through Christmas Eve, counted for the viewer', async () => {
+    const { ada, bob, groupId, watch, scarf, bobR, granny } = await planned();
+    await ada.as.mutation(api.gifts.setGiftStatus, { giftId: watch, status: 'bought' });
+    await ada.as.mutation(api.gifts.setGiftStatus, { giftId: scarf, status: 'wrapped' });
+    const edit = { url: '', note: '', buyerUserId: null };
+    await ada.as.mutation(api.gifts.updateGift, {
+      giftId: watch,
+      title: 'Watch',
+      price: 900,
+      ...edit,
+    });
+    await ada.as.mutation(api.gifts.updateGift, {
+      giftId: scarf,
+      title: 'Scarf',
+      price: 200,
+      ...edit,
+    });
+    await ada.as.mutation(api.gifts.setBudget, { recipientId: bobR, year: 2026, amount: 1000 });
+    await ada.as.mutation(api.gifts.setBudget, { recipientId: granny, year: 2026, amount: 500 });
+    expect(await ada.as.query(api.gifts.weekCard, { groupId })).toEqual({
+      year: 2026,
+      done: 2,
+      total: 2,
+      spent: 1100,
+      budget: 1500,
+    });
+    // Bob's own watch and budget are left out of his card.
+    expect(await bob.as.query(api.gifts.weekCard, { groupId })).toEqual({
+      year: 2026,
+      done: 1,
+      total: 1,
+      spent: 200,
+      budget: 500,
+    });
+  });
+
+  test('is gone outside the window', async () => {
+    vi.setSystemTime(new Date('2026-10-31T12:00:00Z'));
+    const f = await planned();
+    expect(await f.ada.as.query(api.gifts.weekCard, { groupId: f.groupId })).toBeNull();
+    vi.setSystemTime(new Date('2026-12-24T22:00:00Z'));
+    expect(await f.ada.as.query(api.gifts.weekCard, { groupId: f.groupId })).not.toBeNull();
+    vi.setSystemTime(new Date('2026-12-24T23:30:00Z'));
+    expect(await f.ada.as.query(api.gifts.weekCard, { groupId: f.groupId })).toBeNull();
+  });
+
+  test('a family picks an earlier start day', async () => {
+    vi.setSystemTime(new Date('2026-09-20T12:00:00Z'));
+    const { ada, kid, groupId } = await planned();
+    expect(await ada.as.query(api.gifts.weekCard, { groupId })).toBeNull();
+    await kid.as.mutation(api.gifts.setCardStart, { groupId, start: '09-15' });
+    expect(await ada.as.query(api.gifts.weekCard, { groupId })).not.toBeNull();
+    expect((await ada.as.query(api.gifts.recipients, { groupId })).cardStart).toBe('09-15');
+    for (const start of ['12-25', '02-30', '9-15', '']) {
+      await expect(ada.as.mutation(api.gifts.setCardStart, { groupId, start })).rejects.toThrow(
+        /INVALID_DATE/,
+      );
+    }
+  });
+
+  test('no card without active recipients the viewer can see', async () => {
+    const { ada, bob, groupId, granny } = await planned();
+    await ada.as.mutation(api.gifts.setRecipientArchived, { recipientId: granny, archived: true });
+    // Bob only has Granny to see, and she is archived.
+    expect(await bob.as.query(api.gifts.weekCard, { groupId })).toBeNull();
+    expect(await ada.as.query(api.gifts.weekCard, { groupId })).not.toBeNull();
+    const t2 = await family();
+    expect(await t2.ada.as.query(api.gifts.weekCard, { groupId: t2.groupId })).toBeNull();
+  });
+
+  test('another family can neither see nor set it', async () => {
+    const { eve, groupId } = await planned();
+    await expect(eve.as.query(api.gifts.weekCard, { groupId })).rejects.toThrow(/NOT_FOUND/);
+    await expect(
+      eve.as.mutation(api.gifts.setCardStart, { groupId, start: '10-01' }),
+    ).rejects.toThrow(/NOT_FOUND/);
+  });
+});

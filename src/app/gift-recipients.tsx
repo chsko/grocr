@@ -4,13 +4,15 @@ import { useTranslation } from 'react-i18next';
 import { Alert, Pressable, ScrollView, View } from 'react-native';
 
 import { NameSheet, Sheet } from '@/components/gift-parts';
-import { More } from '@/components/icons';
-import { Button, Field, Loading, Text } from '@/components/ui';
+import { ChevronLeft, ChevronRight, More } from '@/components/icons';
+import { Button, Field, IconButton, Loading, Text } from '@/components/ui';
 import { Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
+import { daysInMonth, DEFAULT_GIFT_CARD_START, GIFT_CARD_END } from '@/convex/lib/gifts';
 import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
+import { dayMonth } from '@/lib/format';
 import { useFamily } from '@/lib/session';
 
 type Recipient = {
@@ -35,6 +37,7 @@ export default function GiftRecipientsScreen() {
   const linkRecipient = useMutation(api.gifts.linkRecipient);
   const renameRecipient = useMutation(api.gifts.renameRecipient);
   const [name, setName] = useState('');
+  const [pickingStart, setPickingStart] = useState(false);
   const [open, setOpen] = useState<{
     id: Id<'giftRecipients'>;
     mode: 'menu' | 'link' | 'rename';
@@ -150,6 +153,19 @@ export default function GiftRecipientsScreen() {
         </View>
       ) : null}
 
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('gifts.cardStart')}
+        onPress={() => setPickingStart(true)}
+        style={({ pressed }) => [styles.setting, pressed && { opacity: 0.7 }]}>
+        <Text style={{ flex: 1 }}>{t('gifts.cardStart')}</Text>
+        <Text color={colors.muted}>{dayMonth(t, `2000-${data.cardStart}`)}</Text>
+        <ChevronRight color={colors.muted} size={18} />
+      </Pressable>
+      {pickingStart ? (
+        <CardStartSheet current={data.cardStart} onClose={() => setPickingStart(false)} />
+      ) : null}
+
       {current && open?.mode === 'menu' ? (
         <ManageSheet
           recipient={current}
@@ -192,6 +208,85 @@ export default function GiftRecipientsScreen() {
         />
       ) : null}
     </ScrollView>
+  );
+}
+
+const MONTH_KEYS = [
+  'jan',
+  'feb',
+  'mar',
+  'apr',
+  'may',
+  'jun',
+  'jul',
+  'aug',
+  'sep',
+  'oct',
+  'nov',
+  'dec',
+] as const;
+
+/** Day and month the Week card starts showing, no later than Christmas Eve. */
+function CardStartSheet({ current, onClose }: { current: string; onClose: () => void }) {
+  const colors = useColors();
+  const styles = useStyles();
+  const { t } = useTranslation();
+  const family = useFamily();
+  const setCardStart = useMutation(api.gifts.setCardStart);
+  const [month, setMonth] = useState(Number(current.slice(0, 2)));
+  const [day, setDay] = useState(Number(current.slice(3)));
+  const [busy, setBusy] = useState(false);
+  const lastDay = month === 12 ? Number(GIFT_CARD_END.slice(3)) : daysInMonth(month);
+  const shownDay = Math.min(day, lastDay);
+  const value = `${String(month).padStart(2, '0')}-${String(shownDay).padStart(2, '0')}`;
+
+  async function save(start: string) {
+    setBusy(true);
+    const ok = await attempt(t, () =>
+      setCardStart({ groupId: family.groupId, start }).then(() => true),
+    );
+    setBusy(false);
+    if (ok) onClose();
+  }
+
+  function stepper(label: string, text: string, onStep: (by: -1 | 1) => void) {
+    return (
+      <View style={styles.stepRow}>
+        <Text color={colors.muted} style={{ width: 70 }}>
+          {label}
+        </Text>
+        <IconButton label={`${label} −`} onPress={() => onStep(-1)}>
+          <ChevronLeft color={colors.ink} />
+        </IconButton>
+        <Text variant="item" style={{ flex: 1, textAlign: 'center' }}>
+          {text}
+        </Text>
+        <IconButton label={`${label} +`} onPress={() => onStep(1)}>
+          <ChevronRight color={colors.ink} />
+        </IconButton>
+      </View>
+    );
+  }
+
+  return (
+    <Sheet onClose={onClose}>
+      <Text variant="heading">{t('gifts.cardStartTitle')}</Text>
+      <Text color={colors.muted}>{t('gifts.cardStartBody')}</Text>
+      {stepper(t('gifts.day'), String(shownDay), (by) =>
+        setDay(((shownDay - 1 + by + lastDay) % lastDay) + 1),
+      )}
+      {stepper(t('gifts.month'), t(`dates.monthShort.${MONTH_KEYS[month - 1]}`), (by) =>
+        setMonth(((month - 1 + by + 12) % 12) + 1),
+      )}
+      <Button title={t('common.save')} loading={busy} onPress={() => void save(value)} />
+      {current !== DEFAULT_GIFT_CARD_START ? (
+        <Button
+          kind="ghost"
+          title={dayMonth(t, `2000-${DEFAULT_GIFT_CARD_START}`)}
+          onPress={() => void save(DEFAULT_GIFT_CARD_START)}
+        />
+      ) : null}
+    </Sheet>
   );
 }
 
@@ -285,5 +380,14 @@ const useStyles = makeStyles((colors) => ({
   row: { minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
   divider: { borderTopWidth: 1, borderTopColor: colors.divider },
   addRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
+  setting: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+  },
+  stepRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   suggest: { gap: 10, padding: 16, borderRadius: Radius.card, backgroundColor: colors.saffronTint },
 }));

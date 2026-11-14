@@ -1,5 +1,6 @@
 import { act, fireEvent, render as rtlRender, screen } from '@testing-library/react-native';
 import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { Alert } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -51,6 +52,8 @@ const mockNavigation = {
 };
 
 const mockUseQuery = jest.fn();
+// The Christmas gifts card on Week has its own answer, so week tests can mock just the week.
+let mockGiftCard: unknown = null;
 const mockAddManual = jest.fn();
 const mockRename = jest.fn(() => Promise.resolve(null));
 const mockSetAtHome = jest.fn((_args: unknown) => Promise.resolve(1));
@@ -78,7 +81,8 @@ const mockMutations: Record<string, unknown> = {
   'ingredients.setSection': { withOptimisticUpdate: () => mockSetSection },
 };
 jest.mock('convex/react', () => ({
-  useQuery: (...args: unknown[]) => mockUseQuery(...args),
+  useQuery: (...args: unknown[]) =>
+    args[0] === 'gifts.weekCard' ? mockGiftCard : mockUseQuery(...args),
   useMutation: (name: string) =>
     mockMutations[name] ??
     (name === 'grocery.addManual'
@@ -140,6 +144,7 @@ const me: Me = {
 beforeEach(() => {
   resetShownWeek();
   mockUseQuery.mockReset();
+  mockGiftCard = null;
   mockAddManual.mockReset();
   mockNav.index = 0;
 });
@@ -384,6 +389,34 @@ describe('week', () => {
     await fireEvent.press(screen.getByLabelText('Next week'));
     expect(week(starts()[0]) - week(shown)).toBe(1);
     expect(screen.getByText(/^Week \d+$/).props.children).not.toBe(title);
+  });
+
+  test('shows the Christmas gifts card in its window and opens gifts', async () => {
+    await i18n.changeLanguage('nb');
+    mockUseQuery.mockReturnValue({ dinners: [], openLines: 0 });
+    mockGiftCard = { year: 2026, done: 3, total: 8, spent: 1200, budget: 3000 };
+    await render(
+      <SessionContext.Provider value={me}>
+        <WeekScreen />
+      </SessionContext.Provider>,
+    );
+    expect(screen.getByText('Julegaver')).toBeTruthy();
+    expect(screen.getByText('3 av 8 kjøpt · 1\u00a0800 kr igjen')).toBeTruthy();
+    const push = jest.spyOn(router, 'push').mockImplementation(() => {});
+    await fireEvent.press(screen.getByText('Julegaver'));
+    expect(push).toHaveBeenCalledWith('/gifts');
+    push.mockRestore();
+  });
+
+  test('no Christmas gifts card when the query says none', async () => {
+    await i18n.changeLanguage('nb');
+    mockUseQuery.mockReturnValue({ dinners: [], openLines: 0 });
+    await render(
+      <SessionContext.Provider value={me}>
+        <WeekScreen />
+      </SessionContext.Provider>,
+    );
+    expect(screen.queryByText('Julegaver')).toBeNull();
   });
 
   test('draws in dark mode', async () => {

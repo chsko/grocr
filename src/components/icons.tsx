@@ -163,6 +163,14 @@ export const Sparkle = (p: IconProps) => (
     <Path d="M18.5 14.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" />
   </Stroke>
 );
+/** A wrapped present with a bow. */
+export const Gift = (p: IconProps) => (
+  <Stroke {...p}>
+    <Rect x={3.5} y={8} width={17} height={4} rx={1} />
+    <Path d="M5 12v7a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19v-7M12 8v12.5" />
+    <Path d="M12 8C10.5 4.5 6.5 4.5 7 7c.3 1 2.5 1 5 1zM12 8c1.5-3.5 5.5-3.5 5-1-.3 1-2.5 1-5 1z" />
+  </Stroke>
+);
 /** Two arrows chasing each other: shuffle or swap. */
 export const Shuffle = (p: IconProps) => (
   <Stroke {...p}>
