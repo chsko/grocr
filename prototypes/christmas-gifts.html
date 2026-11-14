@@ -1,0 +1,358 @@
+<title>Julegaver prototype</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&display=swap">
+<style>
+/* Layout: one phone-sized column (the app), a bar under it to switch variant and viewer. Grocr tokens. */
+:root {
+  --bg: #FFFFFF; --raised: #FFFFFF; --ink: #1E1A16; --muted: #5C5249;
+  --tomato: #B8361E; --tomatoFill: #B8361E; --onTomato: #FFFFFF;
+  --saffronTint: #FFF6DC; --saffronSoft: #FFF0C2; --saffronPill: #FFE59A; --saffronInk: #6B4F00;
+  --surface: #F7F3EE; --border: #EEE7DF; --divider: #F3EDE6; --dashed: #D9D2C9; --checkbox: #958A7F;
+  --overlay: rgba(20,24,19,.45); --page: #EFE9E1; --herb: #2F8F4E;
+  --font: "Bricolage Grotesque", ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #17130F; --raised: #2E2620; --ink: #F5EEE6; --muted: #B3A89C;
+  --tomato: #EC7458; --tomatoFill: #C9402A; --onTomato: #FFFFFF;
+  --saffronTint: #2A2216; --saffronSoft: #3A2E16; --saffronPill: #5A4718; --saffronInk: #F2CC6B;
+  --surface: #221D18; --border: #2E2722; --divider: #26201B; --dashed: #4A4038; --checkbox: #8A7F74;
+  --overlay: rgba(0,0,0,.6); --page: #0E0B09; --herb: #5CB97A; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #17130F; --raised: #2E2620; --ink: #F5EEE6; --muted: #B3A89C;
+  --tomato: #EC7458; --tomatoFill: #C9402A; --onTomato: #FFFFFF;
+  --saffronTint: #2A2216; --saffronSoft: #3A2E16; --saffronPill: #5A4718; --saffronInk: #F2CC6B;
+  --surface: #221D18; --border: #2E2722; --divider: #26201B; --dashed: #4A4038; --checkbox: #8A7F74;
+  --overlay: rgba(0,0,0,.6); --page: #0E0B09; --herb: #5CB97A; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--page); color: var(--ink); font-family: var(--font); font-size: 16px; margin: 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 16px 24px; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--tomato); outline-offset: 2px; }
+.wrap { max-width: 420px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+.note { font-size: 14px; color: var(--muted); line-height: 1.45; }
+.note b { color: var(--ink); }
+.phone { background: var(--bg); border: 1px solid var(--border); border-radius: 34px; overflow: hidden; min-height: 720px; display: flex; flex-direction: column; position: relative; }
+.nav { display: flex; align-items: center; gap: 8px; padding: 14px 16px 6px; min-height: 52px; }
+.nav h1 { font-size: 17px; font-weight: 700; margin: 0; flex: 1; text-align: center; }
+.nav .side { width: 64px; display: flex; }
+.back { color: var(--tomato); font-weight: 600; font-size: 16px; }
+.screen { flex: 1; overflow-y: auto; padding: 8px 18px 24px; display: flex; flex-direction: column; gap: 14px; }
+.tabs { display: flex; border-top: 1px solid var(--border); }
+.tabs button { flex: 1; padding: 10px 0 14px; font-size: 12px; font-weight: 600; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.tabs button.on { color: var(--tomato); }
+.tabs .ico { width: 34px; height: 22px; border-radius: 999px; display: grid; place-items: center; font-size: 14px; }
+.tabs button.on .ico { background: var(--saffronPill); }
+.label { font-size: 13px; font-weight: 600; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; }
+.title { font-size: 28px; font-weight: 700; letter-spacing: -.02em; margin: 0; }
+.h2 { font-size: 20px; font-weight: 700; margin: 0; }
+.small { font-size: 13px; color: var(--muted); line-height: 1.35; }
+.card { background: var(--surface); border-radius: 18px; padding: 0 14px; }
+.row { display: flex; align-items: center; gap: 10px; min-height: 58px; padding: 8px 0; width: 100%; text-align: left; }
+.card > .row + .row, .card > .row + div, .card > div + .row { border-top: 1px solid var(--divider); }
+.grow { flex: 1; min-width: 0; }
+.item { font-weight: 600; font-size: 16.5px; }
+.chev { color: var(--muted); font-size: 18px; }
+.summary { background: var(--saffronTint); border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.bar { height: 8px; border-radius: 999px; background: var(--saffronSoft); overflow: hidden; display: flex; }
+.bar i { display: block; height: 100%; }
+.bar .b { background: var(--saffronInk); opacity: .55; } .bar .w { background: var(--saffronInk); }
+.pill { min-width: 70px; height: 30px; padding: 0 12px; border-radius: 999px; font-size: 13px; font-weight: 600; display: inline-grid; place-items: center; }
+.pill.idea { background: var(--surface); color: var(--muted); border: 1px solid var(--border); }
+.pill.bought { background: var(--saffronSoft); color: var(--saffronInk); }
+.pill.wrapped { background: var(--saffronPill); color: var(--ink); }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border); font-size: 15px; font-weight: 600; }
+.chip.on { background: var(--saffronSoft); border-color: var(--saffronSoft); }
+.chip.dashed { border-style: dashed; border-color: var(--dashed); color: var(--tomato); }
+.ghost { color: var(--tomato); font-weight: 600; display: inline-flex; gap: 6px; align-items: center; min-height: 44px; }
+.add { display: flex; gap: 8px; align-items: center; }
+.add input { flex: 1; min-width: 0; height: 46px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg); color: var(--ink); padding: 0 12px; font: inherit; }
+.add button { height: 46px; padding: 0 14px; border-radius: 14px; background: var(--surface); font-weight: 600; }
+.seg { display: flex; background: var(--surface); border-radius: 12px; padding: 3px; }
+.seg button { flex: 1; height: 34px; border-radius: 9px; font-weight: 600; font-size: 14px; color: var(--muted); }
+.seg button.on { background: var(--raised); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.group { display: flex; flex-direction: column; gap: 6px; }
+.ghead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 0 2px; }
+.weekday { display: flex; gap: 12px; align-items: center; min-height: 60px; border: 1px solid var(--border); border-radius: 16px; padding: 7px 14px 7px 7px; }
+.date { width: 46px; height: 46px; border-radius: 12px; background: var(--surface); display: grid; place-items: center; text-align: center; line-height: 1.05; font-size: 11px; color: var(--muted); font-weight: 600; }
+.date b { font-size: 19px; color: var(--ink); display: block; }
+.giftcard { display: flex; gap: 12px; align-items: center; min-height: 58px; border-radius: 16px; background: var(--saffronTint); padding: 10px 16px; width: 100%; text-align: left; }
+.sheetwrap { position: absolute; inset: 0; background: var(--overlay); display: flex; align-items: flex-end; }
+.sheet { background: var(--raised); width: 100%; border-radius: 24px 24px 0 0; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+.primary { height: 50px; border-radius: 14px; background: var(--tomatoFill); color: var(--onTomato); font-weight: 600; }
+.switcher { position: sticky; bottom: 12px; background: var(--raised); border: 1px solid var(--border); border-radius: 18px; padding: 10px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.12); }
+.switcher .seg button { font-size: 13px; }
+.state { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--muted); white-space: pre-wrap; background: var(--surface); border-radius: 12px; padding: 10px; overflow-x: auto; }
+.hidden-note { border: 1.5px dashed var(--dashed); border-radius: 14px; padding: 10px 12px; font-size: 13px; color: var(--muted); }
+.num { font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: no-preference) { .sheet { animation: up .22s cubic-bezier(.32,.72,0,1); } @keyframes up { from { transform: translateY(40px); opacity: .4 } } }
+</style>
+
+<div class="wrap">
+  <p class="note"><b>Prototype, kastes etterpå.</b> Tre varianter av julegave-reisen i Grocr. Bytt variant og hvem du ser som nederst. Trykk på status for å flytte en gave videre, og prøv «Se som Kari»: da forsvinner Kari selv og alt som er brukt på henne.</p>
+  <div class="phone" id="phone"></div>
+  <div class="switcher">
+    <div class="seg" id="variantSeg"></div>
+    <div class="seg" id="viewerSeg"></div>
+    <details><summary class="small">Vis tilstand</summary><div class="state" id="state"></div></details>
+  </div>
+</div>
+
+<script>
+const YEAR = 2026;
+const VARIANTS = [
+  { key: 'A', name: 'A · Personer' },
+  { key: 'B', name: 'B · Én liste' },
+  { key: 'C', name: 'C · Status' },
+];
+const MEMBERS = ['Christian', 'Kari', 'Emma'];
+const S = {
+  variant: 'A', viewer: 'Christian', tab: 'week', view: { name: 'home' }, sheet: null,
+  filter: 'all', bSeg: 'year', cSeg: 'idea', cPerson: null,
+  recipients: [
+    { id: 'r1', name: 'Bestemor', member: null, budget: 600, last: 500 },
+    { id: 'r2', name: 'Morfar', member: null, budget: null, last: 400 },
+    { id: 'r3', name: 'Onkel Per', member: null, budget: 300, last: 300 },
+    { id: 'r4', name: 'Kari', member: 'Kari', budget: 1500, last: 1200 },
+    { id: 'r5', name: 'Emma', member: 'Emma', budget: 1200, last: 1000 },
+    { id: 'r6', name: 'Christian', member: 'Christian', budget: 1500, last: 1500 },
+  ],
+  gifts: [
+    { id: 'g1', r: 'r1', title: 'Ullpledd', status: 'bought', price: 549, buyer: 'Kari', year: YEAR },
+    { id: 'g2', r: 'r1', title: 'Hyasinter', status: 'idea', price: 99, buyer: null, year: YEAR },
+    { id: 'g3', r: 'r2', title: 'Lydbok-abonnement', status: 'idea', price: null, buyer: null, year: YEAR },
+    { id: 'g4', r: 'r3', title: 'Sjokoladeeske', status: 'wrapped', price: 249, buyer: 'Christian', year: YEAR },
+    { id: 'g5', r: 'r4', title: 'Keramikkurs', status: 'bought', price: 1200, buyer: 'Christian', year: YEAR },
+    { id: 'g6', r: 'r4', title: 'Bok: Lykkeland', status: 'idea', price: 299, buyer: null, year: null },
+    { id: 'g7', r: 'r5', title: 'Sykkelhjelm', status: 'idea', price: 699, buyer: 'Kari', year: YEAR },
+    { id: 'g8', r: 'r5', title: 'Lego-sett', status: 'wrapped', price: 449, buyer: 'Christian', year: YEAR },
+    { id: 'g9', r: 'r6', title: 'Kokkekniv', status: 'bought', price: 899, buyer: 'Kari', year: YEAR },
+    { id: 'g10', r: 'r1', title: 'Te-sett', status: 'wrapped', price: 350, buyer: 'Kari', year: 2025 },
+    { id: 'g11', r: 'r5', title: 'Skøyter', status: 'wrapped', price: 799, buyer: 'Kari', year: 2025 },
+    { id: 'g12', r: 'r2', title: 'Fuglekasse', status: 'idea', price: 199, buyer: null, year: null },
+  ],
+};
+let seq = 100;
+const STATUS = { idea: 'Idé', bought: 'Kjøpt', wrapped: 'Pakket' };
+const NEXT = { idea: 'bought', bought: 'wrapped', wrapped: 'idea' };
+const kr = (n) => n.toLocaleString('nb-NO') + ' kr';
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+// The server rule: the viewer never gets their own recipient.
+const visible = () => S.recipients.filter((r) => r.member !== S.viewer).sort((a, b) => a.name.localeCompare(b.name, 'nb'));
+const giftsOf = (r, year = YEAR) => S.gifts.filter((g) => g.r === r.id && g.year === year);
+const ideasOf = (r) => S.gifts.filter((g) => g.r === r.id && g.year === null);
+const spent = (gs) => gs.filter((g) => g.status !== 'idea').reduce((s, g) => s + (g.price ?? 0), 0);
+function totals() {
+  const rs = visible();
+  const gs = rs.flatMap((r) => giftsOf(r));
+  return {
+    n: gs.length, idea: gs.filter((g) => g.status === 'idea').length,
+    bought: gs.filter((g) => g.status === 'bought').length, wrapped: gs.filter((g) => g.status === 'wrapped').length,
+    spent: spent(gs), budget: rs.reduce((s, r) => s + (r.budget ?? 0), 0),
+  };
+}
+function counts(gs) {
+  const p = [];
+  const c = (k) => gs.filter((g) => g.status === k).length;
+  if (c('idea')) p.push(c('idea') + (c('idea') === 1 ? ' idé' : ' idéer'));
+  if (c('bought')) p.push(c('bought') + ' kjøpt');
+  if (c('wrapped')) p.push(c('wrapped') + ' pakket');
+  return p.length ? p.join(' · ') : 'Ingen gaver ennå';
+}
+function money(sp, budget) {
+  if (budget === null) return sp > 0 ? kr(sp) + ' brukt' : '';
+  const rest = budget - sp;
+  return `${kr(sp)} av ${kr(budget)} · ` + (rest >= 0 ? `${kr(rest)} igjen` : `${kr(-rest)} over`);
+}
+const recipient = (id) => S.recipients.find((r) => r.id === id);
+function go(view) { S.view = view; S.sheet = null; render(); }
+function setStatus(id, status) {
+  const g = S.gifts.find((x) => x.id === id);
+  g.status = status;
+  if (g.year === null && status !== 'idea') g.year = YEAR; // an idea bought moves into this Christmas
+  render();
+}
+function pill(g) { return `<button class="pill ${g.status}" data-act="cycle" data-id="${g.id}" aria-label="${STATUS[g.status]}, trykk for ${STATUS[NEXT[g.status]]}">${STATUS[g.status]}</button>`; }
+function giftLine(g, showPerson) {
+  const r = recipient(g.r);
+  const sub = [showPerson ? r.name : null, g.price !== null ? kr(g.price) : null, g.buyer ? 'kjøpes av ' + g.buyer : null].filter(Boolean).join(' · ');
+  return `<div class="row"><button class="grow" style="text-align:left" data-act="edit" data-id="${g.id}"><div class="item">${esc(g.title)}</div>${sub ? `<div class="small">${esc(sub)}</div>` : ''}</button>${pill(g)}</div>`;
+}
+function bar(t) {
+  const n = Math.max(t.n, 1);
+  return `<div class="bar" aria-hidden="true"><i class="w" style="width:${(t.wrapped / n) * 100}%"></i><i class="b" style="width:${(t.bought / n) * 100}%"></i></div>`;
+}
+
+// ---- Week tab with the card
+function weekScreen() {
+  const t = totals();
+  const days = [['MAN', 16, 'Tacos'], ['TIR', 17, 'Fiskesuppe'], ['ONS', 18, 'Kyllinggryte'], ['TOR', 19, null], ['FRE', 20, 'Pizza']];
+  return `<div class="label" style="padding-top:8px">Uke 47</div><h2 class="title">Denne uka</h2>
+  <button class="giftcard" data-act="openGifts"><span style="font-size:22px" aria-hidden="true">🎁</span><span class="grow"><span class="item" style="display:block">Julegaver</span><span class="small">${t.bought + t.wrapped} av ${t.n} kjøpt · ${kr(Math.max(t.budget - t.spent, 0))} igjen</span></span><span class="chev">›</span></button>
+  ${days.map(([d, n, m]) => `<div class="weekday"><div class="date">${d}<b>${n}</b></div><div class="grow">${m ? `<div class="item">${m}</div><div class="small">4 personer</div>` : `<div class="small" style="color:var(--tomato);font-weight:600">+ Legg til middag</div>`}</div></div>`).join('')}`;
+}
+
+// ---- Variant A: people first
+function aHome() {
+  const t = totals();
+  const rs = visible();
+  return `<div class="summary"><div class="item">${counts(rs.flatMap((r) => giftsOf(r)))}</div>${bar(t)}<div class="small">${money(t.spent, t.budget || null)}</div></div>
+  <div class="card">${rs.map((r) => {
+    const gs = giftsOf(r); const ideas = ideasOf(r).length;
+    return `<button class="row" data-act="person" data-id="${r.id}"><span class="grow"><span class="item" style="display:block">${esc(r.name)}</span><span class="small">${[counts(gs), money(spent(gs), r.budget), ideas ? ideas + ' i idébanken' : ''].filter(Boolean).join(' · ')}</span></span><span class="chev">›</span></button>`;
+  }).join('')}</div>
+  <button class="ghost" data-act="addPerson">+ Legg til person</button>
+  <div class="small">Personer · Vis på Uke fra 1. nov</div>`;
+}
+function aPerson(r) {
+  const gs = giftsOf(r); const ideas = ideasOf(r); const last = S.gifts.filter((g) => g.r === r.id && g.year && g.year < YEAR);
+  return `<div class="small">${r.member ? `${r.member} er i familien og ser ingenting om denne personen.` : 'Ikke i familien.'}</div>
+  <div class="summary"><div class="label" style="text-transform:none;letter-spacing:0">Budsjett jul ${YEAR}</div><div class="item">${money(spent(gs), r.budget) || 'Ingen budsjett'}</div></div>
+  <div class="ghead"><span class="label">Jul ${YEAR}</span><span class="small">${counts(gs)}</span></div>
+  ${gs.length ? `<div class="card">${gs.map((g) => giftLine(g)).join('')}</div>` : ''}
+  <div class="add"><input id="addGift" placeholder="Ny gave, f.eks. Ullsokker" aria-label="Ny gave"><button data-act="addGift" data-id="${r.id}">Legg til</button></div>
+  <div class="label" style="margin-top:6px">Idébank</div>
+  <div class="small">Idéer du noterer gjennom året venter her til det blir jul.</div>
+  ${ideas.length ? `<div class="card">${ideas.map((g) => `<div class="row"><button class="grow" style="text-align:left" data-act="edit" data-id="${g.id}"><div class="item">${esc(g.title)}</div>${g.price ? `<div class="small">${kr(g.price)}</div>` : ''}</button><button class="chip" data-act="moveIn" data-id="${g.id}">Legg til i jul</button></div>`).join('')}</div>` : ''}
+  <div class="add"><input id="addIdea" placeholder="Ny idé" aria-label="Ny idé"><button data-act="addIdea" data-id="${r.id}">Legg til</button></div>
+  ${last.length ? `<div class="label" style="margin-top:6px">Tidligere juler</div><div class="card">${last.map((g) => `<div class="row"><span class="grow">${esc(g.title)}</span><span class="small">Jul ${g.year} · ${g.price ? kr(g.price) : ''}</span></div>`).join('')}</div>` : ''}`;
+}
+
+// ---- Variant B: one list, grouped by person, like the grocery list
+function bHome() {
+  const t = totals();
+  const rs = visible();
+  const f = S.filter;
+  const seg = `<div class="seg"><button class="${S.bSeg === 'year' ? 'on' : ''}" data-act="bSeg" data-v="year">Jul ${YEAR}</button><button class="${S.bSeg === 'bank' ? 'on' : ''}" data-act="bSeg" data-v="bank">Idébank</button></div>`;
+  if (S.bSeg === 'bank') {
+    return seg + `<div class="small">Idéer notert gjennom året. «Kjøpt» flytter idéen inn i jul ${YEAR}.</div>` + rs.map((r) => {
+      const ideas = ideasOf(r);
+      return `<div class="group"><div class="ghead"><span class="item">${esc(r.name)}</span></div>${ideas.length ? `<div class="card">${ideas.map((g) => giftLine(g)).join('')}</div>` : ''}<div class="add"><input id="idea-${r.id}" placeholder="Ny idé til ${esc(r.name)}" aria-label="Ny idé til ${esc(r.name)}"><button data-act="addIdeaB" data-id="${r.id}">+</button></div></div>`;
+    }).join('');
+  }
+  const chips = `<div class="chips">${[['all', 'Alle'], ['idea', 'Idé'], ['bought', 'Kjøpt'], ['wrapped', 'Pakket']].map(([k, l]) => `<button class="chip ${f === k ? 'on' : ''}" data-act="filter" data-v="${k}">${l}</button>`).join('')}</div>`;
+  return seg + `<div class="summary"><div class="item">${t.bought + t.wrapped} av ${t.n} kjøpt</div>${bar(t)}<div class="small">${money(t.spent, t.budget || null)}</div></div>` + chips + rs.map((r) => {
+    const gs = giftsOf(r).filter((g) => f === 'all' || g.status === f);
+    if (f !== 'all' && gs.length === 0) return '';
+    return `<div class="group"><div class="ghead"><button class="item" data-act="budget" data-id="${r.id}">${esc(r.name)}</button><span class="small num">${money(spent(giftsOf(r)), r.budget) || 'Sett budsjett'}</span></div>${gs.length ? `<div class="card">${gs.map((g) => giftLine(g)).join('')}</div>` : ''}${f === 'all' ? `<div class="add"><input id="gift-${r.id}" placeholder="Ny gave til ${esc(r.name)}" aria-label="Ny gave til ${esc(r.name)}"><button data-act="addGiftB" data-id="${r.id}">+</button></div>` : ''}</div>`;
+  }).join('') + `<button class="ghost" data-act="addPerson">+ Legg til person</button>`;
+}
+
+// ---- Variant C: status board, the shopping run
+function cHome() {
+  const t = totals();
+  const rs = visible();
+  const segs = `<div class="seg">${['idea', 'bought', 'wrapped'].map((k) => `<button class="${S.cSeg === k ? 'on' : ''}" data-act="cSeg" data-v="${k}">${STATUS[k]} · ${t[k]}</button>`).join('')}</div>`;
+  const people = `<div class="chips"><button class="chip ${S.cPerson === null ? 'on' : ''}" data-act="cPerson" data-v="">Alle</button>${rs.map((r) => `<button class="chip ${S.cPerson === r.id ? 'on' : ''}" data-act="cPerson" data-v="${r.id}">${esc(r.name)}</button>`).join('')}</div>`;
+  const gs = rs.flatMap((r) => giftsOf(r)).filter((g) => g.status === S.cSeg && (S.cPerson === null || g.r === S.cPerson));
+  const missing = rs.filter((r) => giftsOf(r).length === 0);
+  return `<div class="summary"><div class="h2 num">${t.bought + t.wrapped} av ${t.n} kjøpt</div>${bar(t)}<div class="small">${money(t.spent, t.budget || null)}</div></div>
+  ${missing.length ? `<div class="hidden-note">Ingen gave ennå til ${missing.map((r) => esc(r.name)).join(', ')}.</div>` : ''}
+  ${segs}${people}
+  ${gs.length ? `<div class="card">${gs.map((g) => giftLine(g, true)).join('')}</div>` : `<div class="small">Ingenting her.</div>`}
+  <button class="ghost" data-act="newGiftC">+ Ny gave</button>
+  <button class="row" data-act="cPeople" style="border-top:1px solid var(--divider)"><span class="grow item">Personer, budsjett og idébank</span><span class="chev">›</span></button>`;
+}
+
+function editSheet(g) {
+  const r = recipient(g.r);
+  return `<div class="sheetwrap" data-act="close"><div class="sheet" data-stop>
+    <div class="h2">${esc(g.title)}</div><div class="small">Til ${esc(r.name)}${g.year ? ' · jul ' + g.year : ' · idébank'}</div>
+    <div class="chips" role="radiogroup">${['idea', 'bought', 'wrapped'].map((k) => `<button class="chip ${g.status === k ? 'on' : ''}" data-act="set" data-id="${g.id}" data-v="${k}">${STATUS[k]}</button>`).join('')}</div>
+    <div class="small">Pris: ${g.price !== null ? kr(g.price) : '–'} · Kjøpes av: ${g.buyer ?? 'ingen ennå'} · Notat og lenke redigeres her også.</div>
+    <div class="small">Kjøper kan være ${MEMBERS.filter((m) => m !== r.member).join(', ')} (ikke ${r.member ?? 'mottakeren'}).</div>
+    <button class="primary" data-act="close">Ferdig</button></div></div>`;
+}
+function budgetSheet(r) {
+  return `<div class="sheetwrap" data-act="close"><div class="sheet" data-stop>
+    <div class="h2">Budsjett for ${esc(r.name)}</div>
+    <div class="add"><input id="budget" inputmode="decimal" value="${r.budget ?? ''}" aria-label="Beløp i kroner"></div>
+    ${r.last && r.budget === null ? `<div class="chips"><button class="chip" data-act="useLast" data-id="${r.id}">I fjor: ${kr(r.last)}</button></div>` : ''}
+    <button class="primary" data-act="saveBudget" data-id="${r.id}">Lagre</button></div></div>`;
+}
+function personSheet() {
+  return `<div class="sheetwrap" data-act="close"><div class="sheet" data-stop>
+    <div class="h2">Legg til person</div><div class="add"><input id="newPerson" placeholder="F.eks. Tante Liv" aria-label="Navn"></div>
+    <div class="small">Er personen i familien? Koble dem etterpå under Personer, så ser de ikke gavene sine. Du kan ikke koble deg selv.</div>
+    <button class="primary" data-act="savePerson">Lagre</button></div></div>`;
+}
+function newGiftSheet() {
+  return `<div class="sheetwrap" data-act="close"><div class="sheet" data-stop>
+    <div class="h2">Ny gave</div><div class="chips">${visible().map((r, i) => `<button class="chip ${i === 0 ? 'on' : ''}" data-act="pickR" data-id="${r.id}">${esc(r.name)}</button>`).join('')}</div>
+    <div class="add"><input id="newGiftC" placeholder="Hva?" aria-label="Gave"></div>
+    <button class="primary" data-act="saveGiftC">Legg til</button></div></div>`;
+}
+
+function render() {
+  const p = document.getElementById('phone');
+  let title = 'Uke', body = '', back = '';
+  if (S.tab === 'week') { title = ''; body = weekScreen(); }
+  else if (S.view.name === 'person') {
+    const r = recipient(S.view.id);
+    if (!r || r.member === S.viewer) { go({ name: 'home' }); return; }
+    title = r.name; back = S.variant === 'C' ? 'Personer' : 'Julegaver'; body = aPerson(r);
+  } else if (S.view.name === 'people') {
+    title = 'Personer'; back = 'Julegaver'; body = aHome();
+  } else {
+    title = 'Julegaver'; back = 'Familie';
+    body = `<div style="display:flex;justify-content:space-between;align-items:center"><span class="chev" aria-hidden="true">‹</span><span class="h2">Jul ${YEAR}</span><span class="chev" style="opacity:.35" aria-hidden="true">›</span></div>` +
+      (S.variant === 'A' ? aHome() : S.variant === 'B' ? bHome() : cHome());
+  }
+  const sheet = S.sheet?.kind === 'edit' ? editSheet(S.gifts.find((g) => g.id === S.sheet.id))
+    : S.sheet?.kind === 'budget' ? budgetSheet(recipient(S.sheet.id))
+    : S.sheet?.kind === 'person' ? personSheet() : S.sheet?.kind === 'newGift' ? newGiftSheet() : '';
+  p.innerHTML = `<div class="nav"><div class="side">${back ? `<button class="back" data-act="back">‹ ${back}</button>` : ''}</div><h1>${esc(title)}</h1><div class="side"></div></div>
+  <div class="screen">${body}</div>
+  <nav class="tabs">${[['week', 'Uke', '📅'], ['groceries', 'Handleliste', '🧺'], ['recipes', 'Oppskrifter', '📖'], ['family', 'Familie', '👪']].map(([k, l, i]) => `<button class="${(S.tab === k || (k === 'family' && S.tab === 'gifts')) ? 'on' : ''}" data-act="tab" data-v="${k}"><span class="ico" aria-hidden="true">${i}</span>${l}</button>`).join('')}</nav>${sheet}`;
+  document.getElementById('variantSeg').innerHTML = VARIANTS.map((v) => `<button class="${S.variant === v.key ? 'on' : ''}" data-act="variant" data-v="${v.key}">${v.name}</button>`).join('');
+  document.getElementById('viewerSeg').innerHTML = MEMBERS.map((m) => `<button class="${S.viewer === m ? 'on' : ''}" data-act="viewer" data-v="${m}">Se som ${m}</button>`).join('');
+  const t = totals();
+  document.getElementById('state').textContent = `variant ${S.variant}, ser som ${S.viewer}\nsynlige personer: ${visible().map((r) => r.name).join(', ')}\nskjult for ${S.viewer}: ${S.recipients.filter((r) => r.member === S.viewer).map((r) => r.name).join(', ') || 'ingen'}\njul ${YEAR}: ${t.n} gaver, ${t.idea} idé, ${t.bought} kjøpt, ${t.wrapped} pakket\nbrukt ${kr(t.spent)} av ${kr(t.budget)}`;
+}
+
+let pickedR = null;
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-act]');
+  if (!el) return;
+  if (el.dataset.act === 'close' && e.target.closest('[data-stop]') && el.classList.contains('sheetwrap')) return;
+  const { act, id, v } = el.dataset;
+  const val = (sel) => document.getElementById(sel)?.value.trim() ?? '';
+  switch (act) {
+    case 'variant': S.variant = v; if (S.tab === 'gifts') S.view = { name: 'home' }; break;
+    case 'viewer': S.viewer = v; break;
+    case 'tab': S.tab = v === 'family' ? 'gifts' : v; S.view = { name: 'home' }; break;
+    case 'openGifts': S.tab = 'gifts'; S.view = { name: 'home' }; break;
+    case 'back':
+      if (S.view.name === 'person') S.view = S.variant === 'C' ? { name: 'people' } : { name: 'home' };
+      else if (S.view.name === 'people') S.view = { name: 'home' };
+      else S.tab = 'week';
+      break;
+    case 'person': S.view = { name: 'person', id }; break;
+    case 'cycle': { const g = S.gifts.find((x) => x.id === id); setStatus(id, NEXT[g.status]); return; }
+    case 'set': setStatus(id, v); return;
+    case 'edit': S.sheet = { kind: 'edit', id }; break;
+    case 'close': S.sheet = null; break;
+    case 'moveIn': S.gifts.find((g) => g.id === id).year = YEAR; break;
+    case 'addGift': case 'addGiftB': { const t = val(act === 'addGift' ? 'addGift' : 'gift-' + id); if (t) S.gifts.push({ id: 'g' + seq++, r: id, title: t, status: 'idea', price: null, buyer: null, year: YEAR }); break; }
+    case 'addIdea': case 'addIdeaB': { const t = val(act === 'addIdea' ? 'addIdea' : 'idea-' + id); if (t) S.gifts.push({ id: 'g' + seq++, r: id, title: t, status: 'idea', price: null, buyer: null, year: null }); break; }
+    case 'filter': S.filter = v; break;
+    case 'bSeg': S.bSeg = v; break;
+    case 'cSeg': S.cSeg = v; break;
+    case 'cPerson': S.cPerson = v || null; break;
+    case 'cPeople': S.view = { name: 'people' }; break;
+    case 'budget': S.sheet = { kind: 'budget', id }; break;
+    case 'useLast': document.getElementById('budget').value = recipient(id).last; return;
+    case 'saveBudget': { const n = Number(val('budget').replace(/\s/g, '').replace(',', '.')); recipient(id).budget = val('budget') === '' ? null : (Number.isFinite(n) ? n : recipient(id).budget); S.sheet = null; break; }
+    case 'addPerson': S.sheet = { kind: 'person' }; break;
+    case 'savePerson': { const n = val('newPerson'); if (n) S.recipients.push({ id: 'r' + seq++, name: n, member: null, budget: null, last: null }); S.sheet = null; break; }
+    case 'newGiftC': pickedR = visible()[0]?.id; S.sheet = { kind: 'newGift' }; break;
+    case 'pickR': pickedR = id; document.querySelectorAll('[data-act="pickR"]').forEach((b) => b.classList.toggle('on', b.dataset.id === id)); return;
+    case 'saveGiftC': { const t = val('newGiftC'); if (t && pickedR) S.gifts.push({ id: 'g' + seq++, r: pickedR, title: t, status: S.cSeg, price: null, buyer: null, year: YEAR }); S.sheet = null; break; }
+  }
+  render();
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('.add input')) e.target.parentElement.querySelector('button')?.click(); });
+render();
+</script>
