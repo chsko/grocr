@@ -153,6 +153,11 @@ function AppStack() {
           <Stack.Screen name="sections" options={{ ...header, title: t('storeOrder.title') }} />
           <Stack.Screen name="items" options={{ ...header, title: t('items.title') }} />
           <Stack.Screen name="staples" options={{ ...header, title: t('staples.title') }} />
+          <Stack.Screen name="gifts" options={{ ...header, title: t('gifts.title') }} />
+          <Stack.Screen
+            name="gift-recipients"
+            options={{ ...header, title: t('gifts.people_screen.title') }}
+          />
           <Stack.Screen name="week-start" options={{ ...header, title: t('family.weekStarts') }} />
           <Stack.Screen name="whats-new" options={{ ...header, title: t('whatsNew.title') }} />
         </Stack.Protected>

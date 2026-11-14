@@ -21,6 +21,14 @@ const KNOWN = new Set([
   'TOO_MANY_SECTIONS',
   'ITEM_EXISTS',
   'INVALID_URL',
+  'GIFT_TITLE_REQUIRED',
+  'INVALID_PRICE',
+  'INVALID_LINK',
+  'INVALID_BUYER',
+  'ALREADY_LINKED',
+  'CANNOT_LINK_SELF',
+  'NOT_IN_CHRISTMAS',
+  'INVALID_DATE',
 ]);
 
 /** Shows a friendly alert for a failed mutation. */

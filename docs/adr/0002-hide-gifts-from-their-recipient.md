@@ -6,6 +6,11 @@ with the whole group, and that a gift recipient linked to a member is hidden fro
 with all its gifts, ideas, budget, history and its share of totals. The rule is enforced in the
 Convex functions, and a hidden recipient looks exactly like one that does not exist.
 
+Only the other members can link someone: linking yourself is refused before anything is looked
+up, because an "already linked" answer would tell you a recipient for you exists. The link stays
+when the member leaves the family, so a child who moves out and is invited back still sees
+nothing. Only deleting the account removes it.
+
 ## Considered Options
 
 - **Private lists per person, shared with chosen co-planners**: no new visibility rule, but

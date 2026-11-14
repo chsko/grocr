@@ -1,6 +1,8 @@
 # Christmas gifts: plan
 
-Status: design agreed with Christian on 2026-11-14 (interview in the project thread). Not built yet.
+Status: design agreed with Christian on 2026-11-14. The spec with all later decisions (second
+grilling round, the one-list screen from the prototype, test seams) is issue #78, built in
+tickets #79 to #87. Where this plan and #78 differ, #78 wins.
 Terms are defined in [`GLOSSARY.md`](../GLOSSARY.md) under "Gifts". The one hard-to-reverse
 decision, hiding gifts from their recipient, is [ADR 0002](adr/0002-hide-gifts-from-their-recipient.md).
 

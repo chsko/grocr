@@ -32,6 +32,13 @@ A week whose first day is after today.
 A person the family gives gifts to, kept from year to year. Can be linked to a family member, who then never sees anything about them.
 _Avoid_: Person, contact, receiver
 
+**Linked member**:
+The family member a gift recipient is. Someone else in the family makes the link, never the member themselves, and it stays when they leave the family.
+_Avoid_: Owner, self
+
+**Archived recipient**:
+A gift recipient the family no longer gives gifts to. Keeps their history but is left out of new gift occasions.
+
 **Gift occasion**:
 One time the family gives gifts, such as Christmas 2026. Only Christmas exists for now.
 _Avoid_: Event, season
@@ -42,3 +49,13 @@ _Avoid_: Wish list (that is what the recipient wants, written by them)
 
 **Gift budget**:
 The amount the family plans to spend on one gift recipient for one gift occasion.
+
+**Gift status**:
+Where a gift is: Idea, Bought or Wrapped. Everything in the idea bank is an Idea.
+
+**Spent**:
+The sum of the prices of gifts that are Bought or Wrapped. Ideas with a price count as planned, not spent.
+_Avoid_: Used, cost
+
+**This Christmas**:
+The Christmas of the current year. It becomes next year's on 1 January, so the days after Christmas still show the one just had.

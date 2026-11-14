@@ -72,3 +72,20 @@ export function accountLabel(
   if (user.email?.endsWith('@privaterelay.appleid.com')) return hiddenAppleEmail;
   return user.email ?? user.name;
 }
+
+/** "1 299,50 kr" / "1,299.50 kr". Whole kroner show without decimals. */
+export function formatKroner(language: string, amount: number) {
+  const locale = language === 'nb' ? 'nb-NO' : 'en-GB';
+  const text = amount.toLocaleString(locale, {
+    minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+    maximumFractionDigits: 2,
+  });
+  return `${text} kr`;
+}
+
+/** A price for an edit field: "1299,5" in Norwegian, "1299.5" in English, no grouping. */
+export function priceInput(language: string, amount: number | null) {
+  if (amount === null) return '';
+  const text = String(amount);
+  return language === 'nb' ? text.replace('.', ',') : text;
+}

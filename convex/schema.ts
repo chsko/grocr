@@ -7,6 +7,9 @@ import { v } from 'convex/values';
 
 export const role = v.union(v.literal('owner'), v.literal('member'));
 
+export const giftOccasionKind = v.literal('christmas');
+export const giftStatus = v.union(v.literal('idea'), v.literal('bought'), v.literal('wrapped'));
+
 export const groceryItemSource = v.union(
   v.object({
     kind: v.literal('meal'),
@@ -57,6 +60,8 @@ export default defineSchema({
     sectionOrder: v.optional(v.array(v.string())),
     // jev calls made for this family today (UTC), to cap spend.
     jevUsage: v.optional(v.object({ day: v.string(), count: v.number() })),
+    // From when the Christmas gifts card shows on Week, as "MM-DD" (#78). Missing = 1 November.
+    giftCardStart: v.optional(v.string()),
     createdAt: v.number(),
   }),
 
@@ -221,4 +226,46 @@ export default defineSchema({
   })
     .index('by_list', ['listId'])
     .index('by_entry', ['source.mealPlanEntryId']),
+
+  // Christmas gifts (#78, ADR 0002). A gift recipient linked to a member is hidden from that
+  // member, with everything about them; every function goes through convex/gifts.ts loaders.
+  giftRecipients: defineTable({
+    groupId: v.id('groups'),
+    name: v.string(),
+    memberUserId: v.optional(v.id('users')),
+    archivedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index('by_group', ['groupId'])
+    .index('by_group_member', ['groupId', 'memberUserId']),
+
+  // A gift for one occasion (Christmas of a year), or an idea in the recipient's idea bank when
+  // the occasion fields are missing. Both occasion fields are set together or not at all.
+  gifts: defineTable({
+    groupId: v.id('groups'),
+    recipientId: v.id('giftRecipients'),
+    occasionKind: v.optional(giftOccasionKind),
+    occasionYear: v.optional(v.number()),
+    title: v.string(),
+    // Always 'idea' in the idea bank.
+    status: giftStatus,
+    price: v.optional(v.number()),
+    url: v.optional(v.string()),
+    note: v.optional(v.string()),
+    buyerUserId: v.optional(v.id('users')),
+    createdAt: v.number(),
+  })
+    .index('by_recipient_occasion', ['recipientId', 'occasionKind', 'occasionYear'])
+    .index('by_group_occasion', ['groupId', 'occasionKind', 'occasionYear']),
+
+  // What the family plans to spend on one recipient for one occasion, in kroner.
+  giftBudgets: defineTable({
+    groupId: v.id('groups'),
+    recipientId: v.id('giftRecipients'),
+    occasionKind: giftOccasionKind,
+    occasionYear: v.number(),
+    amount: v.number(),
+  })
+    .index('by_recipient_occasion', ['recipientId', 'occasionKind', 'occasionYear'])
+    .index('by_group_occasion', ['groupId', 'occasionKind', 'occasionYear']),
 });
