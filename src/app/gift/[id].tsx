@@ -38,6 +38,7 @@ function GiftForm({ gift }: { gift: Gift }) {
   const { t, i18n } = useTranslation();
   const updateGift = useMutation(api.gifts.updateGift);
   const removeGift = useMutation(api.gifts.removeGift);
+  const moveGift = useMutation(api.gifts.moveGift);
   const [title, setTitle] = useState(gift.title);
   const [price, setPrice] = useState(priceInput(i18n.language, gift.price));
   const [url, setUrl] = useState(gift.url ?? '');
@@ -169,6 +170,18 @@ function GiftForm({ gift }: { gift: Gift }) {
         </View>
       </View>
       <Button title={t('common.save')} onPress={() => void save()} disabled={busy} />
+      {gift.year !== null ? (
+        <Button
+          kind="secondary"
+          title={t('gifts.edit.toBank')}
+          onPress={async () => {
+            const ok = await attempt(t, () =>
+              moveGift({ giftId: gift._id, year: null }).then(() => true),
+            );
+            if (ok && router.canGoBack()) router.back();
+          }}
+        />
+      ) : null}
       <Button kind="danger" title={t('gifts.edit.delete')} onPress={remove} />
     </ScrollView>
   );

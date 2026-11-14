@@ -154,6 +154,17 @@ async function giftsFor(ctx: Ctx, recipientId: Id<'giftRecipients'>, year: numbe
   return gifts.sort((a, b) => a.createdAt - b.createdAt);
 }
 
+/** A recipient's idea bank: gifts not yet in any Christmas, oldest first. */
+async function bankFor(ctx: Ctx, recipientId: Id<'giftRecipients'>) {
+  const ideas = await ctx.db
+    .query('gifts')
+    .withIndex('by_recipient_occasion', (q) =>
+      q.eq('recipientId', recipientId).eq('occasionKind', undefined),
+    )
+    .collect();
+  return ideas.sort((a, b) => a.createdAt - b.createdAt);
+}
+
 async function budgetFor(ctx: Ctx, recipientId: Id<'giftRecipients'>, year: number) {
   return await ctx.db
     .query('giftBudgets')
@@ -225,6 +236,7 @@ export const christmas = query({
         ...sums,
         budget: own,
         lastBudget: (await budgetFor(ctx, recipient._id, year - 1))?.amount ?? null,
+        bankCount: (await bankFor(ctx, recipient._id)).length,
         gifts: await Promise.all(gifts.map((g) => giftRow(ctx, g))),
       });
     }
@@ -234,6 +246,25 @@ export const christmas = query({
       planned: round(planned),
     };
     return { year, currentYear: thisYear, recipients, totals: { ...totals, ...money } };
+  },
+});
+
+/** The idea bank: ideas for every recipient the caller may see, waiting for a Christmas. */
+export const ideas = query({
+  args: { groupId: v.id('groups') },
+  handler: async (ctx, { groupId }) => {
+    const { userId } = await requireMembership(ctx, groupId);
+    const recipients = [];
+    for (const recipient of await visibleRecipients(ctx, groupId, userId)) {
+      if (recipient.archivedAt !== undefined) continue;
+      const bank = await bankFor(ctx, recipient._id);
+      recipients.push({
+        _id: recipient._id,
+        name: recipient.name,
+        ideas: await Promise.all(bank.map((g) => giftRow(ctx, g))),
+      });
+    }
+    return { currentYear: await currentYear(ctx, groupId), recipients };
   },
 });
 
@@ -348,16 +379,16 @@ export const linkRecipient = mutation({
   },
 });
 
-/** Adds a gift to a recipient's Christmas of `year`. */
+/** Adds a gift to a recipient's Christmas of `year`, or to their idea bank without one. */
 export const addGift = mutation({
-  args: { recipientId: v.id('giftRecipients'), title: v.string(), year: v.number() },
+  args: { recipientId: v.id('giftRecipients'), title: v.string(), year: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const { recipient } = await loadRecipient(ctx, args.recipientId);
-    checkYear(args.year);
+    if (args.year !== undefined) checkYear(args.year);
     return await ctx.db.insert('gifts', {
       groupId: recipient.groupId,
       recipientId: recipient._id,
-      occasionKind: KIND,
+      occasionKind: args.year === undefined ? undefined : KIND,
       occasionYear: args.year,
       title: checkTitle(args.title),
       status: 'idea',
@@ -366,13 +397,44 @@ export const addGift = mutation({
   },
 });
 
-/** Sets a gift's status (Idea, Bought, Wrapped). Sets absolute state. */
+/**
+ * Sets a gift's status (Idea, Bought, Wrapped). An idea in the bank that is bought or wrapped
+ * has become a gift for this Christmas, so it moves there. Sets absolute state.
+ */
 export const setGiftStatus = mutation({
   args: { giftId: v.id('gifts'), status: giftStatus },
   handler: async (ctx, args) => {
-    const { gift } = await loadGift(ctx, args.giftId);
+    const { gift, recipient } = await loadGift(ctx, args.giftId);
     if (gift.status === args.status) return;
+    if (gift.occasionKind === undefined) {
+      await ctx.db.patch('gifts', gift._id, {
+        status: args.status,
+        occasionKind: KIND,
+        occasionYear: await currentYear(ctx, recipient.groupId),
+      });
+      return;
+    }
     await ctx.db.patch('gifts', gift._id, { status: args.status });
+  },
+});
+
+/** Moves a gift into a Christmas, or back to the idea bank (as an Idea again) with null. */
+export const moveGift = mutation({
+  args: { giftId: v.id('gifts'), year: v.union(v.number(), v.null()) },
+  handler: async (ctx, args) => {
+    const { gift } = await loadGift(ctx, args.giftId);
+    if (args.year === null) {
+      if (gift.occasionKind === undefined) return;
+      await ctx.db.patch('gifts', gift._id, {
+        occasionKind: undefined,
+        occasionYear: undefined,
+        status: 'idea',
+      });
+      return;
+    }
+    checkYear(args.year);
+    if (gift.occasionYear === args.year) return;
+    await ctx.db.patch('gifts', gift._id, { occasionKind: KIND, occasionYear: args.year });
   },
 });
 

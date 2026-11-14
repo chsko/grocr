@@ -416,3 +416,83 @@ describe('budgets', () => {
     ).rejects.toThrow(/INVALID_YEAR/);
   });
 });
+
+describe('idea bank', () => {
+  test('ideas wait in the bank, grouped by recipient, and are counted in the list', async () => {
+    const { ada, kid, groupId, granny, bobR } = await planned();
+    await ada.as.mutation(api.gifts.addGift, { recipientId: granny, title: 'Book' });
+    await ada.as.mutation(api.gifts.addGift, { recipientId: bobR, title: 'Headphones' });
+    const bank = await kid.as.query(api.gifts.ideas, { groupId });
+    expect(bank.currentYear).toBe(2026);
+    expect(bank.recipients.map((r) => [r.name, r.ideas.map((i) => i.title)])).toEqual([
+      ['Bob', ['Headphones']],
+      ['Granny', ['Book']],
+    ]);
+    const xmas = await kid.as.query(api.gifts.christmas, { groupId });
+    expect(xmas.recipients.map((r) => [r.name, r.bankCount, r.gifts.length])).toEqual([
+      ['Bob', 1, 1],
+      ['Granny', 1, 1],
+    ]);
+  });
+
+  test('the linked member sees no ideas for themselves', async () => {
+    const { ada, bob, groupId, bobR } = await planned();
+    const idea = await ada.as.mutation(api.gifts.addGift, {
+      recipientId: bobR,
+      title: 'Headphones',
+    });
+    const bank = await bob.as.query(api.gifts.ideas, { groupId });
+    expect(bank.recipients.map((r) => r.name)).toEqual(['Granny']);
+    await expect(bob.as.mutation(api.gifts.moveGift, { giftId: idea, year: 2026 })).rejects.toThrow(
+      /NOT_FOUND/,
+    );
+    await expect(
+      bob.as.mutation(api.gifts.addGift, { recipientId: bobR, title: 'x' }),
+    ).rejects.toThrow(/NOT_FOUND/);
+  });
+
+  test('moving an idea in and back, where it becomes an idea again', async () => {
+    const { ada, groupId, granny } = await planned();
+    const book = await ada.as.mutation(api.gifts.addGift, { recipientId: granny, title: 'Book' });
+    await ada.as.mutation(api.gifts.moveGift, { giftId: book, year: 2026 });
+    let xmas = await ada.as.query(api.gifts.christmas, { groupId });
+    expect(xmas.recipients[1].gifts.map((g) => g.title)).toEqual(['Scarf', 'Book']);
+    expect(xmas.recipients[1].bankCount).toBe(0);
+
+    await ada.as.mutation(api.gifts.setGiftStatus, { giftId: book, status: 'wrapped' });
+    await ada.as.mutation(api.gifts.moveGift, { giftId: book, year: null });
+    // Moving again changes nothing.
+    await ada.as.mutation(api.gifts.moveGift, { giftId: book, year: null });
+    xmas = await ada.as.query(api.gifts.christmas, { groupId });
+    expect(xmas.recipients[1].gifts.map((g) => g.title)).toEqual(['Scarf']);
+    const bank = await ada.as.query(api.gifts.ideas, { groupId });
+    expect(bank.recipients[1].ideas).toMatchObject([{ title: 'Book', status: 'idea' }]);
+    expect(await ada.as.query(api.gifts.gift, { giftId: book })).toMatchObject({ year: null });
+  });
+
+  test('marking a bank idea Bought moves it into this Christmas', async () => {
+    const { ada, groupId, granny } = await planned();
+    const book = await ada.as.mutation(api.gifts.addGift, { recipientId: granny, title: 'Book' });
+    await ada.as.mutation(api.gifts.setGiftStatus, { giftId: book, status: 'idea' });
+    expect((await ada.as.query(api.gifts.ideas, { groupId })).recipients[1].ideas).toHaveLength(1);
+    await ada.as.mutation(api.gifts.setGiftStatus, { giftId: book, status: 'bought' });
+    const xmas = await ada.as.query(api.gifts.christmas, { groupId });
+    expect(xmas.recipients[1].gifts).toMatchObject([
+      { title: 'Scarf' },
+      { title: 'Book', status: 'bought' },
+    ]);
+    expect((await ada.as.query(api.gifts.ideas, { groupId })).recipients[1].ideas).toEqual([]);
+  });
+
+  test('ideas can be added all year, and moves need a real year', async () => {
+    vi.setSystemTime(new Date('2027-07-10T12:00:00Z'));
+    const { ada, groupId, granny } = await planned();
+    const book = await ada.as.mutation(api.gifts.addGift, { recipientId: granny, title: 'Book' });
+    await ada.as.mutation(api.gifts.setGiftStatus, { giftId: book, status: 'bought' });
+    expect(await ada.as.query(api.gifts.gift, { giftId: book })).toMatchObject({ year: 2027 });
+    await expect(ada.as.mutation(api.gifts.moveGift, { giftId: book, year: 3000 })).rejects.toThrow(
+      /INVALID_YEAR/,
+    );
+    expect(groupId).toBeDefined();
+  });
+});

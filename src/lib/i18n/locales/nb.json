@@ -652,6 +652,7 @@
     "newGiftFor": "Ny gave til {{name}}",
     "filterAll": "Alle",
     "boughtOf": "{{done}} av {{count}} kjøpt",
-    "filterHint": "Vis gaver"
+    "filterHint": "Vis gaver",
+    "newIdeaFor": "Ny idé til {{name}}"
   }
 }

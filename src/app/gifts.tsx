@@ -39,6 +39,7 @@ export default function GiftsScreen() {
   const [adding, setAdding] = useState(false);
   const [filter, setFilter] = useState<GiftStatus | null>(null);
   const [budgetFor, setBudgetFor] = useState<Id<'giftRecipients'> | null>(null);
+  const [tab, setTab] = useState<'christmas' | 'bank'>('christmas');
   const moneyLine = useMoneyLine();
 
   if (xmas === undefined) return <Loading />;
@@ -62,14 +63,29 @@ export default function GiftsScreen() {
       keyboardShouldPersistTaps="handled"
       style={{ backgroundColor: colors.background }}
       contentContainerStyle={styles.content}>
-      <Text variant="heading" accessibilityRole="header">
-        {t('gifts.christmasYear', { year: xmas.year })}
-      </Text>
-      {groups.length === 0 ? (
+      <View style={styles.tabs} accessibilityRole="tablist">
+        {(['christmas', 'bank'] as const).map((key) => (
+          <Pressable
+            key={key}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: tab === key }}
+            onPress={() => setTab(key)}
+            style={[styles.tab, tab === key && styles.tabOn]}>
+            <Text variant="label" color={tab === key ? colors.ink : colors.muted}>
+              {key === 'christmas'
+                ? t('gifts.christmasYear', { year: xmas.year })
+                : t('gifts.ideasTitle')}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {tab === 'bank' ? <IdeaBank /> : null}
+      {tab === 'christmas' && groups.length === 0 ? (
         <Text color={colors.muted}>{`${t('gifts.intro')} ${t('gifts.empty')}`}</Text>
       ) : null}
 
-      {total > 0 ? (
+      {tab === 'christmas' && total > 0 ? (
         <View style={styles.summary}>
           <Text variant="item">
             {t('gifts.boughtOf', { done: bought + wrapped, count: total })}
@@ -79,7 +95,7 @@ export default function GiftsScreen() {
         </View>
       ) : null}
 
-      {total > 0 ? (
+      {tab === 'christmas' && total > 0 ? (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -102,7 +118,7 @@ export default function GiftsScreen() {
         </ScrollView>
       ) : null}
 
-      {groups.map((group) => (
+      {(tab === 'christmas' ? groups : []).map((group) => (
         <View key={group._id} style={styles.group}>
           <View style={styles.head}>
             <Text variant="item" style={{ flexShrink: 1 }}>
@@ -147,6 +163,17 @@ export default function GiftsScreen() {
           {filter === null ? (
             <AddGift recipientId={group._id} name={group.name} year={xmas.year} />
           ) : null}
+          {filter === null && group.bankCount > 0 ? (
+            <Pressable
+              accessibilityRole="button"
+              hitSlop={6}
+              onPress={() => setTab('bank')}
+              style={({ pressed }) => pressed && { opacity: 0.7 }}>
+              <Text variant="small" color={colors.muted}>
+                {t('gifts.bankCount', { count: group.bankCount })}
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       ))}
 
@@ -188,6 +215,60 @@ export default function GiftsScreen() {
   );
 }
 
+/** The idea bank tab: ideas per recipient, noted all year, moved into a Christmas with a tap. */
+function IdeaBank() {
+  const colors = useColors();
+  const styles = useStyles();
+  const { t, i18n } = useTranslation();
+  const family = useFamily();
+  const bank = useQuery(api.gifts.ideas, { groupId: family.groupId });
+  const moveGift = useMutation(api.gifts.moveGift);
+  const setStatus = useSetGiftStatus();
+  if (bank === undefined) return <Loading />;
+  const groups = [...bank.recipients].sort((a, b) => a.name.localeCompare(b.name, i18n.language));
+  return (
+    <>
+      <Text color={colors.muted}>{t('gifts.ideasIntro')}</Text>
+      {groups.map((group) => (
+        <View key={group._id} style={styles.group}>
+          <Text variant="item">{group.name}</Text>
+          {group.ideas.length > 0 ? (
+            <View style={styles.list}>
+              {group.ideas.map((idea, index) => (
+                <View key={idea._id} style={[styles.row, index > 0 && styles.divider]}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={idea.title}
+                    onPress={() => router.push(`/gift/${idea._id}`)}
+                    style={({ pressed }) => [{ flex: 1, gap: 2 }, pressed && { opacity: 0.7 }]}>
+                    <Text>{idea.title}</Text>
+                    <GiftLine gift={idea} />
+                  </Pressable>
+                  <Chip
+                    title={t('gifts.moveIn', { year: bank.currentYear })}
+                    accessibilityLabel={`${idea.title}: ${t('gifts.moveIn', { year: bank.currentYear })}`}
+                    onPress={() =>
+                      void attempt(t, () => moveGift({ giftId: idea._id, year: bank.currentYear }))
+                    }
+                  />
+                  <StatusPill
+                    title={idea.title}
+                    status={idea.status}
+                    onChange={(status) =>
+                      void attempt(t, () => setStatus({ giftId: idea._id, status }))
+                    }
+                  />
+                </View>
+              ))}
+            </View>
+          ) : null}
+          <AddGift recipientId={group._id} name={group.name} />
+        </View>
+      ))}
+    </>
+  );
+}
+
 /** Price, buyer and shop under a gift's title, when there are any. */
 function GiftLine({
   gift,
@@ -212,6 +293,17 @@ function GiftLine({
 /** Moves a gift's status at once on every open Christmas list; the server's answer follows. */
 function useSetGiftStatus() {
   return useMutation(api.gifts.setGiftStatus).withOptimisticUpdate((store, { giftId, status }) => {
+    // A bank idea that is bought or wrapped leaves the bank for this Christmas.
+    for (const { args, value } of store.getAllQueries(api.gifts.ideas)) {
+      if (!value || status === 'idea') continue;
+      store.setQuery(api.gifts.ideas, args, {
+        ...value,
+        recipients: value.recipients.map((r) => ({
+          ...r,
+          ideas: r.ideas.filter((g) => g._id !== giftId),
+        })),
+      });
+    }
     for (const { args, value } of store.getAllQueries(api.gifts.christmas)) {
       const moved = value?.recipients.flatMap((r) => r.gifts).find((g) => g._id === giftId);
       if (!value || moved === undefined || moved.status === status) continue;
@@ -257,27 +349,31 @@ function AddGift({
 }: {
   recipientId: Id<'giftRecipients'>;
   name: string;
-  year: number;
+  /** Left out for the idea bank. */
+  year?: number;
 }) {
   const { t } = useTranslation();
   const addGift = useMutation(api.gifts.addGift);
+  const label = t(year === undefined ? 'gifts.newIdeaFor' : 'gifts.newGiftFor', { name });
   const [text, setText] = useState('');
 
   async function add() {
     const title = text;
     if (title.trim() === '') return;
     setText('');
-    const id = await attempt(t, () => addGift({ recipientId, title, year }));
+    const id = await attempt(t, () =>
+      addGift(year === undefined ? { recipientId, title } : { recipientId, title, year }),
+    );
     if (id === undefined) setText((now) => (now === '' ? title : now));
   }
 
   return (
     <Field
-      accessibilityLabel={t('gifts.newGiftFor', { name })}
+      accessibilityLabel={label}
       value={text}
       onChangeText={setText}
       maxLength={120}
-      placeholder={t('gifts.newGiftFor', { name })}
+      placeholder={label}
       returnKeyType="done"
       blurOnSubmit={false}
       onSubmitEditing={() => void add()}
@@ -294,6 +390,20 @@ const useStyles = makeStyles((colors) => ({
     justifyContent: 'space-between',
     gap: 12,
   },
+  tabs: {
+    flexDirection: 'row',
+    padding: 4,
+    borderRadius: Radius.pill,
+    backgroundColor: colors.surface,
+  },
+  tab: {
+    flex: 1,
+    minHeight: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Radius.pill,
+  },
+  tabOn: { backgroundColor: colors.raised },
   summary: { gap: 10, padding: 16, borderRadius: Radius.card, backgroundColor: colors.saffronTint },
   chips: { gap: 8 },
   list: { borderRadius: Radius.card, backgroundColor: colors.surface, paddingHorizontal: 14 },

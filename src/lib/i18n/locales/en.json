@@ -652,6 +652,7 @@
     "newGiftFor": "New gift for {{name}}",
     "filterAll": "All",
     "boughtOf": "{{done}} of {{count}} bought",
-    "filterHint": "Show gifts"
+    "filterHint": "Show gifts",
+    "newIdeaFor": "New idea for {{name}}"
   }
 }

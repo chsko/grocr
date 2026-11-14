@@ -99,6 +99,7 @@ describe('one gift list', () => {
           planned: 0,
           budget: 500,
           lastBudget: null,
+          bankCount: 1,
           gifts: [gift('a', 'Ullpledd', 'bought'), gift('b', 'Hyasinter')],
         },
         {
@@ -110,6 +111,7 @@ describe('one gift list', () => {
           planned: 0,
           budget: 800,
           lastBudget: 750,
+          bankCount: 0,
           gifts: [gift('c', 'Lego', 'wrapped')],
         },
       ],
@@ -249,6 +251,58 @@ describe('recipients', () => {
   });
 });
 
+describe('idea bank tab', () => {
+  beforeEach(() => {
+    mockQueries['gifts.christmas'] = {
+      year: 2026,
+      currentYear: 2026,
+      recipients: [
+        {
+          _id: 'r1',
+          name: 'Bestemor',
+          linkedName: null,
+          counts: { idea: 0, bought: 0, wrapped: 0 },
+          spent: 0,
+          planned: 0,
+          budget: null,
+          lastBudget: null,
+          bankCount: 1,
+          gifts: [],
+        },
+      ],
+      totals: { idea: 0, bought: 0, wrapped: 0, budget: null, spent: 0, planned: 0 },
+    };
+    mockQueries['gifts.ideas'] = {
+      currentYear: 2026,
+      recipients: [
+        { _id: 'r1', name: 'Bestemor', ideas: [gift('i1', 'Bok')] },
+        { _id: 'r2', name: 'Ola', ideas: [] },
+      ],
+    };
+  });
+
+  test('the list says how many ideas wait, and leads to the bank', async () => {
+    await render(<GiftsScreen />);
+    expect(screen.queryByText('Bok')).toBeNull();
+    await fireEvent.press(screen.getByText('1 i idébanken'));
+    expect(screen.getByText('Bok')).toBeTruthy();
+  });
+
+  test('moves an idea into this Christmas and adds new ideas without a year', async () => {
+    await render(<GiftsScreen />);
+    await fireEvent.press(screen.getByRole('tab', { name: 'Idébank' }));
+    await fireEvent.press(screen.getByLabelText('Bok: Legg til i jul 2026'));
+    await fireEvent.changeText(screen.getByLabelText('Ny idé til Ola'), 'Sokker');
+    await fireEvent(screen.getByLabelText('Ny idé til Ola'), 'submitEditing');
+    await fireEvent.press(screen.getByLabelText('Bok: Idé'));
+    expect(mockCalls).toEqual([
+      ['gifts.moveGift', { giftId: 'i1', year: 2026 }],
+      ['gifts.addGift', { recipientId: 'r2', title: 'Sokker' }],
+      ['gifts.setGiftStatus', { giftId: 'i1', status: 'bought' }],
+    ]);
+  });
+});
+
 describe('gift sheet', () => {
   beforeEach(() => {
     mockQueries['gifts.gift'] = {
@@ -297,6 +351,12 @@ describe('gift sheet', () => {
     expect(mockCalls).toEqual([]);
     expect(alert).toHaveBeenCalledWith('Noe gikk galt', 'Det ser ikke ut som et beløp i kroner.');
     alert.mockRestore();
+  });
+
+  test('moves a gift back to the idea bank', async () => {
+    await render(<GiftScreen />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Flytt til idébanken' }));
+    expect(mockCalls).toEqual([['gifts.moveGift', { giftId: 'a', year: null }]]);
   });
 
   test('deletes after asking', async () => {
