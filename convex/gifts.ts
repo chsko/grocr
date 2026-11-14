@@ -2,9 +2,10 @@ import { ConvexError, v } from 'convex/values';
 
 import type { Doc, Id } from './_generated/dataModel';
 import { mutation, query, type MutationCtx, type QueryCtx } from './_generated/server';
+import { giftStatus } from './schema';
 import { accessError, getMembership, requireMemberOf, requireMembership } from './lib/access';
 import { cleanName } from './lib/catalog';
-import { christmasYear, MAX_GIFT_YEAR, MIN_GIFT_YEAR } from './lib/gifts';
+import { christmasYear, GIFT_STATUSES, MAX_GIFT_YEAR, MIN_GIFT_YEAR } from './lib/gifts';
 import { todayIn } from './lib/week';
 
 // Christmas gifts (#78). The whole family plans together, but a gift recipient linked to a
@@ -27,6 +28,14 @@ async function loadRecipient(ctx: Ctx, recipientId: Id<'giftRecipients'>) {
   const access = await requireMemberOf(ctx, recipient);
   if (recipient!.memberUserId === access.userId) throw accessError('NOT_FOUND');
   return { recipient: recipient!, ...access };
+}
+
+/** Loads a gift whose recipient the caller may see. */
+async function loadGift(ctx: Ctx, giftId: Id<'gifts'>) {
+  const gift = await ctx.db.get('gifts', giftId);
+  if (gift === null) throw accessError('NOT_FOUND');
+  const access = await loadRecipient(ctx, gift.recipientId);
+  return { gift, ...access };
 }
 
 /** The family's recipients the caller may see, by name. */
@@ -76,13 +85,19 @@ async function giftsFor(ctx: Ctx, recipientId: Id<'giftRecipients'>, year: numbe
   return gifts.sort((a, b) => a.createdAt - b.createdAt);
 }
 
+function tally(gifts: Doc<'gifts'>[]) {
+  const counts = { idea: 0, bought: 0, wrapped: 0 };
+  for (const gift of gifts) counts[gift.status] += 1;
+  return counts;
+}
+
 function giftRow(gift: Doc<'gifts'>) {
   return { _id: gift._id, title: gift.title, status: gift.status };
 }
 
 /**
  * One Christmas as the one gift list: the recipients the caller may see, each with their gifts
- * in the order they were added.
+ * in the order they were added and counted by status, and totals over just those recipients.
  */
 export const christmas = query({
   args: { groupId: v.id('groups'), year: v.optional(v.number()) },
@@ -92,16 +107,21 @@ export const christmas = query({
     const year = args.year ?? thisYear;
     checkYear(year);
     const recipients = [];
+    const totals = { idea: 0, bought: 0, wrapped: 0 };
     for (const recipient of await visibleRecipients(ctx, args.groupId, userId)) {
       if (recipient.archivedAt !== undefined) continue;
+      const gifts = await giftsFor(ctx, recipient._id, year);
+      const counts = tally(gifts);
+      for (const key of GIFT_STATUSES) totals[key] += counts[key];
       recipients.push({
         _id: recipient._id,
         name: recipient.name,
         linkedName: await userName(ctx, recipient.memberUserId),
-        gifts: (await giftsFor(ctx, recipient._id, year)).map(giftRow),
+        counts,
+        gifts: gifts.map(giftRow),
       });
     }
-    return { year, currentYear: thisYear, recipients };
+    return { year, currentYear: thisYear, recipients, totals };
   },
 });
 
@@ -211,5 +231,15 @@ export const addGift = mutation({
       status: 'idea',
       createdAt: Date.now(),
     });
+  },
+});
+
+/** Sets a gift's status (Idea, Bought, Wrapped). Sets absolute state. */
+export const setGiftStatus = mutation({
+  args: { giftId: v.id('gifts'), status: giftStatus },
+  handler: async (ctx, args) => {
+    const { gift } = await loadGift(ctx, args.giftId);
+    if (gift.status === args.status) return;
+    await ctx.db.patch('gifts', gift._id, { status: args.status });
   },
 });

@@ -649,6 +649,9 @@
     "weekCard": "Christmas gifts",
     "weekCardEmpty": "Nothing bought yet",
     "weekCardLeft": "{{amount}} left",
-    "newGiftFor": "New gift for {{name}}"
+    "newGiftFor": "New gift for {{name}}",
+    "filterAll": "All",
+    "boughtOf": "{{done}} of {{count}} bought",
+    "filterHint": "Show gifts"
   }
 }

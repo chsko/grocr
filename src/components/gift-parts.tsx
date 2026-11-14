@@ -5,7 +5,9 @@ import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, Field, Text } from '@/components/ui';
-import { makeStyles } from '@/lib/appearance';
+import { Radius } from '@/constants/theme';
+import type { GiftStatus } from '@/convex/lib/gifts';
+import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
 import { sheetIn } from '@/lib/motion';
 
@@ -75,7 +77,86 @@ export function NameSheet({
   );
 }
 
+const NEXT: Record<GiftStatus, GiftStatus> = { idea: 'bought', bought: 'wrapped', wrapped: 'idea' };
+
+/** A gift's status as a small pill; tapping moves it on (Idea → Bought → Wrapped → Idea). */
+export function StatusPill({
+  title,
+  status,
+  onChange,
+}: {
+  title: string;
+  status: GiftStatus;
+  onChange: (status: GiftStatus) => void;
+}) {
+  const colors = useColors();
+  const styles = useStyles();
+  const { t } = useTranslation();
+  const next = NEXT[status];
+  const look =
+    status === 'wrapped'
+      ? { fill: colors.saffronPill, text: colors.ink, border: colors.saffronPill }
+      : status === 'bought'
+        ? { fill: colors.saffronSoft, text: colors.saffronInk, border: colors.saffronSoft }
+        : { fill: colors.background, text: colors.muted, border: colors.borderStrong };
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${title}: ${t(`gifts.status.${status}`)}`}
+      accessibilityHint={t('gifts.statusHint', { status: t(`gifts.status.${next}`) })}
+      hitSlop={8}
+      onPress={() => onChange(next)}
+      style={({ pressed }) => [
+        styles.pill,
+        { backgroundColor: look.fill, borderColor: look.border },
+        pressed && { opacity: 0.7 },
+      ]}>
+      <Text variant="label" color={look.text} style={{ fontSize: 13 }}>
+        {t(`gifts.status.${status}`)}
+      </Text>
+    </Pressable>
+  );
+}
+
+/** How far the gifts are: wrapped first, then bought, on a saffron track. */
+export function ProgressBar({
+  bought,
+  wrapped,
+  total,
+}: {
+  bought: number;
+  wrapped: number;
+  total: number;
+}) {
+  const styles = useStyles();
+  const share = (n: number) => `${total === 0 ? 0 : (n / total) * 100}%` as const;
+  return (
+    <View style={styles.track} accessible={false}>
+      <View style={[styles.wrapped, { width: share(wrapped) }]} />
+      <View style={[styles.bought, { width: share(bought) }]} />
+    </View>
+  );
+}
+
 const useStyles = makeStyles((colors) => ({
+  pill: {
+    minHeight: 30,
+    minWidth: 68,
+    paddingHorizontal: 12,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  track: {
+    height: 8,
+    borderRadius: Radius.pill,
+    backgroundColor: colors.saffronSoft,
+    overflow: 'hidden',
+    flexDirection: 'row',
+  },
+  wrapped: { height: '100%', backgroundColor: colors.saffronInk },
+  bought: { height: '100%', backgroundColor: colors.saffronInk, opacity: 0.5 },
   backdrop: { flex: 1, backgroundColor: colors.overlay },
   sheet: {
     backgroundColor: colors.raised,

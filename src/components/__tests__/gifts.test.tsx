@@ -79,9 +79,22 @@ describe('one gift list', () => {
       year: 2026,
       currentYear: 2026,
       recipients: [
-        { _id: 'r1', name: 'Bestemor', linkedName: null, gifts: [gift('a', 'Ullpledd')] },
-        { _id: 'r2', name: 'Ola', linkedName: 'Ola', gifts: [] },
+        {
+          _id: 'r1',
+          name: 'Bestemor',
+          linkedName: null,
+          counts: { idea: 1, bought: 1, wrapped: 0 },
+          gifts: [gift('a', 'Ullpledd', 'bought'), gift('b', 'Hyasinter')],
+        },
+        {
+          _id: 'r2',
+          name: 'Ola',
+          linkedName: 'Ola',
+          counts: { idea: 0, bought: 0, wrapped: 1 },
+          gifts: [gift('c', 'Lego', 'wrapped')],
+        },
       ],
+      totals: { idea: 1, bought: 1, wrapped: 1 },
     };
   });
 
@@ -103,8 +116,38 @@ describe('one gift list', () => {
     ]);
   });
 
+  test('sums up how many gifts are bought', async () => {
+    await render(<GiftsScreen />);
+    expect(screen.getByText('2 av 3 kjøpt')).toBeTruthy();
+  });
+
+  test('tapping a status moves the gift on', async () => {
+    await render(<GiftsScreen />);
+    await fireEvent.press(screen.getByLabelText('Ullpledd: Kjøpt'));
+    await fireEvent.press(screen.getByLabelText('Lego: Pakket'));
+    expect(mockCalls).toEqual([
+      ['gifts.setGiftStatus', { giftId: 'a', status: 'wrapped' }],
+      ['gifts.setGiftStatus', { giftId: 'c', status: 'idea' }],
+    ]);
+  });
+
+  test('the status filter narrows the list and hides empty groups', async () => {
+    await render(<GiftsScreen />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Idé' }));
+    expect(screen.getByText('Hyasinter')).toBeTruthy();
+    expect(screen.queryByText('Ullpledd')).toBeNull();
+    expect(screen.queryByText('Ola')).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Alle' }));
+    expect(screen.getByText('Ola')).toBeTruthy();
+  });
+
   test('without recipients it explains how to start', async () => {
-    mockQueries['gifts.christmas'] = { year: 2026, currentYear: 2026, recipients: [] };
+    mockQueries['gifts.christmas'] = {
+      year: 2026,
+      currentYear: 2026,
+      recipients: [],
+      totals: { idea: 0, bought: 0, wrapped: 0 },
+    };
     await render(<GiftsScreen />);
     expect(screen.getByText(/Legg til dem dere gir gaver til/)).toBeTruthy();
   });

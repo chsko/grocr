@@ -649,6 +649,9 @@
     "weekCard": "Julegaver",
     "weekCardEmpty": "Ingenting kjøpt ennå",
     "weekCardLeft": "{{amount}} igjen",
-    "newGiftFor": "Ny gave til {{name}}"
+    "newGiftFor": "Ny gave til {{name}}",
+    "filterAll": "Alle",
+    "boughtOf": "{{done}} av {{count}} kjøpt",
+    "filterHint": "Vis gaver"
   }
 }

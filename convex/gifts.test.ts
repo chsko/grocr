@@ -178,3 +178,35 @@ describe('other families', () => {
     ).rejects.toThrow(/NOT_FOUND/);
   });
 });
+
+describe('gift status', () => {
+  test('moves a gift on and counts it, for every member but the linked one', async () => {
+    const { ada, bob, kid, groupId, watch, scarf } = await planned();
+    await ada.as.mutation(api.gifts.setGiftStatus, { giftId: watch, status: 'bought' });
+    await kid.as.mutation(api.gifts.setGiftStatus, { giftId: scarf, status: 'wrapped' });
+    // Setting the same status again changes nothing.
+    await kid.as.mutation(api.gifts.setGiftStatus, { giftId: scarf, status: 'wrapped' });
+
+    const xmas = await kid.as.query(api.gifts.christmas, { groupId });
+    expect(xmas.recipients.map((r) => [r.name, r.counts])).toEqual([
+      ['Bob', { idea: 0, bought: 1, wrapped: 0 }],
+      ['Granny', { idea: 0, bought: 0, wrapped: 1 }],
+    ]);
+    expect(xmas.totals).toMatchObject({ idea: 0, bought: 1, wrapped: 1 });
+    expect(xmas.recipients[0].gifts[0].status).toBe('bought');
+
+    // Bob's own watch is not in his totals.
+    const his = await bob.as.query(api.gifts.christmas, { groupId });
+    expect(his.totals).toMatchObject({ idea: 0, bought: 0, wrapped: 1 });
+    await expect(
+      bob.as.mutation(api.gifts.setGiftStatus, { giftId: watch, status: 'idea' }),
+    ).rejects.toThrow(/NOT_FOUND/);
+  });
+
+  test('another family cannot change it', async () => {
+    const { eve, scarf } = await planned();
+    await expect(
+      eve.as.mutation(api.gifts.setGiftStatus, { giftId: scarf, status: 'bought' }),
+    ).rejects.toThrow(/NOT_FOUND/);
+  });
+});
