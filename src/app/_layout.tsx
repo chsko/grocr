@@ -155,6 +155,10 @@ function AppStack() {
           <Stack.Screen name="staples" options={{ ...header, title: t('staples.title') }} />
           <Stack.Screen name="gifts" options={{ ...header, title: t('gifts.title') }} />
           <Stack.Screen
+            name="gift/[id]"
+            options={{ ...header, presentation: 'modal', title: t('gifts.edit.title') }}
+          />
+          <Stack.Screen
             name="gift-recipients"
             options={{ ...header, title: t('gifts.people_screen.title') }}
           />

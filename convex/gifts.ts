@@ -5,7 +5,14 @@ import { mutation, query, type MutationCtx, type QueryCtx } from './_generated/s
 import { giftStatus } from './schema';
 import { accessError, getMembership, requireMemberOf, requireMembership } from './lib/access';
 import { cleanName } from './lib/catalog';
-import { christmasYear, GIFT_STATUSES, MAX_GIFT_YEAR, MIN_GIFT_YEAR } from './lib/gifts';
+import {
+  christmasYear,
+  cleanPrice,
+  GIFT_STATUSES,
+  MAX_GIFT_YEAR,
+  MIN_GIFT_YEAR,
+} from './lib/gifts';
+import { normalizeRecipeUrl } from './lib/recipeLink';
 import { todayIn } from './lib/week';
 
 // Christmas gifts (#78). The whole family plans together, but a gift recipient linked to a
@@ -19,6 +26,7 @@ import { todayIn } from './lib/week';
 const KIND = 'christmas' as const;
 const MAX_NAME = 60;
 const MAX_TITLE = 120;
+const MAX_NOTE = 500;
 
 type Ctx = QueryCtx | MutationCtx;
 
@@ -30,11 +38,24 @@ async function loadRecipient(ctx: Ctx, recipientId: Id<'giftRecipients'>) {
   return { recipient: recipient!, ...access };
 }
 
+/** For queries: a gift deleted (or newly hidden) on another phone is just gone. */
+async function orNull<T>(load: () => Promise<T>): Promise<T | null> {
+  try {
+    return await load();
+  } catch (error) {
+    if (error instanceof ConvexError && (error.data as { code?: string }).code === 'NOT_FOUND') {
+      return null;
+    }
+    throw error;
+  }
+}
+
 /** Loads a gift whose recipient the caller may see. */
 async function loadGift(ctx: Ctx, giftId: Id<'gifts'>) {
   const gift = await ctx.db.get('gifts', giftId);
   if (gift === null) throw accessError('NOT_FOUND');
   const access = await loadRecipient(ctx, gift.recipientId);
+  if (gift.groupId !== access.recipient.groupId) throw accessError('NOT_FOUND');
   return { gift, ...access };
 }
 
@@ -70,6 +91,53 @@ function checkTitle(title: string) {
   return clean;
 }
 
+function checkPrice(price: number | null) {
+  if (price === null) return undefined;
+  const clean = cleanPrice(price);
+  if (clean === null) throw new ConvexError({ code: 'INVALID_PRICE' });
+  return clean;
+}
+
+function checkUrl(url: string) {
+  const clean = normalizeRecipeUrl(url);
+  if (clean === null) throw new ConvexError({ code: 'INVALID_LINK' });
+  return clean === '' ? undefined : clean;
+}
+
+function checkNote(note: string) {
+  const clean = note.trim().slice(0, MAX_NOTE);
+  return clean === '' ? undefined : clean;
+}
+
+/** A buyer must be a current member and can't be the one the gift is for. */
+async function checkBuyer(
+  ctx: Ctx,
+  recipient: Doc<'giftRecipients'>,
+  buyerUserId: Id<'users'> | null,
+) {
+  if (buyerUserId === null) return undefined;
+  const membership = await getMembership(ctx, recipient.groupId, buyerUserId);
+  if (membership === null || buyerUserId === recipient.memberUserId) {
+    throw new ConvexError({ code: 'INVALID_BUYER' });
+  }
+  return buyerUserId;
+}
+
+/** The family's members, oldest first, with their names. */
+async function familyMembers(ctx: Ctx, groupId: Id<'groups'>) {
+  const memberships = await ctx.db
+    .query('memberships')
+    .withIndex('by_group', (q) => q.eq('groupId', groupId))
+    .collect();
+  memberships.sort((a, b) => a.joinedAt - b.joinedAt);
+  return await Promise.all(
+    memberships.map(async (m) => ({
+      userId: m.userId,
+      name: (await userName(ctx, m.userId)) ?? '',
+    })),
+  );
+}
+
 async function userName(ctx: Ctx, userId: Id<'users'> | undefined) {
   if (userId === undefined) return null;
   return (await ctx.db.get('users', userId))?.name ?? null;
@@ -91,8 +159,17 @@ function tally(gifts: Doc<'gifts'>[]) {
   return counts;
 }
 
-function giftRow(gift: Doc<'gifts'>) {
-  return { _id: gift._id, title: gift.title, status: gift.status };
+async function giftRow(ctx: Ctx, gift: Doc<'gifts'>) {
+  return {
+    _id: gift._id,
+    title: gift.title,
+    status: gift.status,
+    price: gift.price ?? null,
+    url: gift.url ?? null,
+    note: gift.note ?? null,
+    buyerUserId: gift.buyerUserId ?? null,
+    buyerName: await userName(ctx, gift.buyerUserId),
+  };
 }
 
 /**
@@ -118,10 +195,31 @@ export const christmas = query({
         name: recipient.name,
         linkedName: await userName(ctx, recipient.memberUserId),
         counts,
-        gifts: gifts.map(giftRow),
+        gifts: await Promise.all(gifts.map((g) => giftRow(ctx, g))),
       });
     }
     return { year, currentYear: thisYear, recipients, totals };
+  },
+});
+
+/**
+ * One gift, for its edit sheet, with who can be picked as buyer: every member but the one the
+ * gift is for. Null when the gift is gone or hidden from the caller, which look the same.
+ */
+export const gift = query({
+  args: { giftId: v.id('gifts') },
+  handler: async (ctx, { giftId }) => {
+    const access = await orNull(() => loadGift(ctx, giftId));
+    if (access === null) return null;
+    const { gift, recipient } = access;
+    const members = await familyMembers(ctx, recipient.groupId);
+    return {
+      ...(await giftRow(ctx, gift)),
+      year: gift.occasionYear ?? null,
+      recipientId: recipient._id,
+      recipientName: recipient.name,
+      buyers: members.filter((m) => m.userId !== recipient.memberUserId),
+    };
   },
 });
 
@@ -144,20 +242,9 @@ export const recipients = query({
       })),
     );
     const linked = new Set(visible.map((r) => r.memberUserId).filter((id) => id !== undefined));
-    const memberships = await ctx.db
-      .query('memberships')
-      .withIndex('by_group', (q) => q.eq('groupId', groupId))
-      .collect();
-    memberships.sort((a, b) => a.joinedAt - b.joinedAt);
-    const members = await Promise.all(
-      memberships
-        .filter((m) => m.userId !== userId)
-        .map(async (m) => ({
-          userId: m.userId,
-          name: (await userName(ctx, m.userId)) ?? '',
-          linked: linked.has(m.userId),
-        })),
-    );
+    const members = (await familyMembers(ctx, groupId))
+      .filter((m) => m.userId !== userId)
+      .map((m) => ({ ...m, linked: linked.has(m.userId) }));
     return { recipients: rows, members };
   },
 });
@@ -213,6 +300,16 @@ export const linkRecipient = mutation({
     if (recipient.memberUserId === args.memberUserId) return;
     await checkLink(ctx, recipient.groupId, userId, args.memberUserId, recipient._id);
     await ctx.db.patch('giftRecipients', recipient._id, { memberUserId: args.memberUserId });
+    // A gift can't be bought by the person it is for.
+    const gifts = await ctx.db
+      .query('gifts')
+      .withIndex('by_recipient_occasion', (q) => q.eq('recipientId', recipient._id))
+      .collect();
+    for (const gift of gifts) {
+      if (gift.buyerUserId === args.memberUserId) {
+        await ctx.db.patch('gifts', gift._id, { buyerUserId: undefined });
+      }
+    }
   },
 });
 
@@ -241,5 +338,35 @@ export const setGiftStatus = mutation({
     const { gift } = await loadGift(ctx, args.giftId);
     if (gift.status === args.status) return;
     await ctx.db.patch('gifts', gift._id, { status: args.status });
+  },
+});
+
+/** Sets a gift's details from its edit sheet. Empty values clear a field. */
+export const updateGift = mutation({
+  args: {
+    giftId: v.id('gifts'),
+    title: v.string(),
+    price: v.union(v.number(), v.null()),
+    url: v.string(),
+    note: v.string(),
+    buyerUserId: v.union(v.id('users'), v.null()),
+  },
+  handler: async (ctx, args) => {
+    const { gift, recipient } = await loadGift(ctx, args.giftId);
+    await ctx.db.patch('gifts', gift._id, {
+      title: checkTitle(args.title),
+      price: checkPrice(args.price),
+      url: checkUrl(args.url),
+      note: checkNote(args.note),
+      buyerUserId: await checkBuyer(ctx, recipient, args.buyerUserId),
+    });
+  },
+});
+
+export const removeGift = mutation({
+  args: { giftId: v.id('gifts') },
+  handler: async (ctx, { giftId }) => {
+    const { gift } = await loadGift(ctx, giftId);
+    await ctx.db.delete('gifts', gift._id);
   },
 });

@@ -11,8 +11,10 @@ import { Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { GIFT_STATUSES, type GiftStatus } from '@/convex/lib/gifts';
+import { recipeSite } from '@/convex/lib/recipeLink';
 import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
+import { formatKroner } from '@/lib/format';
 import { useFamily } from '@/lib/session';
 
 /**
@@ -96,7 +98,14 @@ export default function GiftsScreen() {
             <View style={styles.list}>
               {group.gifts.map((gift, index) => (
                 <View key={gift._id} style={[styles.row, index > 0 && styles.divider]}>
-                  <Text style={{ flex: 1 }}>{gift.title}</Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={gift.title}
+                    onPress={() => router.push(`/gift/${gift._id}`)}
+                    style={({ pressed }) => [{ flex: 1, gap: 2 }, pressed && { opacity: 0.7 }]}>
+                    <Text>{gift.title}</Text>
+                    <GiftLine gift={gift} />
+                  </Pressable>
                   <StatusPill
                     title={gift.title}
                     status={gift.status}
@@ -138,6 +147,27 @@ export default function GiftsScreen() {
         />
       ) : null}
     </ScrollView>
+  );
+}
+
+/** Price, buyer and shop under a gift's title, when there are any. */
+function GiftLine({
+  gift,
+}: {
+  gift: { price: number | null; buyerName: string | null; url: string | null };
+}) {
+  const colors = useColors();
+  const { i18n } = useTranslation();
+  const parts = [
+    gift.price === null ? null : formatKroner(i18n.language, gift.price),
+    gift.buyerName,
+    gift.url === null ? null : recipeSite(gift.url),
+  ].filter((part) => part !== null && part !== '');
+  if (parts.length === 0) return null;
+  return (
+    <Text variant="small" color={colors.muted} numberOfLines={1}>
+      {parts.join(' · ')}
+    </Text>
   );
 }
 

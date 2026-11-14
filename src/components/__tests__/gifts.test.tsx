@@ -2,6 +2,7 @@ import { fireEvent, render as rtlRender, screen } from '@testing-library/react-n
 import { Alert } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import GiftScreen from '@/app/gift/[id]';
 import GiftRecipientsScreen from '@/app/gift-recipients';
 import GiftsScreen from '@/app/gifts';
 import { SECTIONS } from '@/convex/lib/catalog';
@@ -34,6 +35,7 @@ jest.mock('expo-router', () => ({
     return mockRouter;
   },
   Stack: { Screen: () => null },
+  useLocalSearchParams: () => ({ id: 'a' }),
 }));
 
 const me: Me = {
@@ -65,7 +67,16 @@ const render = (ui: React.ReactElement) =>
     </SafeAreaProvider>,
   );
 
-const gift = (id: string, title: string, status = 'idea') => ({ _id: id, title, status });
+const gift = (id: string, title: string, status = 'idea') => ({
+  _id: id,
+  title,
+  status,
+  price: null,
+  url: null,
+  note: null,
+  buyerUserId: null,
+  buyerName: null,
+});
 
 beforeEach(async () => {
   for (const key of Object.keys(mockQueries)) delete mockQueries[key];
@@ -114,6 +125,20 @@ describe('one gift list', () => {
       'gifts.addGift',
       { recipientId: 'r2', title: 'Sykkel', year: 2026 },
     ]);
+  });
+
+  test('a gift line shows price, buyer and shop, and opens the gift', async () => {
+    const xmas = mockQueries['gifts.christmas'] as { recipients: { gifts: object[] }[] };
+    xmas.recipients[0].gifts[0] = {
+      ...gift('a', 'Ullpledd', 'bought'),
+      price: 1299.5,
+      buyerName: 'Ola',
+      url: 'https://www.example.com/pledd',
+    };
+    await render(<GiftsScreen />);
+    expect(screen.getByText('1\u00a0299,50 kr · Ola · example.com')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Ullpledd' }));
+    expect(mockRouter.push).toHaveBeenCalledWith('/gift/a');
   });
 
   test('sums up how many gifts are bought', async () => {
@@ -194,5 +219,73 @@ describe('recipients', () => {
     await fireEvent.changeText(screen.getByLabelText('Navn'), 'Tante Liv');
     await fireEvent(screen.getByLabelText('Navn'), 'submitEditing');
     expect(mockCalls).toContainEqual(['gifts.addRecipient', { groupId: 'g1', name: 'Tante Liv' }]);
+  });
+});
+
+describe('gift sheet', () => {
+  beforeEach(() => {
+    mockQueries['gifts.gift'] = {
+      ...gift('a', 'Ullpledd', 'bought'),
+      price: 499,
+      year: 2026,
+      recipientId: 'r1',
+      recipientName: 'Bestemor',
+      buyers: [
+        { userId: 'u1', name: 'Kari' },
+        { userId: 'u2', name: 'Ola' },
+      ],
+    };
+  });
+
+  test('saves the details with the price read the Norwegian way', async () => {
+    await render(<GiftScreen />);
+    expect(screen.getByText('Til Bestemor')).toBeTruthy();
+    expect(screen.getByDisplayValue('499')).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText('Pris (kr)'), '1 299,50');
+    await fireEvent.changeText(screen.getByLabelText('Lenke'), 'example.com/pledd');
+    await fireEvent.changeText(screen.getByLabelText('Notat'), 'Grå');
+    await fireEvent.press(screen.getByRole('button', { name: 'Ola' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Lagre' }));
+    expect(mockCalls).toEqual([
+      [
+        'gifts.updateGift',
+        {
+          giftId: 'a',
+          title: 'Ullpledd',
+          price: 1299.5,
+          url: 'example.com/pledd',
+          note: 'Grå',
+          buyerUserId: 'u2',
+        },
+      ],
+    ]);
+    expect(mockRouter.back).toHaveBeenCalled();
+  });
+
+  test('a price that is not a price is refused before saving', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    await render(<GiftScreen />);
+    await fireEvent.changeText(screen.getByLabelText('Pris (kr)'), 'mye');
+    await fireEvent.press(screen.getByRole('button', { name: 'Lagre' }));
+    expect(mockCalls).toEqual([]);
+    expect(alert).toHaveBeenCalledWith('Noe gikk galt', 'Det ser ikke ut som et beløp i kroner.');
+    alert.mockRestore();
+  });
+
+  test('deletes after asking', async () => {
+    const alert = jest.spyOn(Alert, 'alert');
+    await render(<GiftScreen />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Slett gave' }));
+    const buttons = alert.mock.calls[0][2]!;
+    await buttons.find((b) => b.style === 'destructive')!.onPress!();
+    expect(mockCalls).toEqual([['gifts.removeGift', { giftId: 'a' }]]);
+    alert.mockRestore();
+  });
+
+  test('a gift gone on another phone just closes the sheet', async () => {
+    mockQueries['gifts.gift'] = null;
+    mockRouter.back.mockClear();
+    await render(<GiftScreen />);
+    expect(mockRouter.back).toHaveBeenCalled();
   });
 });

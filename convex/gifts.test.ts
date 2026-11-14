@@ -210,3 +210,117 @@ describe('gift status', () => {
     ).rejects.toThrow(/NOT_FOUND/);
   });
 });
+
+describe('gift details', () => {
+  test('saves price, link, note and buyer, and shows them in the list', async () => {
+    const { ada, kid, groupId, scarf } = await planned();
+    await ada.as.mutation(api.gifts.updateGift, {
+      giftId: scarf,
+      title: ' Wool scarf ',
+      price: 299.999,
+      url: 'example.com/scarf',
+      note: '  Size M ',
+      buyerUserId: kid.userId,
+    });
+    const sheet = await kid.as.query(api.gifts.gift, { giftId: scarf });
+    expect(sheet).toMatchObject({
+      title: 'Wool scarf',
+      price: 300,
+      url: 'https://example.com/scarf',
+      note: 'Size M',
+      buyerUserId: kid.userId,
+      buyerName: 'kid',
+      recipientName: 'Granny',
+      status: 'idea',
+    });
+    expect(sheet!.buyers.map((b) => b.name)).toEqual(['ada', 'bob', 'kid']);
+    const xmas = await ada.as.query(api.gifts.christmas, { groupId });
+    expect(xmas.recipients[1].gifts[0]).toMatchObject({
+      price: 300,
+      buyerName: 'kid',
+      url: 'https://example.com/scarf',
+    });
+
+    // Clearing works by sending empty values.
+    await ada.as.mutation(api.gifts.updateGift, {
+      giftId: scarf,
+      title: 'Wool scarf',
+      price: null,
+      url: '',
+      note: '',
+      buyerUserId: null,
+    });
+    expect(await ada.as.query(api.gifts.gift, { giftId: scarf })).toMatchObject({
+      price: null,
+      url: null,
+      note: null,
+      buyerUserId: null,
+    });
+  });
+
+  test('refuses bad prices and links', async () => {
+    const { ada, scarf } = await planned();
+    const base = { giftId: scarf, title: 'Scarf', url: '', note: '', buyerUserId: null };
+    await expect(ada.as.mutation(api.gifts.updateGift, { ...base, price: -1 })).rejects.toThrow(
+      /INVALID_PRICE/,
+    );
+    await expect(
+      ada.as.mutation(api.gifts.updateGift, { ...base, price: 20_000_000 }),
+    ).rejects.toThrow(/INVALID_PRICE/);
+    await expect(
+      ada.as.mutation(api.gifts.updateGift, { ...base, price: null, url: 'javascript:alert(1)' }),
+    ).rejects.toThrow(/INVALID_LINK/);
+  });
+
+  test('the recipient and outsiders cannot buy', async () => {
+    const { ada, bob, eve, bobR, watch } = await planned();
+    const base = { giftId: watch, title: 'Watch', price: null, url: '', note: '' };
+    const sheet = await ada.as.query(api.gifts.gift, { giftId: watch });
+    expect(sheet!.buyers.map((b) => b.name)).toEqual(['ada', 'kid']);
+    await expect(
+      ada.as.mutation(api.gifts.updateGift, { ...base, buyerUserId: bob.userId }),
+    ).rejects.toThrow(/INVALID_BUYER/);
+    await expect(
+      ada.as.mutation(api.gifts.updateGift, { ...base, buyerUserId: eve.userId }),
+    ).rejects.toThrow(/INVALID_BUYER/);
+    expect(bobR).toBeDefined();
+  });
+
+  test('linking a member clears them as buyer of that recipient’s gifts', async () => {
+    const { ada, kid, granny, scarf } = await planned();
+    await ada.as.mutation(api.gifts.updateGift, {
+      giftId: scarf,
+      title: 'Scarf',
+      price: null,
+      url: '',
+      note: '',
+      buyerUserId: kid.userId,
+    });
+    await ada.as.mutation(api.gifts.linkRecipient, {
+      recipientId: granny,
+      memberUserId: kid.userId,
+    });
+    expect(await ada.as.query(api.gifts.gift, { giftId: scarf })).toMatchObject({
+      buyerUserId: null,
+    });
+  });
+
+  test('hidden and deleted gifts look the same: null to read, NOT_FOUND to change', async () => {
+    const { ada, bob, eve, watch, scarf } = await planned();
+    expect(await bob.as.query(api.gifts.gift, { giftId: watch })).toBeNull();
+    expect(await eve.as.query(api.gifts.gift, { giftId: scarf })).toBeNull();
+    const edit = { title: 'x', price: null, url: '', note: '', buyerUserId: null };
+    await expect(bob.as.mutation(api.gifts.updateGift, { giftId: watch, ...edit })).rejects.toThrow(
+      /NOT_FOUND/,
+    );
+    await expect(bob.as.mutation(api.gifts.removeGift, { giftId: watch })).rejects.toThrow(
+      /NOT_FOUND/,
+    );
+
+    await ada.as.mutation(api.gifts.removeGift, { giftId: scarf });
+    expect(await ada.as.query(api.gifts.gift, { giftId: scarf })).toBeNull();
+    await expect(ada.as.mutation(api.gifts.updateGift, { giftId: scarf, ...edit })).rejects.toThrow(
+      /NOT_FOUND/,
+    );
+  });
+});
