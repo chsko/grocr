@@ -1,5 +1,6 @@
 import { internal } from './_generated/api';
 import { mutation } from './_generated/server';
+import { forgetGiftMember } from './gifts';
 import { leaveFamily } from './groups';
 import { requireUserId } from './lib/access';
 
@@ -66,6 +67,7 @@ export const deleteAccount = mutation({
           });
         }
       }
+      await forgetGiftMember(ctx, groupId, userId);
       await leaveFamily(ctx, membership);
     }
 

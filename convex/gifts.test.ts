@@ -551,3 +551,118 @@ describe('earlier Christmases', () => {
     ]);
   });
 });
+
+describe('recipient lifecycle', () => {
+  test('rename, archive and bring back', async () => {
+    const { ada, groupId, granny } = await planned();
+    await ada.as.mutation(api.gifts.renameRecipient, {
+      recipientId: granny,
+      name: ' Great-granny ',
+    });
+    await ada.as.mutation(api.gifts.setRecipientArchived, { recipientId: granny, archived: true });
+    // Archiving twice changes nothing.
+    await ada.as.mutation(api.gifts.setRecipientArchived, { recipientId: granny, archived: true });
+    const list = await ada.as.query(api.gifts.recipients, { groupId });
+    expect(list.recipients.map((r) => [r.name, r.archived])).toEqual([
+      ['Bob', false],
+      ['Great-granny', true],
+    ]);
+    // Archived recipients keep their history: this Christmas still has the scarf.
+    let xmas = await ada.as.query(api.gifts.christmas, { groupId });
+    expect(xmas.recipients.map((r) => r.name)).toEqual(['Bob', 'Great-granny']);
+    // But they leave new Christmases and the idea bank.
+    xmas = await ada.as.query(api.gifts.christmas, { groupId, year: 2027 });
+    expect(xmas.recipients.map((r) => r.name)).toEqual(['Bob']);
+    expect(
+      (await ada.as.query(api.gifts.ideas, { groupId })).recipients.map((r) => r.name),
+    ).toEqual(['Bob']);
+    await ada.as.mutation(api.gifts.setRecipientArchived, { recipientId: granny, archived: false });
+    xmas = await ada.as.query(api.gifts.christmas, { groupId, year: 2027 });
+    expect(xmas.recipients.map((r) => r.name)).toEqual(['Bob', 'Great-granny']);
+  });
+
+  test('deleting removes gifts, ideas and budgets too', async () => {
+    const { t, ada, groupId, granny, scarf } = await planned();
+    await ada.as.mutation(api.gifts.addGift, { recipientId: granny, title: 'Book' });
+    await ada.as.mutation(api.gifts.setBudget, { recipientId: granny, year: 2026, amount: 300 });
+    await ada.as.mutation(api.gifts.removeRecipient, { recipientId: granny });
+    expect(names(await ada.as.query(api.gifts.christmas, { groupId }))).toEqual(['Bob']);
+    expect(await ada.as.query(api.gifts.gift, { giftId: scarf })).toBeNull();
+    const left = await t.run(async (ctx) => ({
+      gifts: (await ctx.db.query('gifts').collect()).map((g) => g.title),
+      budgets: (await ctx.db.query('giftBudgets').collect()).length,
+    }));
+    expect(left).toEqual({ gifts: ['Watch'], budgets: 0 });
+  });
+
+  test('the linked member can do none of this to their own recipient', async () => {
+    const { bob, bobR } = await planned();
+    const refusals = [
+      bob.as.mutation(api.gifts.renameRecipient, { recipientId: bobR, name: 'x' }),
+      bob.as.mutation(api.gifts.setRecipientArchived, { recipientId: bobR, archived: true }),
+      bob.as.mutation(api.gifts.removeRecipient, { recipientId: bobR }),
+    ];
+    for (const refusal of refusals) await expect(refusal).rejects.toThrow(/NOT_FOUND/);
+  });
+
+  test('unlinked members are suggested, with a recipient of the same name', async () => {
+    const { ada, groupId } = await planned();
+    await ada.as.mutation(api.gifts.addRecipient, { groupId, name: 'KID' });
+    const list = await ada.as.query(api.gifts.recipients, { groupId });
+    const kidR = list.recipients.find((r) => r.name === 'KID')!._id;
+    expect(list.members).toEqual([
+      expect.objectContaining({ name: 'bob', linked: true, match: null }),
+      expect.objectContaining({ name: 'kid', linked: false, match: kidR }),
+    ]);
+  });
+
+  test('a member who leaves stays linked, and still sees nothing on coming back', async () => {
+    const { t, ada, bob, groupId } = await planned();
+    await bob.as.mutation(api.groups.leave, { groupId });
+    expect((await ada.as.query(api.gifts.recipients, { groupId })).recipients[0]).toMatchObject({
+      name: 'Bob',
+      linkedName: 'bob',
+    });
+    await t.run((ctx) =>
+      ctx.db.insert('memberships', { groupId, userId: bob.userId, role: 'member', joinedAt: 1 }),
+    );
+    expect(names(await bob.as.query(api.gifts.christmas, { groupId }))).toEqual(['Granny']);
+  });
+
+  test('a deleted account is unlinked and no longer named as buyer', async () => {
+    const { ada, kid, groupId, granny, scarf } = await planned();
+    await ada.as.mutation(api.gifts.linkRecipient, { recipientId: granny, memberUserId: null });
+    await ada.as.mutation(api.gifts.updateGift, {
+      giftId: scarf,
+      title: 'Scarf',
+      price: null,
+      url: '',
+      note: '',
+      buyerUserId: kid.userId,
+    });
+    const kidR = await ada.as.mutation(api.gifts.addRecipient, {
+      groupId,
+      name: 'Kid',
+      memberUserId: kid.userId,
+    });
+    await kid.as.mutation(api.account.deleteAccount, {});
+    const list = await ada.as.query(api.gifts.recipients, { groupId });
+    expect(list.recipients.find((r) => r._id === kidR)).toMatchObject({ linkedUserId: null });
+    expect(await ada.as.query(api.gifts.gift, { giftId: scarf })).toMatchObject({
+      buyerUserId: null,
+      buyerName: null,
+    });
+  });
+
+  test('the last member leaving deletes all gift data', async () => {
+    const { t, ada, bob, kid, groupId, granny } = await planned();
+    await ada.as.mutation(api.gifts.setBudget, { recipientId: granny, year: 2026, amount: 300 });
+    for (const who of [ada, bob, kid]) await who.as.mutation(api.groups.leave, { groupId });
+    const left = await t.run(async (ctx) => [
+      (await ctx.db.query('giftRecipients').collect()).length,
+      (await ctx.db.query('gifts').collect()).length,
+      (await ctx.db.query('giftBudgets').collect()).length,
+    ]);
+    expect(left).toEqual([0, 0, 0]);
+  });
+});

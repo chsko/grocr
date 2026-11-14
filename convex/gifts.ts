@@ -315,12 +315,22 @@ export const recipients = query({
         name: r.name,
         linkedUserId: r.memberUserId ?? null,
         linkedName: await userName(ctx, r.memberUserId),
+        archived: r.archivedAt !== undefined,
       })),
     );
     const linked = new Set(visible.map((r) => r.memberUserId).filter((id) => id !== undefined));
     const members = (await familyMembers(ctx, groupId))
       .filter((m) => m.userId !== userId)
-      .map((m) => ({ ...m, linked: linked.has(m.userId) }));
+      .map((m) => {
+        const isLinked = linked.has(m.userId);
+        // An unlinked recipient with the member's name is likely them: offer to link it.
+        const same = visible.find(
+          (r) =>
+            r.memberUserId === undefined &&
+            r.name.toLocaleLowerCase() === m.name.trim().toLocaleLowerCase(),
+        );
+        return { ...m, linked: isLinked, match: !isLinked && same ? same._id : null };
+      });
     return { recipients: rows, members };
   },
 });
@@ -505,3 +515,85 @@ export const setBudget = mutation({
     }
   },
 });
+
+export const renameRecipient = mutation({
+  args: { recipientId: v.id('giftRecipients'), name: v.string() },
+  handler: async (ctx, args) => {
+    const { recipient } = await loadRecipient(ctx, args.recipientId);
+    const name = checkName(args.name);
+    if (name !== recipient.name) await ctx.db.patch('giftRecipients', recipient._id, { name });
+  },
+});
+
+/** Archives a recipient (they leave new Christmases but keep their history) or brings them back. */
+export const setRecipientArchived = mutation({
+  args: { recipientId: v.id('giftRecipients'), archived: v.boolean() },
+  handler: async (ctx, args) => {
+    const { recipient } = await loadRecipient(ctx, args.recipientId);
+    if ((recipient.archivedAt !== undefined) === args.archived) return;
+    await ctx.db.patch('giftRecipients', recipient._id, {
+      archivedAt: args.archived ? Date.now() : undefined,
+    });
+  },
+});
+
+/** Deletes a recipient with all their gifts, ideas and budgets. */
+export const removeRecipient = mutation({
+  args: { recipientId: v.id('giftRecipients') },
+  handler: async (ctx, args) => {
+    const { recipient } = await loadRecipient(ctx, args.recipientId);
+    await deleteRecipient(ctx, recipient._id);
+  },
+});
+
+async function deleteRecipient(ctx: MutationCtx, recipientId: Id<'giftRecipients'>) {
+  const gifts = await ctx.db
+    .query('gifts')
+    .withIndex('by_recipient_occasion', (q) => q.eq('recipientId', recipientId))
+    .collect();
+  for (const gift of gifts) await ctx.db.delete('gifts', gift._id);
+  const budgets = await ctx.db
+    .query('giftBudgets')
+    .withIndex('by_recipient_occasion', (q) => q.eq('recipientId', recipientId))
+    .collect();
+  for (const budget of budgets) await ctx.db.delete('giftBudgets', budget._id);
+  await ctx.db.delete('giftRecipients', recipientId);
+}
+
+// Clean-up, shared with groups.ts and account.ts.
+
+/** Deletes every gift recipient, gift and budget of a family that is being deleted. */
+export async function deleteFamilyGifts(ctx: MutationCtx, groupId: Id<'groups'>) {
+  const recipients = await ctx.db
+    .query('giftRecipients')
+    .withIndex('by_group', (q) => q.eq('groupId', groupId))
+    .collect();
+  for (const recipient of recipients) await deleteRecipient(ctx, recipient._id);
+}
+
+/**
+ * A deleted account leaves no name behind: gifts they were buying lose the buyer, and a
+ * recipient linked to them is unlinked (there is no one left to hide it from).
+ */
+export async function forgetGiftMember(
+  ctx: MutationCtx,
+  groupId: Id<'groups'>,
+  userId: Id<'users'>,
+) {
+  const linked = await ctx.db
+    .query('giftRecipients')
+    .withIndex('by_group_member', (q) => q.eq('groupId', groupId).eq('memberUserId', userId))
+    .collect();
+  for (const recipient of linked) {
+    await ctx.db.patch('giftRecipients', recipient._id, { memberUserId: undefined });
+  }
+  const gifts = await ctx.db
+    .query('gifts')
+    .withIndex('by_group_occasion', (q) => q.eq('groupId', groupId))
+    .collect();
+  for (const gift of gifts) {
+    if (gift.buyerUserId === userId) {
+      await ctx.db.patch('gifts', gift._id, { buyerUserId: undefined });
+    }
+  }
+}

@@ -2,6 +2,7 @@ import { ConvexError, v } from 'convex/values';
 
 import type { Doc, Id } from './_generated/dataModel';
 import { mutation, query, type MutationCtx } from './_generated/server';
+import { deleteFamilyGifts } from './gifts';
 import {
   accessError,
   currentMembership,
@@ -313,5 +314,6 @@ async function deleteGroup(ctx: MutationCtx, groupId: Id<'groups'>) {
     for (const item of items) await ctx.db.delete('groceryItems', item._id);
     await ctx.db.delete('groceryLists', list._id);
   }
+  await deleteFamilyGifts(ctx, groupId);
   await ctx.db.delete('groups', groupId);
 }

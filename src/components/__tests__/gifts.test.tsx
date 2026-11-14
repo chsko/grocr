@@ -217,36 +217,90 @@ describe('recipients', () => {
   beforeEach(() => {
     mockQueries['gifts.recipients'] = {
       recipients: [
-        { _id: 'r1', name: 'Bestemor', linkedUserId: null, linkedName: null },
-        { _id: 'r2', name: 'Ola', linkedUserId: 'u2', linkedName: 'Ola' },
+        { _id: 'r1', name: 'Bestemor', linkedUserId: null, linkedName: null, archived: false },
+        { _id: 'r2', name: 'Ola', linkedUserId: 'u2', linkedName: 'Ola', archived: false },
+        { _id: 'r4', name: 'Onkel Per', linkedUserId: null, linkedName: null, archived: true },
       ],
       members: [
-        { userId: 'u2', name: 'Ola', linked: true },
-        { userId: 'u3', name: 'Emma', linked: false },
+        { userId: 'u2', name: 'Ola', linked: true, match: null },
+        { userId: 'u3', name: 'Emma', linked: false, match: null },
       ],
     };
+  });
+
+  test('suggests family members who are not linked yet', async () => {
+    await render(<GiftRecipientsScreen />);
+    expect(screen.getByText('Ikke koblet ennå')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Legg til Emma' }));
+    expect(mockCalls).toEqual([
+      ['gifts.addRecipient', { groupId: 'g1', name: 'Emma', memberUserId: 'u3' }],
+    ]);
+  });
+
+  test('a suggestion links a recipient with the same name', async () => {
+    const data = mockQueries['gifts.recipients'] as { members: { match: string | null }[] };
+    data.members[1].match = 'r1';
+    await render(<GiftRecipientsScreen />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Koble til Emma' }));
+    expect(mockCalls).toEqual([['gifts.linkRecipient', { recipientId: 'r1', memberUserId: 'u3' }]]);
+  });
+
+  test('archived people are listed apart and can come back', async () => {
+    await render(<GiftRecipientsScreen />);
+    expect(screen.getByText('Arkivert')).toBeTruthy();
+    await fireEvent.press(screen.getByText('Onkel Per'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Hent tilbake' }));
+    expect(mockCalls).toEqual([
+      ['gifts.setRecipientArchived', { recipientId: 'r4', archived: false }],
+    ]);
+  });
+
+  test('archives a person', async () => {
+    await render(<GiftRecipientsScreen />);
+    await fireEvent.press(screen.getByText('Bestemor'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Arkiver' }));
+    expect(mockCalls).toEqual([
+      ['gifts.setRecipientArchived', { recipientId: 'r1', archived: true }],
+    ]);
+  });
+
+  test('deleting warns that gifts, ideas and budgets go too', async () => {
+    const alert = jest.spyOn(Alert, 'alert');
+    await render(<GiftRecipientsScreen />);
+    await fireEvent.press(screen.getByText('Bestemor'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Slett' }));
+    const [title, body, confirm] = alert.mock.calls.at(-1)!;
+    expect(title).toBe('Slette Bestemor?');
+    expect(body).toMatch(/Gavene, idéene og budsjettene slettes også/);
+    expect(mockCalls).toEqual([]);
+    await confirm!.find((a) => a.style === 'destructive')!.onPress!();
+    expect(mockCalls).toEqual([['gifts.removeRecipient', { recipientId: 'r1' }]]);
+    alert.mockRestore();
+  });
+
+  test('renames a person', async () => {
+    await render(<GiftRecipientsScreen />);
+    await fireEvent.press(screen.getByText('Bestemor'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Gi nytt navn' }));
+    await fireEvent.changeText(screen.getByDisplayValue('Bestemor'), 'Oldemor');
+    await fireEvent.press(screen.getByRole('button', { name: 'Lagre' }));
+    expect(mockCalls).toEqual([['gifts.renameRecipient', { recipientId: 'r1', name: 'Oldemor' }]]);
   });
 
   test('shows who is in the family', async () => {
     await render(<GiftRecipientsScreen />);
     expect(screen.getByText('I familien: Ola')).toBeTruthy();
-    expect(screen.getByText('Ikke koblet til familien')).toBeTruthy();
+    expect(screen.getAllByText('Ikke koblet til familien')).toHaveLength(2);
   });
 
   test('links a recipient to a member who is not linked yet', async () => {
-    const alert = jest.spyOn(Alert, 'alert');
     await render(<GiftRecipientsScreen />);
     await fireEvent.press(screen.getByText('Bestemor'));
-    const [, , actions] = alert.mock.calls.at(-1)!;
-    await actions!.find((a) => a.text === 'Koble til noen i familien')!.onPress!();
-    const [, , members] = alert.mock.calls.at(-1)!;
+    await fireEvent.press(screen.getByRole('button', { name: 'Koble til noen i familien' }));
     // Ola is linked to someone else already, so only Emma is offered.
-    expect(members!.map((a) => a.text)).toEqual(['Emma', 'Avbryt']);
-    await members![0].onPress!();
-    expect(mockCalls).toContainEqual([
-      'gifts.linkRecipient',
-      { recipientId: 'r1', memberUserId: 'u3' },
-    ]);
+    expect(screen.queryByRole('button', { name: 'Ola' })).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Emma' }));
+    expect(mockCalls).toEqual([['gifts.linkRecipient', { recipientId: 'r1', memberUserId: 'u3' }]]);
   });
 
   test('adds a recipient by name', async () => {
