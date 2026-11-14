@@ -73,8 +73,9 @@ const mockMutations: Record<string, unknown> = {
   'grocery.setChecked': { withOptimisticUpdate: () => mockSetChecked },
   'grocery.addStaples': { withOptimisticUpdate: () => mockAddStaples },
   'grocery.dismissStaples': { withOptimisticUpdate: () => mockDismissStaples },
-  'staples.set': mockSetStaple,
-  'staples.add': mockAddStaple,
+  'staples.set': { withOptimisticUpdate: () => mockSetStaple },
+  'staples.add': { withOptimisticUpdate: () => mockAddStaple },
+  'ingredients.setSection': { withOptimisticUpdate: () => mockSetSection },
 };
 jest.mock('convex/react', () => ({
   useQuery: (...args: unknown[]) => mockUseQuery(...args),

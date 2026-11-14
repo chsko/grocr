@@ -22,6 +22,7 @@ import type { Id } from '@/convex/_generated/dataModel';
 import { cleanName, normalizeName, placeSection } from '@/convex/lib/catalog';
 import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
+import { useSetSection } from '@/lib/optimistic';
 import { sectionName } from '@/lib/sections';
 import { useFamily } from '@/lib/session';
 import Animated from 'react-native-reanimated';
@@ -161,7 +162,7 @@ function ItemEditor({ item, items, onClose }: { item: Item; items: Item[]; onClo
   const { height } = useWindowDimensions();
   const family = useFamily();
   const rename = useMutation(api.ingredients.rename);
-  const setSection = useMutation(api.ingredients.setSection);
+  const setSection = useSetSection();
   const merge = useMutation(api.ingredients.merge);
   // What the field opened with: Save renames only when they changed it, so it never undoes a
   // rename another member made while this was open.

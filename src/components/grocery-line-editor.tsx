@@ -20,6 +20,7 @@ import { convertQty, formatQty, parseQty, sumAmounts, UNITS, type Unit } from '@
 import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
 import { formatAmounts } from '@/lib/format';
+import { useSetSection, useSetStaple } from '@/lib/optimistic';
 import { sectionName } from '@/lib/sections';
 import { useFamily } from '@/lib/session';
 import Animated from 'react-native-reanimated';
@@ -50,8 +51,8 @@ export function GroceryLineEditor({
   const editMerged = useMutation(api.grocery.editMerged);
   const setAtHomeAmount = useMutation(api.grocery.setAtHomeAmount);
   const remove = useMutation(api.grocery.remove);
-  const setSection = useMutation(api.ingredients.setSection);
-  const setStaple = useMutation(api.staples.set);
+  const setSection = useSetSection();
+  const setStaple = useSetStaple();
   const mergeIngredients = useMutation(api.ingredients.merge);
   const family = useFamily();
   const [mergeText, setMergeText] = useState<string | null>(null);
