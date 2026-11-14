@@ -858,6 +858,18 @@ describe('groups of people', () => {
       ada.as.mutation(api.gifts.setRecipientGroup, { recipientId: granny, giftGroupId: theirs }),
     ).rejects.toThrow(/NOT_FOUND/);
 
+    // A person can be added straight into a group, but only one of this family's.
+    const aunt = await ada.as.mutation(api.gifts.addRecipient, {
+      groupId,
+      name: 'Aunt',
+      giftGroupId: g,
+    });
+    list = await ada.as.query(api.gifts.recipients, { groupId });
+    expect(list.recipients.find((r) => r._id === aunt)).toMatchObject({ giftGroupId: g });
+    await expect(
+      ada.as.mutation(api.gifts.addRecipient, { groupId, name: 'Nope', giftGroupId: theirs }),
+    ).rejects.toThrow(/NOT_FOUND/);
+
     await ada.as.mutation(api.gifts.removeGiftGroup, { giftGroupId: g });
     list = await ada.as.query(api.gifts.recipients, { groupId });
     expect(list.groups).toEqual([]);

@@ -457,15 +457,28 @@ async function checkLink(
 
 /** Adds a gift recipient, optionally linked to a member (who then never sees them). */
 export const addRecipient = mutation({
-  args: { groupId: v.id('groups'), name: v.string(), memberUserId: v.optional(v.id('users')) },
+  args: {
+    groupId: v.id('groups'),
+    name: v.string(),
+    memberUserId: v.optional(v.id('users')),
+    /** Starts the person in this gift group. */
+    giftGroupId: v.optional(v.id('giftGroups')),
+  },
   handler: async (ctx, args) => {
     const { userId } = await requireMembership(ctx, args.groupId);
     const name = checkName(args.name);
     if (args.memberUserId) await checkLink(ctx, args.groupId, userId, args.memberUserId);
+    if (args.giftGroupId) {
+      const giftGroup = await ctx.db.get('giftGroups', args.giftGroupId);
+      if (giftGroup === null || giftGroup.groupId !== args.groupId) {
+        throw accessError('NOT_FOUND');
+      }
+    }
     return await ctx.db.insert('giftRecipients', {
       groupId: args.groupId,
       name,
       memberUserId: args.memberUserId,
+      giftGroupId: args.giftGroupId,
       createdAt: Date.now(),
     });
   },

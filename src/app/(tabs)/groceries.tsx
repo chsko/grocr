@@ -13,8 +13,9 @@ import {
   type TextInputInstance,
   View,
 } from 'react-native';
-import Animated, { LayoutAnimationConfig, useReducedMotion, ZoomIn } from 'react-native-reanimated';
+import Animated, { LayoutAnimationConfig, ZoomIn } from 'react-native-reanimated';
 
+import { Disclosure } from '@/components/disclosure';
 import { GroceryLineEditor } from '@/components/grocery-line-editor';
 import { Highlight } from '@/components/highlight';
 import { AtHome, Check, ChevronRight, Plus } from '@/components/icons';
@@ -783,22 +784,6 @@ export default function GroceriesScreen() {
 
 /** The tomato check fills in quickly; with Reduce Motion on it simply appears. */
 const tickIn = ZoomIn.duration(140).easing(EASE_OUT);
-
-/** The chevron of a group that folds open: it turns a quarter instead of swapping icons. */
-function Disclosure({ open }: { open: boolean }) {
-  const reduced = useReducedMotion();
-  return (
-    <Animated.View
-      style={{
-        transform: [{ rotate: open ? '90deg' : '0deg' }],
-        transitionProperty: 'transform',
-        transitionDuration: reduced ? 0 : 150,
-        transitionTimingFunction: 'ease-out',
-      }}>
-      <ChevronRight size={16} strokeWidth={2.2} />
-    </Animated.View>
-  );
-}
 
 const useStyles = makeStyles((colors) => ({
   header: { paddingHorizontal: 20, paddingTop: 24, gap: 12, paddingBottom: 4 },

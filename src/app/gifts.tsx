@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from 'convex/react';
-import { router } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, View } from 'react-native';
@@ -11,7 +11,8 @@ import {
   StatusPill,
   useMoneyLine,
 } from '@/components/gift-parts';
-import { Check, ChevronLeft, ChevronRight, Plus } from '@/components/icons';
+import { Disclosure } from '@/components/disclosure';
+import { Check, ChevronLeft, ChevronRight, Person, Plus } from '@/components/icons';
 import { Button, Chip, Field, IconButton, Loading, Text } from '@/components/ui';
 import { Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
@@ -51,6 +52,11 @@ export default function GiftsScreen() {
   const setStatus = useSetGiftStatus();
   const [adding, setAdding] = useState(false);
   const [filter, setFilter] = useState<GiftStatus | null>(null);
+  // Groups folded shut on this screen; they open again next time the screen opens.
+  const [closed, setClosed] = useState<string[]>([]);
+  function toggle(key: string) {
+    setClosed((now) => (now.includes(key) ? now.filter((k) => k !== key) : [...now, key]));
+  }
   const [budgetFor, setBudgetFor] = useState<Id<'giftRecipients'> | null>(null);
   const [tab, setTab] = useState<'christmas' | 'bank'>('christmas');
   const moneyLine = useMoneyLine();
@@ -104,6 +110,18 @@ export default function GiftsScreen() {
       keyboardShouldPersistTaps="handled"
       style={{ backgroundColor: colors.background }}
       contentContainerStyle={styles.content}>
+      <Stack.Screen
+        options={{
+          headerRight: () => (
+            <Button
+              kind="ghost"
+              title={t('gifts.people')}
+              icon={<Person color={colors.tomato} size={20} strokeWidth={2} />}
+              onPress={() => router.push('/gift-recipients')}
+            />
+          ),
+        }}
+      />
       <View style={styles.tabs} accessibilityRole="tablist">
         {(['christmas', 'bank'] as const).map((key) => (
           <Pressable
@@ -188,13 +206,17 @@ export default function GiftsScreen() {
       {(tab === 'christmas' ? sections : []).map((section) => (
         <View key={section.key} style={styles.section}>
           {section.title !== null ? (
-            <View style={styles.sectionHead}>
-              <Text
-                variant="label"
-                color={colors.muted}
-                accessibilityRole="header"
-                style={{ flex: 1 }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ expanded: !closed.includes(section.key) }}
+              onPress={() => toggle(section.key)}
+              style={({ pressed }) => [styles.sectionHead, pressed && { opacity: 0.7 }]}>
+              <Disclosure open={!closed.includes(section.key)} color={colors.ink} />
+              <Text variant="label" accessibilityRole="header" style={{ flex: 1 }}>
                 {section.title.toLocaleUpperCase()}
+              </Text>
+              <Text variant="small" color={colors.muted}>
+                {t('gifts.peopleCount', { count: section.people.length })}
               </Text>
               {section.done ? (
                 <View
@@ -204,67 +226,76 @@ export default function GiftsScreen() {
                   <Check color={colors.ink} size={14} strokeWidth={3} />
                 </View>
               ) : null}
-            </View>
+            </Pressable>
           ) : null}
-          {section.people.map((group) => (
-            <View key={group._id} style={styles.group}>
-              <View style={styles.head}>
-                <Text variant="item">{group.name}</Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t('gifts.budgetTitle', { name: group.name })}
-                  hitSlop={8}
-                  onPress={() => setBudgetFor(group._id)}
-                  style={({ pressed }) => [
-                    { alignSelf: 'flex-start' },
-                    pressed && { opacity: 0.7 },
-                  ]}>
-                  <Text
-                    variant="small"
-                    color={group.spent > (group.budget ?? Infinity) ? colors.tomato : colors.muted}>
-                    {moneyLine(group.spent, group.budget) ?? t('gifts.setBudget')}
-                  </Text>
-                </Pressable>
-              </View>
-              {group.gifts.length > 0 ? (
-                <View style={styles.list}>
-                  {group.gifts.map((gift, index) => (
-                    <View key={gift._id} style={[styles.row, index > 0 && styles.divider]}>
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={gift.title}
-                        onPress={() => router.push(`/gift/${gift._id}`)}
-                        style={({ pressed }) => [{ flex: 1, gap: 2 }, pressed && { opacity: 0.7 }]}>
-                        <Text>{gift.title}</Text>
-                        <GiftLine gift={gift} />
-                      </Pressable>
-                      <StatusPill
-                        title={gift.title}
-                        status={gift.status}
-                        onChange={(status) =>
-                          void attempt(t, () => setStatus({ giftId: gift._id, status }))
-                        }
-                      />
+          {section.title !== null && closed.includes(section.key) ? null : (
+            <View style={section.title !== null ? styles.members : styles.section}>
+              {section.people.map((group) => (
+                <View key={group._id} style={styles.group}>
+                  <View style={styles.head}>
+                    <Text variant="item">{group.name}</Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={t('gifts.budgetTitle', { name: group.name })}
+                      hitSlop={8}
+                      onPress={() => setBudgetFor(group._id)}
+                      style={({ pressed }) => [
+                        { alignSelf: 'flex-start' },
+                        pressed && { opacity: 0.7 },
+                      ]}>
+                      <Text
+                        variant="small"
+                        color={
+                          group.spent > (group.budget ?? Infinity) ? colors.tomato : colors.muted
+                        }>
+                        {moneyLine(group.spent, group.budget) ?? t('gifts.setBudget')}
+                      </Text>
+                    </Pressable>
+                  </View>
+                  {group.gifts.length > 0 ? (
+                    <View style={styles.list}>
+                      {group.gifts.map((gift, index) => (
+                        <View key={gift._id} style={[styles.row, index > 0 && styles.divider]}>
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={gift.title}
+                            onPress={() => router.push(`/gift/${gift._id}`)}
+                            style={({ pressed }) => [
+                              { flex: 1, gap: 2 },
+                              pressed && { opacity: 0.7 },
+                            ]}>
+                            <Text>{gift.title}</Text>
+                            <GiftLine gift={gift} />
+                          </Pressable>
+                          <StatusPill
+                            title={gift.title}
+                            status={gift.status}
+                            onChange={(status) =>
+                              void attempt(t, () => setStatus({ giftId: gift._id, status }))
+                            }
+                          />
+                        </View>
+                      ))}
                     </View>
-                  ))}
+                  ) : null}
+                  {filter === null ? (
+                    <AddGift recipientId={group._id} name={group.name} year={xmas.year} />
+                  ) : null}
+                  {filter === null && group.bankCount > 0 ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      hitSlop={6}
+                      onPress={() => setTab('bank')}
+                      style={({ pressed }) => pressed && { opacity: 0.7 }}>
+                      <Text variant="small" color={colors.muted}>
+                        {t('gifts.bankCount', { count: group.bankCount })}
+                      </Text>
+                    </Pressable>
+                  ) : null}
                 </View>
-              ) : null}
-              {filter === null ? (
-                <AddGift recipientId={group._id} name={group.name} year={xmas.year} />
-              ) : null}
-              {filter === null && group.bankCount > 0 ? (
-                <Pressable
-                  accessibilityRole="button"
-                  hitSlop={6}
-                  onPress={() => setTab('bank')}
-                  style={({ pressed }) => pressed && { opacity: 0.7 }}>
-                  <Text variant="small" color={colors.muted}>
-                    {t('gifts.bankCount', { count: group.bankCount })}
-                  </Text>
-                </Pressable>
-              ) : null}
+              ))}
             </View>
-          ))}
+          )}
         </View>
       ))}
 
@@ -496,15 +527,22 @@ function AddGift({
 const useStyles = makeStyles((colors) => ({
   content: { padding: 20, paddingBottom: 48, gap: 18 },
   group: { gap: 8 },
-  section: { gap: 18 },
+  section: { gap: 12 },
   sectionHead: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingTop: 6,
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
-    paddingBottom: 6,
+    borderBottomColor: colors.borderStrong,
+  },
+  // People in a group stand indented behind a saffron rule, so each group reads as one block.
+  members: {
+    gap: 18,
+    marginLeft: 7,
+    paddingLeft: 14,
+    borderLeftWidth: 2,
+    borderLeftColor: colors.saffronPill,
   },
   done: {
     width: 24,

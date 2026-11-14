@@ -4,11 +4,12 @@ import { useTranslation } from 'react-i18next';
 import { Alert, Pressable, ScrollView, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { Disclosure } from '@/components/disclosure';
 import { DragRow, DragZones, DropZone } from '@/components/drag-to-group';
 import { NameSheet, Sheet } from '@/components/gift-parts';
 import { ChevronLeft, ChevronRight, More } from '@/components/icons';
 import { Button, Field, IconButton, Loading, Text } from '@/components/ui';
-import { Radius } from '@/constants/theme';
+import { Fonts, Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { daysInMonth, DEFAULT_GIFT_CARD_START, GIFT_CARD_END } from '@/convex/lib/gifts';
@@ -49,6 +50,11 @@ export default function GiftRecipientsScreen() {
   }>();
   const [pickingStart, setPickingStart] = useState(false);
   const [dragging, setDragging] = useState(false);
+  // Groups folded shut on this screen; a folded group still takes people dropped on its name.
+  const [closed, setClosed] = useState<string[]>([]);
+  function toggle(key: string) {
+    setClosed((now) => (now.includes(key) ? now.filter((k) => k !== key) : [...now, key]));
+  }
   // Letting go of a dragged row also ends a press on it; that press must not open the menu.
   const draggedAt = useRef(0);
   function dragChanged(now: boolean) {
@@ -234,24 +240,40 @@ export default function GiftRecipientsScreen() {
                   holds={people.map((r) => r._id)}
                   style={styles.zone}
                   highlight={styles.zoneOver}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={g.name}
-                    onPress={() => setOpenGroup({ id: g._id, mode: 'menu' })}
-                    style={({ pressed }) => [styles.groupHead, pressed && { opacity: 0.7 }]}>
-                    <Text variant="item" style={{ flex: 1 }}>
-                      {g.name}
-                    </Text>
-                    <Text variant="small" color={colors.muted}>
-                      {String(people.length)}
-                    </Text>
-                    <More color={colors.muted} />
-                  </Pressable>
-                  {people.length > 0 ? (
-                    dragRows(people)
-                  ) : (
-                    <View style={styles.empty}>
-                      <Text color={colors.muted}>{t('gifts.dropHere')}</Text>
+                  <View style={styles.groupHead}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={g.name}
+                      accessibilityState={{ expanded: !closed.includes(g._id) }}
+                      onPress={() => {
+                        if (dragging || Date.now() - draggedAt.current < 500) return;
+                        toggle(g._id);
+                      }}
+                      style={({ pressed }) => [styles.groupToggle, pressed && { opacity: 0.7 }]}>
+                      <Disclosure open={!closed.includes(g._id)} color={colors.ink} />
+                      <Text variant="item" style={styles.groupName}>
+                        {g.name}
+                      </Text>
+                      <Text variant="small" color={colors.muted}>
+                        {t('gifts.peopleCount', { count: people.length })}
+                      </Text>
+                    </Pressable>
+                    <IconButton
+                      label={t('gifts.groupMenu', { name: g.name })}
+                      onPress={() => setOpenGroup({ id: g._id, mode: 'menu' })}>
+                      <More color={colors.muted} />
+                    </IconButton>
+                  </View>
+                  {closed.includes(g._id) ? null : (
+                    <View style={styles.members}>
+                      {people.length > 0 ? (
+                        dragRows(people)
+                      ) : (
+                        <View style={styles.empty}>
+                          <Text color={colors.muted}>{t('gifts.dropHere')}</Text>
+                        </View>
+                      )}
+                      <AddToGroup giftGroupId={g._id} name={g.name} />
                     </View>
                   )}
                 </DropZone>
@@ -618,6 +640,38 @@ function ManageSheet({
   );
 }
 
+/** Adds a person straight into a gift group. */
+function AddToGroup({ giftGroupId, name }: { giftGroupId: Id<'giftGroups'>; name: string }) {
+  const { t } = useTranslation();
+  const family = useFamily();
+  const addRecipient = useMutation(api.gifts.addRecipient);
+  const [text, setText] = useState('');
+  const label = t('gifts.addToGroup', { name });
+
+  async function add() {
+    const typed = text;
+    if (typed.trim() === '') return;
+    setText('');
+    const id = await attempt(t, () =>
+      addRecipient({ groupId: family.groupId, name: typed, giftGroupId }),
+    );
+    if (id === undefined) setText((now) => (now === '' ? typed : now));
+  }
+
+  return (
+    <Field
+      accessibilityLabel={label}
+      value={text}
+      onChangeText={setText}
+      maxLength={60}
+      placeholder={label}
+      returnKeyType="done"
+      blurOnSubmit={false}
+      onSubmitEditing={() => void add()}
+    />
+  );
+}
+
 const useStyles = makeStyles((colors) => ({
   content: { padding: 20, paddingBottom: 48, gap: 16 },
   list: { borderRadius: Radius.card, backgroundColor: colors.surface, paddingHorizontal: 14 },
@@ -643,7 +697,25 @@ const useStyles = makeStyles((colors) => ({
     shadowOffset: { width: 0, height: 6 },
     elevation: 8,
   },
-  groupHead: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  groupHead: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingLeft: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderStrong,
+  },
+  groupToggle: { flex: 1, minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  groupName: { flex: 1, fontFamily: Fonts.bold },
+  // People in a group stand indented behind a saffron rule, so each group reads as one block.
+  members: {
+    gap: 8,
+    marginLeft: 11,
+    paddingLeft: 12,
+    borderLeftWidth: 2,
+    borderLeftColor: colors.saffronPill,
+  },
   empty: {
     minHeight: 56,
     alignItems: 'center',

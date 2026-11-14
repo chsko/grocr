@@ -38,7 +38,10 @@ jest.mock('expo-router', () => ({
   get router() {
     return mockRouter;
   },
-  Stack: { Screen: () => null },
+  Stack: {
+    Screen: ({ options }: { options?: { headerRight?: () => React.ReactNode } }) =>
+      options?.headerRight?.() ?? null,
+  },
   useLocalSearchParams: () => ({ id: 'a' }),
 }));
 
@@ -137,6 +140,29 @@ describe('one gift list', () => {
     expect(screen.getByText('SVIGERS')).toBeTruthy();
     expect(screen.getByText('UTEN GRUPPE')).toBeTruthy();
     expect(screen.getByLabelText('Kjøpt til alle i Svigers')).toBeTruthy();
+    expect(screen.getAllByText('1 person')).toHaveLength(2);
+  });
+
+  test('a group folds shut and open again from its heading', async () => {
+    const xmas = mockQueries['gifts.christmas'] as {
+      groups: unknown[];
+      recipients: { name: string; giftGroupId?: string | null }[];
+    };
+    xmas.groups = [{ _id: 'gg1', name: 'Svigers', done: false }];
+    xmas.recipients[0].giftGroupId = 'gg1';
+    const name = xmas.recipients[0].name;
+    await render(<GiftsScreen />);
+    expect(screen.getByText(name)).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: /SVIGERS/ }));
+    expect(screen.queryByText(name)).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: /SVIGERS/ }));
+    expect(screen.getByText(name)).toBeTruthy();
+  });
+
+  test('Personer is a button in the header', async () => {
+    await render(<GiftsScreen />);
+    await fireEvent.press(screen.getAllByRole('button', { name: 'Personer' })[0]);
+    expect(mockRouter.push).toHaveBeenCalledWith('/gift-recipients');
   });
 
   test('no headings when the family has no groups', async () => {
@@ -336,6 +362,29 @@ describe('recipients', () => {
     ]);
   });
 
+  test('a group folds shut and still shows how many are in it', async () => {
+    const data = mockQueries['gifts.recipients'] as {
+      recipients: { _id: string; name: string; giftGroupId?: string | null }[];
+    };
+    const ola = data.recipients.find((r) => r._id === 'r2')!;
+    ola.giftGroupId = 'gg1';
+    await render(<GiftRecipientsScreen />);
+    expect(screen.getByText(ola.name)).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Svigers' }));
+    expect(screen.queryByText(ola.name)).toBeNull();
+    expect(screen.getByText('1 person')).toBeTruthy();
+  });
+
+  test('adds a person straight into a group', async () => {
+    await render(<GiftRecipientsScreen />);
+    const field = screen.getByLabelText('Legg til person i Svigers');
+    await fireEvent.changeText(field, 'Tante');
+    await fireEvent(field, 'submitEditing');
+    expect(mockCalls).toEqual([
+      ['gifts.addRecipient', { groupId: 'g1', name: 'Tante', giftGroupId: 'gg1' }],
+    ]);
+  });
+
   test('adds a group by name', async () => {
     await render(<GiftRecipientsScreen />);
     await fireEvent.changeText(screen.getByLabelText('Ny gruppe'), 'Barna');
@@ -357,14 +406,14 @@ describe('recipients', () => {
   test('renames a group, and deletes it after saying the people stay', async () => {
     const alert = jest.spyOn(Alert, 'alert');
     await render(<GiftRecipientsScreen />);
-    await fireEvent.press(screen.getByRole('button', { name: 'Svigers' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Valg for Svigers' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Gi nytt navn' }));
     await fireEvent.changeText(screen.getByDisplayValue('Svigers'), 'Svigerfamilien');
     await fireEvent.press(screen.getByRole('button', { name: 'Lagre' }));
     expect(mockCalls).toEqual([
       ['gifts.renameGiftGroup', { giftGroupId: 'gg1', name: 'Svigerfamilien' }],
     ]);
-    await fireEvent.press(screen.getByRole('button', { name: 'Svigers' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Valg for Svigers' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Slett gruppe' }));
     const [title, body, confirm] = alert.mock.calls.at(-1)!;
     expect([title, body]).toEqual(['Slette Svigers?', 'Personene blir stående, bare uten gruppe.']);
