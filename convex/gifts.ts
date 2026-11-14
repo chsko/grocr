@@ -374,10 +374,13 @@ export const recipients = query({
       .map((m) => {
         const isLinked = linked.has(m.userId);
         // An unlinked recipient with the member's name is likely them: offer to link it.
+        // Full name or first name, either way round ("Emma" for "Emma Hansen").
+        const full = m.name.trim().toLocaleLowerCase();
+        const first = full.split(/\s+/)[0];
         const same = visible.find(
           (r) =>
             r.memberUserId === undefined &&
-            r.name.toLocaleLowerCase() === m.name.trim().toLocaleLowerCase(),
+            [full, first].includes(r.name.trim().toLocaleLowerCase()),
         );
         return { ...m, linked: isLinked, match: !isLinked && same ? same._id : null };
       });

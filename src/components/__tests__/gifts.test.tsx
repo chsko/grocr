@@ -223,7 +223,7 @@ describe('recipients', () => {
       ],
       members: [
         { userId: 'u2', name: 'Ola', linked: true, match: null },
-        { userId: 'u3', name: 'Emma', linked: false, match: null },
+        { userId: 'u3', name: 'Emma Hansen', linked: false, match: null },
       ],
       cardStart: '11-01',
     };
@@ -232,6 +232,7 @@ describe('recipients', () => {
   test('suggests family members who are not linked yet', async () => {
     await render(<GiftRecipientsScreen />);
     expect(screen.getByText('Ikke koblet ennå')).toBeTruthy();
+    // Added by first name, the way the family speaks of her.
     await fireEvent.press(screen.getByRole('button', { name: 'Legg til Emma' }));
     expect(mockCalls).toEqual([
       ['gifts.addRecipient', { groupId: 'g1', name: 'Emma', memberUserId: 'u3' }],
@@ -242,7 +243,7 @@ describe('recipients', () => {
     const data = mockQueries['gifts.recipients'] as { members: { match: string | null }[] };
     data.members[1].match = 'r1';
     await render(<GiftRecipientsScreen />);
-    await fireEvent.press(screen.getByRole('button', { name: 'Koble til Emma' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Koble til Emma Hansen' }));
     expect(mockCalls).toEqual([['gifts.linkRecipient', { recipientId: 'r1', memberUserId: 'u3' }]]);
   });
 
@@ -310,7 +311,7 @@ describe('recipients', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Koble til noen i familien' }));
     // Ola is linked to someone else already, so only Emma is offered.
     expect(screen.queryByRole('button', { name: 'Ola' })).toBeNull();
-    await fireEvent.press(screen.getByRole('button', { name: 'Emma' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Emma Hansen' }));
     expect(mockCalls).toEqual([['gifts.linkRecipient', { recipientId: 'r1', memberUserId: 'u3' }]]);
   });
 

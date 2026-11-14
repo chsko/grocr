@@ -768,3 +768,14 @@ describe('review fixes', () => {
     expect(ada).toBeDefined();
   });
 });
+
+test('a recipient named by first name is matched to the member', async () => {
+  const { t, ada, groupId } = await planned();
+  await t.run(async (ctx) => {
+    const kid = (await ctx.db.query('users').collect()).find((u) => u.name === 'kid')!;
+    await ctx.db.patch('users', kid._id, { name: 'Kid Hansen' });
+  });
+  const kidR = await ada.as.mutation(api.gifts.addRecipient, { groupId, name: 'Kid' });
+  const list = await ada.as.query(api.gifts.recipients, { groupId });
+  expect(list.members.find((m) => m.name === 'Kid Hansen')).toMatchObject({ match: kidR });
+});

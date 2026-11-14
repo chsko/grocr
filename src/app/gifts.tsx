@@ -93,9 +93,7 @@ export default function GiftsScreen() {
             onPress={() => setTab(key)}
             style={[styles.tab, tab === key && styles.tabOn]}>
             <Text variant="label" color={tab === key ? colors.ink : colors.muted}>
-              {key === 'christmas'
-                ? t('gifts.christmasYear', { year: xmas.year })
-                : t('gifts.ideasTitle')}
+              {key === 'christmas' ? t('gifts.christmasTab') : t('gifts.ideasTitle')}
             </Text>
           </Pressable>
         ))}
@@ -110,9 +108,14 @@ export default function GiftsScreen() {
             onPress={() => go(xmas.year - 1)}>
             <ChevronLeft color={colors.ink} size={22} />
           </IconButton>
-          {xmas.year !== xmas.currentYear ? (
-            <Chip title={t('gifts.thisYear')} onPress={() => go(null)} />
-          ) : null}
+          <View style={styles.year}>
+            <Text variant="heading" accessibilityRole="header">
+              {t('gifts.christmasYear', { year: xmas.year })}
+            </Text>
+            {xmas.year !== xmas.currentYear ? (
+              <Chip title={t('gifts.thisYear')} onPress={() => go(null)} />
+            ) : null}
+          </View>
           {xmas.year <= xmas.currentYear && xmas.year < MAX_GIFT_YEAR ? (
             <IconButton label={t('gifts.nextYearLabel')} onPress={() => go(xmas.year + 1)}>
               <ChevronRight color={colors.ink} size={22} />
@@ -165,15 +168,13 @@ export default function GiftsScreen() {
       {(tab === 'christmas' ? groups : []).map((group) => (
         <View key={group._id} style={styles.group}>
           <View style={styles.head}>
-            <Text variant="item" style={{ flexShrink: 1 }}>
-              {group.name}
-            </Text>
+            <Text variant="item">{group.name}</Text>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t('gifts.budgetTitle', { name: group.name })}
               hitSlop={8}
               onPress={() => setBudgetFor(group._id)}
-              style={({ pressed }) => pressed && { opacity: 0.7 }}>
+              style={({ pressed }) => [{ alignSelf: 'flex-start' }, pressed && { opacity: 0.7 }]}>
               <Text
                 variant="small"
                 color={group.spent > (group.budget ?? Infinity) ? colors.tomato : colors.muted}>
@@ -449,12 +450,7 @@ function AddGift({
 const useStyles = makeStyles((colors) => ({
   content: { padding: 20, paddingBottom: 48, gap: 18 },
   group: { gap: 8 },
-  head: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
+  head: { gap: 2 },
   tabs: {
     flexDirection: 'row',
     padding: 4,
@@ -471,6 +467,7 @@ const useStyles = makeStyles((colors) => ({
   tabOn: { backgroundColor: colors.raised },
   stepper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  year: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   summary: { gap: 10, padding: 16, borderRadius: Radius.card, backgroundColor: colors.saffronTint },
   chips: { gap: 8 },
   list: { borderRadius: Radius.card, backgroundColor: colors.surface, paddingHorizontal: 14 },

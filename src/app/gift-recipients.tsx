@@ -106,7 +106,7 @@ export default function GiftRecipientsScreen() {
               title={
                 m.match
                   ? t('gifts.people_screen.suggestLink', { name: m.name })
-                  : t('gifts.people_screen.suggestAdd', { name: m.name })
+                  : t('gifts.people_screen.suggestAdd', { name: firstName(m.name) })
               }
               onPress={() =>
                 void attempt(t, () =>
@@ -114,7 +114,7 @@ export default function GiftRecipientsScreen() {
                     ? linkRecipient({ recipientId: m.match, memberUserId: m.userId })
                     : addRecipient({
                         groupId: family.groupId,
-                        name: m.name,
+                        name: firstName(m.name),
                         memberUserId: m.userId,
                       }),
                 )
@@ -209,6 +209,11 @@ export default function GiftRecipientsScreen() {
       ) : null}
     </ScrollView>
   );
+}
+
+/** "Emma" from "Emma Hansen": what the family calls them on a gift list. */
+function firstName(name: string) {
+  return name.trim().split(/\s+/)[0] || name;
 }
 
 const MONTH_KEYS = [
