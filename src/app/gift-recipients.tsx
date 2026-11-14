@@ -1,8 +1,10 @@
 import { useMutation, useQuery } from 'convex/react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Pressable, ScrollView, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { DragRow, DragZones, DropZone } from '@/components/drag-to-group';
 import { NameSheet, Sheet } from '@/components/gift-parts';
 import { ChevronLeft, ChevronRight, More } from '@/components/icons';
 import { Button, Field, IconButton, Loading, Text } from '@/components/ui';
@@ -46,6 +48,13 @@ export default function GiftRecipientsScreen() {
     mode: 'menu' | 'rename';
   }>();
   const [pickingStart, setPickingStart] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  // Letting go of a dragged row also ends a press on it; that press must not open the menu.
+  const draggedAt = useRef(0);
+  function dragChanged(now: boolean) {
+    setDragging(now);
+    draggedAt.current = Date.now();
+  }
   const [open, setOpen] = useState<{
     id: Id<'giftRecipients'>;
     mode: 'menu' | 'link' | 'rename' | 'group';
@@ -78,246 +87,301 @@ export default function GiftRecipientsScreen() {
     if (id === undefined) setName((now) => (now === '' ? typed : now));
   }
 
+  function row(r: Recipient, index: number) {
+    return (
+      <Pressable
+        key={r._id}
+        accessibilityRole="button"
+        accessibilityHint={r.archived ? undefined : t('gifts.dragHint')}
+        onPress={() => {
+          if (dragging || Date.now() - draggedAt.current < 500) return;
+          setOpen({ id: r._id, mode: 'menu' });
+        }}
+        style={({ pressed }) => [
+          styles.row,
+          index > 0 && styles.divider,
+          pressed && { opacity: 0.7 },
+        ]}>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text variant="item">{r.name}</Text>
+          <Text variant="small" color={colors.muted}>
+            {[
+              r.linkedName
+                ? t('gifts.people_screen.linked', { name: r.linkedName })
+                : t('gifts.people_screen.notLinked'),
+              groupNameOf(r.giftGroupId),
+            ]
+              .filter((part) => part !== null)
+              .join(' · ')}
+          </Text>
+        </View>
+        <More color={colors.muted} />
+      </Pressable>
+    );
+  }
+
   function rows(list: Recipient[]) {
+    return <View style={styles.list}>{list.map(row)}</View>;
+  }
+
+  /** People who can be dragged to a group: a card of rows, each lifted on a long press. */
+  function dragRows(list: Recipient[]) {
     return (
       <View style={styles.list}>
         {list.map((r, index) => (
-          <Pressable
-            key={r._id}
-            accessibilityRole="button"
-            onPress={() => setOpen({ id: r._id, mode: 'menu' })}
-            style={({ pressed }) => [
-              styles.row,
-              index > 0 && styles.divider,
-              pressed && { opacity: 0.7 },
-            ]}>
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text variant="item">{r.name}</Text>
-              <Text variant="small" color={colors.muted}>
-                {[
-                  r.linkedName
-                    ? t('gifts.people_screen.linked', { name: r.linkedName })
-                    : t('gifts.people_screen.notLinked'),
-                  groupNameOf(r.giftGroupId),
-                ]
-                  .filter((part) => part !== null)
-                  .join(' · ')}
-              </Text>
-            </View>
-            <More color={colors.muted} />
-          </Pressable>
+          <DragRow key={r._id} id={r._id} liftedStyle={styles.lifted}>
+            {row(r, index)}
+          </DragRow>
         ))}
       </View>
     );
   }
 
+  function drop(id: string, zone: string) {
+    const recipient = active.find((r) => r._id === id);
+    const giftGroupId = zone === NO_GROUP ? null : (zone as Id<'giftGroups'>);
+    if (!recipient || recipient.giftGroupId === giftGroupId) return;
+    void attempt(t, () => setRecipientGroup({ recipientId: recipient._id, giftGroupId }));
+  }
+  const loose = active.filter((r) => !giftGroups.some((g) => g._id === r.giftGroupId));
+
   return (
-    <ScrollView
-      contentInsetAdjustmentBehavior="automatic"
-      automaticallyAdjustKeyboardInsets
-      keyboardShouldPersistTaps="handled"
-      style={{ backgroundColor: colors.background }}
-      contentContainerStyle={styles.content}>
-      <Text color={colors.muted}>{t('gifts.people_screen.intro')}</Text>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <DragZones onDrop={drop} onDragChange={dragChanged}>
+        <ScrollView
+          contentInsetAdjustmentBehavior="automatic"
+          automaticallyAdjustKeyboardInsets
+          keyboardShouldPersistTaps="handled"
+          scrollEnabled={!dragging}
+          style={{ backgroundColor: colors.background }}
+          contentContainerStyle={styles.content}>
+          <Text color={colors.muted}>{t('gifts.people_screen.intro')}</Text>
 
-      {unlinked.length > 0 ? (
-        <View style={styles.suggest}>
-          <Text variant="item">{t('gifts.people_screen.suggestTitle')}</Text>
-          <Text color={colors.muted}>{t('gifts.people_screen.suggestBody')}</Text>
-          {unlinked.map((m) => (
-            <Button
-              key={m.userId}
-              kind="secondary"
-              title={
-                m.match
-                  ? t('gifts.people_screen.suggestLink', { name: m.name })
-                  : t('gifts.people_screen.suggestAdd', { name: firstName(m.name) })
-              }
-              onPress={() =>
-                void attempt(t, () =>
-                  m.match
-                    ? linkRecipient({ recipientId: m.match, memberUserId: m.userId })
-                    : addRecipient({
-                        groupId: family.groupId,
-                        name: firstName(m.name),
-                        memberUserId: m.userId,
-                      }),
-                )
-              }
+          {unlinked.length > 0 ? (
+            <View style={styles.suggest}>
+              <Text variant="item">{t('gifts.people_screen.suggestTitle')}</Text>
+              <Text color={colors.muted}>{t('gifts.people_screen.suggestBody')}</Text>
+              {unlinked.map((m) => (
+                <Button
+                  key={m.userId}
+                  kind="secondary"
+                  title={
+                    m.match
+                      ? t('gifts.people_screen.suggestLink', { name: m.name })
+                      : t('gifts.people_screen.suggestAdd', { name: firstName(m.name) })
+                  }
+                  onPress={() =>
+                    void attempt(t, () =>
+                      m.match
+                        ? linkRecipient({ recipientId: m.match, memberUserId: m.userId })
+                        : addRecipient({
+                            groupId: family.groupId,
+                            name: firstName(m.name),
+                            memberUserId: m.userId,
+                          }),
+                    )
+                  }
+                />
+              ))}
+            </View>
+          ) : null}
+
+          <DropZone
+            zone={NO_GROUP}
+            holds={loose.map((r) => r._id)}
+            style={styles.zone}
+            highlight={styles.zoneOver}>
+            {loose.length > 0 ? (
+              dragRows(loose)
+            ) : giftGroups.length > 0 ? (
+              <View style={styles.empty}>
+                <Text color={colors.muted}>{t('gifts.dropNoGroup')}</Text>
+              </View>
+            ) : null}
+          </DropZone>
+          <View style={styles.addRow}>
+            <Field
+              label={t('gifts.people_screen.newName')}
+              value={name}
+              onChangeText={setName}
+              maxLength={60}
+              placeholder={t('gifts.people_screen.newPlaceholder')}
+              returnKeyType="done"
+              onSubmitEditing={() => void add()}
+              style={{ flex: 1 }}
             />
-          ))}
-        </View>
-      ) : null}
-
-      {active.length > 0 ? rows(active) : null}
-      <View style={styles.addRow}>
-        <Field
-          label={t('gifts.people_screen.newName')}
-          value={name}
-          onChangeText={setName}
-          maxLength={60}
-          placeholder={t('gifts.people_screen.newPlaceholder')}
-          returnKeyType="done"
-          onSubmitEditing={() => void add()}
-          style={{ flex: 1 }}
-        />
-        <Button
-          kind="secondary"
-          title={t('gifts.add')}
-          disabled={name.trim() === ''}
-          onPress={() => void add()}
-        />
-      </View>
-
-      <View style={{ gap: 8 }}>
-        <Text variant="label" color={colors.muted} accessibilityRole="header">
-          {t('gifts.groups')}
-        </Text>
-        {giftGroups.length > 0 ? (
-          <View style={styles.list}>
-            {giftGroups.map((g, index) => (
-              <Pressable
-                key={g._id}
-                accessibilityRole="button"
-                accessibilityLabel={g.name}
-                onPress={() => setOpenGroup({ id: g._id, mode: 'menu' })}
-                style={({ pressed }) => [
-                  styles.row,
-                  index > 0 && styles.divider,
-                  pressed && { opacity: 0.7 },
-                ]}>
-                <Text variant="item" style={{ flex: 1 }}>
-                  {g.name}
-                </Text>
-                <Text variant="small" color={colors.muted}>
-                  {String(active.filter((r) => r.giftGroupId === g._id).length)}
-                </Text>
-                <More color={colors.muted} />
-              </Pressable>
-            ))}
+            <Button
+              kind="secondary"
+              title={t('gifts.add')}
+              disabled={name.trim() === ''}
+              onPress={() => void add()}
+            />
           </View>
-        ) : null}
-        <View style={styles.addRow}>
-          <Field
-            label={t('gifts.newGroup')}
-            value={groupName}
-            onChangeText={setGroupName}
-            maxLength={60}
-            placeholder={t('gifts.newGroupPlaceholder')}
-            returnKeyType="done"
-            onSubmitEditing={() => void addGroup()}
-            style={{ flex: 1 }}
-          />
-          <Button
-            kind="secondary"
-            title={t('gifts.add')}
-            disabled={groupName.trim() === ''}
-            onPress={() => void addGroup()}
-          />
-        </View>
-      </View>
 
-      {archived.length > 0 ? (
-        <View style={{ gap: 8 }}>
-          <Text variant="label" color={colors.muted} accessibilityRole="header">
-            {t('gifts.people_screen.archivedTitle')}
-          </Text>
-          {rows(archived)}
-        </View>
-      ) : null}
+          <View style={{ gap: 8 }}>
+            <Text variant="label" color={colors.muted} accessibilityRole="header">
+              {t('gifts.groups')}
+            </Text>
+            {giftGroups.length > 0 ? (
+              <Text color={colors.muted}>{t('gifts.dragIntro')}</Text>
+            ) : null}
+            {giftGroups.map((g) => {
+              const people = active.filter((r) => r.giftGroupId === g._id);
+              return (
+                <DropZone
+                  key={g._id}
+                  zone={g._id}
+                  holds={people.map((r) => r._id)}
+                  style={styles.zone}
+                  highlight={styles.zoneOver}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={g.name}
+                    onPress={() => setOpenGroup({ id: g._id, mode: 'menu' })}
+                    style={({ pressed }) => [styles.groupHead, pressed && { opacity: 0.7 }]}>
+                    <Text variant="item" style={{ flex: 1 }}>
+                      {g.name}
+                    </Text>
+                    <Text variant="small" color={colors.muted}>
+                      {String(people.length)}
+                    </Text>
+                    <More color={colors.muted} />
+                  </Pressable>
+                  {people.length > 0 ? (
+                    dragRows(people)
+                  ) : (
+                    <View style={styles.empty}>
+                      <Text color={colors.muted}>{t('gifts.dropHere')}</Text>
+                    </View>
+                  )}
+                </DropZone>
+              );
+            })}
+            <View style={styles.addRow}>
+              <Field
+                label={t('gifts.newGroup')}
+                value={groupName}
+                onChangeText={setGroupName}
+                maxLength={60}
+                placeholder={t('gifts.newGroupPlaceholder')}
+                returnKeyType="done"
+                onSubmitEditing={() => void addGroup()}
+                style={{ flex: 1 }}
+              />
+              <Button
+                kind="secondary"
+                title={t('gifts.add')}
+                disabled={groupName.trim() === ''}
+                onPress={() => void addGroup()}
+              />
+            </View>
+          </View>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t('gifts.cardStart')}
-        onPress={() => setPickingStart(true)}
-        style={({ pressed }) => [styles.setting, pressed && { opacity: 0.7 }]}>
-        <Text style={{ flex: 1 }}>{t('gifts.cardStart')}</Text>
-        <Text color={colors.muted}>{dayMonth(t, `2000-${data.cardStart}`)}</Text>
-        <ChevronRight color={colors.muted} size={18} />
-      </Pressable>
-      {pickingStart ? (
-        <CardStartSheet current={data.cardStart} onClose={() => setPickingStart(false)} />
-      ) : null}
+          {archived.length > 0 ? (
+            <View style={{ gap: 8 }}>
+              <Text variant="label" color={colors.muted} accessibilityRole="header">
+                {t('gifts.people_screen.archivedTitle')}
+              </Text>
+              {rows(archived)}
+            </View>
+          ) : null}
 
-      {current && open?.mode === 'menu' ? (
-        <ManageSheet
-          recipient={current}
-          canLink={unlinked.length > 0}
-          onLink={() => setOpen({ id: current._id, mode: 'link' })}
-          onRename={() => setOpen({ id: current._id, mode: 'rename' })}
-          groupName={groupNameOf(current.giftGroupId)}
-          onGroup={() => setOpen({ id: current._id, mode: 'group' })}
-          onClose={() => setOpen(undefined)}
-        />
-      ) : null}
-      {current && open?.mode === 'link' ? (
-        <Sheet onClose={() => setOpen(undefined)}>
-          <Text variant="heading">
-            {t('gifts.people_screen.linkTitle', { name: current.name })}
-          </Text>
-          <Text color={colors.muted}>
-            {t('gifts.people_screen.linkBody', { name: current.name })}
-          </Text>
-          {unlinked.map((m) => (
-            <Button
-              key={m.userId}
-              kind="secondary"
-              title={m.name}
-              onPress={async () => {
-                setOpen(undefined);
-                await attempt(t, () =>
-                  linkRecipient({ recipientId: current._id, memberUserId: m.userId }),
-                );
-              }}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('gifts.cardStart')}
+            onPress={() => setPickingStart(true)}
+            style={({ pressed }) => [styles.setting, pressed && { opacity: 0.7 }]}>
+            <Text style={{ flex: 1 }}>{t('gifts.cardStart')}</Text>
+            <Text color={colors.muted}>{dayMonth(t, `2000-${data.cardStart}`)}</Text>
+            <ChevronRight color={colors.muted} size={18} />
+          </Pressable>
+          {pickingStart ? (
+            <CardStartSheet current={data.cardStart} onClose={() => setPickingStart(false)} />
+          ) : null}
+
+          {current && open?.mode === 'menu' ? (
+            <ManageSheet
+              recipient={current}
+              canLink={unlinked.length > 0}
+              onLink={() => setOpen({ id: current._id, mode: 'link' })}
+              onRename={() => setOpen({ id: current._id, mode: 'rename' })}
+              groupName={groupNameOf(current.giftGroupId)}
+              onGroup={() => setOpen({ id: current._id, mode: 'group' })}
+              onClose={() => setOpen(undefined)}
             />
-          ))}
-        </Sheet>
-      ) : null}
-      {current && open?.mode === 'group' ? (
-        <Sheet onClose={() => setOpen(undefined)}>
-          <Text variant="heading">{t('gifts.pickGroupTitle', { name: current.name })}</Text>
-          {[{ _id: null, name: t('gifts.noGroupChoice') }, ...giftGroups].map((g) => (
-            <Button
-              key={g._id ?? 'none'}
-              kind={current.giftGroupId === g._id ? 'primary' : 'secondary'}
-              title={g.name}
-              onPress={async () => {
-                setOpen(undefined);
-                await attempt(t, () =>
-                  setRecipientGroup({ recipientId: current._id, giftGroupId: g._id }),
-                );
-              }}
+          ) : null}
+          {current && open?.mode === 'link' ? (
+            <Sheet onClose={() => setOpen(undefined)}>
+              <Text variant="heading">
+                {t('gifts.people_screen.linkTitle', { name: current.name })}
+              </Text>
+              <Text color={colors.muted}>
+                {t('gifts.people_screen.linkBody', { name: current.name })}
+              </Text>
+              {unlinked.map((m) => (
+                <Button
+                  key={m.userId}
+                  kind="secondary"
+                  title={m.name}
+                  onPress={async () => {
+                    setOpen(undefined);
+                    await attempt(t, () =>
+                      linkRecipient({ recipientId: current._id, memberUserId: m.userId }),
+                    );
+                  }}
+                />
+              ))}
+            </Sheet>
+          ) : null}
+          {current && open?.mode === 'group' ? (
+            <Sheet onClose={() => setOpen(undefined)}>
+              <Text variant="heading">{t('gifts.pickGroupTitle', { name: current.name })}</Text>
+              {[{ _id: null, name: t('gifts.noGroupChoice') }, ...giftGroups].map((g) => (
+                <Button
+                  key={g._id ?? 'none'}
+                  kind={current.giftGroupId === g._id ? 'primary' : 'secondary'}
+                  title={g.name}
+                  onPress={async () => {
+                    setOpen(undefined);
+                    await attempt(t, () =>
+                      setRecipientGroup({ recipientId: current._id, giftGroupId: g._id }),
+                    );
+                  }}
+                />
+              ))}
+            </Sheet>
+          ) : null}
+          {currentGroup && openGroup?.mode === 'menu' ? (
+            <GroupSheet
+              name={currentGroup.name}
+              giftGroupId={currentGroup._id}
+              onRename={() => setOpenGroup({ id: currentGroup._id, mode: 'rename' })}
+              onClose={() => setOpenGroup(undefined)}
             />
-          ))}
-        </Sheet>
-      ) : null}
-      {currentGroup && openGroup?.mode === 'menu' ? (
-        <GroupSheet
-          name={currentGroup.name}
-          giftGroupId={currentGroup._id}
-          onRename={() => setOpenGroup({ id: currentGroup._id, mode: 'rename' })}
-          onClose={() => setOpenGroup(undefined)}
-        />
-      ) : null}
-      {currentGroup && openGroup?.mode === 'rename' ? (
-        <GroupRename
-          name={currentGroup.name}
-          giftGroupId={currentGroup._id}
-          onClose={() => setOpenGroup(undefined)}
-        />
-      ) : null}
-      {current && open?.mode === 'rename' ? (
-        <NameSheet
-          title={t('gifts.people_screen.renameTitle', { name: current.name })}
-          label={t('gifts.people_screen.newName')}
-          initial={current.name}
-          onSave={(next) => renameRecipient({ recipientId: current._id, name: next })}
-          onClose={() => setOpen(undefined)}
-        />
-      ) : null}
-    </ScrollView>
+          ) : null}
+          {currentGroup && openGroup?.mode === 'rename' ? (
+            <GroupRename
+              name={currentGroup.name}
+              giftGroupId={currentGroup._id}
+              onClose={() => setOpenGroup(undefined)}
+            />
+          ) : null}
+          {current && open?.mode === 'rename' ? (
+            <NameSheet
+              title={t('gifts.people_screen.renameTitle', { name: current.name })}
+              label={t('gifts.people_screen.newName')}
+              initial={current.name}
+              onSave={(next) => renameRecipient({ recipientId: current._id, name: next })}
+              onClose={() => setOpen(undefined)}
+            />
+          ) : null}
+        </ScrollView>
+      </DragZones>
+    </GestureHandlerRootView>
   );
 }
+
+const NO_GROUP = 'none';
 
 /** "Emma" from "Emma Hansen": what the family calls them on a gift list. */
 function firstName(name: string) {
@@ -567,6 +631,27 @@ const useStyles = makeStyles((colors) => ({
     gap: 10,
     borderTopWidth: 1,
     borderTopColor: colors.divider,
+  },
+  zone: { gap: 8, borderRadius: Radius.card },
+  zoneOver: { backgroundColor: colors.saffronTint },
+  lifted: {
+    borderRadius: Radius.card,
+    backgroundColor: colors.raised,
+    shadowColor: colors.ink,
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+  },
+  groupHead: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  empty: {
+    minHeight: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Radius.card,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: colors.dashed,
   },
   stepRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   suggest: { gap: 10, padding: 16, borderRadius: Radius.card, backgroundColor: colors.saffronTint },

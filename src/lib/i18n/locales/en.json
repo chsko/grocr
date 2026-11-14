@@ -671,6 +671,10 @@
     "deleteGroupTitle": "Delete {{name}}?",
     "deleteGroupBody": "The people stay, just without a group.",
     "groupOf": "Group: {{name}}",
-    "pickGroupTitle": "Which group is {{name}} in?"
+    "pickGroupTitle": "Which group is {{name}} in?",
+    "dragHint": "Hold and drag to a group",
+    "dragIntro": "Hold a person and drag them into a group. People without a group stay at the top.",
+    "dropHere": "Drag people here",
+    "dropNoGroup": "Drag here to take out of a group"
   }
 }

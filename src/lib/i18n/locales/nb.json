@@ -671,6 +671,10 @@
     "deleteGroupTitle": "Slette {{name}}?",
     "deleteGroupBody": "Personene blir stående, bare uten gruppe.",
     "groupOf": "Gruppe: {{name}}",
-    "pickGroupTitle": "Hvilken gruppe er {{name}} i?"
+    "pickGroupTitle": "Hvilken gruppe er {{name}} i?",
+    "dragHint": "Hold inne og dra til en gruppe",
+    "dragIntro": "Hold inne på en person og dra dem inn i en gruppe. De uten gruppe står øverst.",
+    "dropHere": "Dra personer hit",
+    "dropNoGroup": "Dra hit for å ta ut av gruppe"
   }
 }

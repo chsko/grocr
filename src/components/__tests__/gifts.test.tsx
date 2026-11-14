@@ -318,6 +318,24 @@ describe('recipients', () => {
     expect(mockCalls).toEqual([['gifts.renameRecipient', { recipientId: 'r1', name: 'Oldemor' }]]);
   });
 
+  test('people without a group are on top, the rest under their group', async () => {
+    const data = mockQueries['gifts.recipients'] as {
+      recipients: { _id: string; giftGroupId?: string | null }[];
+      groups: { _id: string; name: string }[];
+    };
+    data.recipients.find((r) => r._id === 'r2')!.giftGroupId = 'gg1';
+    data.groups.push({ _id: 'gg2', name: 'Naboer' });
+    await render(<GiftRecipientsScreen />);
+    const texts = screen.getAllByText(/^(Bestemor|Ola|Svigers|Naboer|Dra personer hit)$/);
+    expect(texts.map((n) => n.props.children)).toEqual([
+      'Bestemor',
+      'Svigers',
+      'Ola',
+      'Naboer',
+      'Dra personer hit',
+    ]);
+  });
+
   test('adds a group by name', async () => {
     await render(<GiftRecipientsScreen />);
     await fireEvent.changeText(screen.getByLabelText('Ny gruppe'), 'Barna');

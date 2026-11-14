@@ -42,3 +42,14 @@ jest.mock('react-native-reanimated', () => {
     withSpring: (v) => v,
   };
 });
+
+// Gesture Handler needs real Reanimated, which Jest doesn't have (see above). Screens get plain
+// views and inert gestures; drags are checked in the app, taps work as usual.
+jest.mock('react-native-gesture-handler', () => {
+  const { View } = require('react-native');
+  return {
+    GestureHandlerRootView: View,
+    GestureDetector: ({ children }) => children,
+    usePanGesture: () => ({}),
+  };
+});
