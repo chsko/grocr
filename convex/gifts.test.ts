@@ -324,3 +324,95 @@ describe('gift details', () => {
     );
   });
 });
+
+describe('budgets', () => {
+  async function priced() {
+    const f = await planned();
+    const { ada, watch, scarf, granny } = f;
+    const edit = { url: '', note: '', buyerUserId: null };
+    await ada.as.mutation(api.gifts.updateGift, {
+      giftId: watch,
+      title: 'Watch',
+      price: 1500,
+      ...edit,
+    });
+    await ada.as.mutation(api.gifts.updateGift, {
+      giftId: scarf,
+      title: 'Scarf',
+      price: 300,
+      ...edit,
+    });
+    const tea = await ada.as.mutation(api.gifts.addGift, {
+      recipientId: granny,
+      title: 'Tea',
+      year: 2026,
+    });
+    await ada.as.mutation(api.gifts.updateGift, {
+      giftId: tea,
+      title: 'Tea',
+      price: 99.5,
+      ...edit,
+    });
+    await ada.as.mutation(api.gifts.setGiftStatus, { giftId: scarf, status: 'bought' });
+    await ada.as.mutation(api.gifts.setGiftStatus, { giftId: watch, status: 'wrapped' });
+    return { ...f, tea };
+  }
+
+  test('spent counts bought and wrapped gifts; priced ideas are planned', async () => {
+    const { ada, groupId, granny, bobR } = await priced();
+    await ada.as.mutation(api.gifts.setBudget, { recipientId: granny, year: 2026, amount: 500 });
+    await ada.as.mutation(api.gifts.setBudget, { recipientId: bobR, year: 2026, amount: 1000 });
+    const xmas = await ada.as.query(api.gifts.christmas, { groupId });
+    expect(xmas.recipients.map((r) => [r.name, r.budget, r.spent, r.planned])).toEqual([
+      ['Bob', 1000, 1500, 0],
+      ['Granny', 500, 300, 99.5],
+    ]);
+    expect(xmas.totals).toMatchObject({ budget: 1500, spent: 1800, planned: 99.5 });
+  });
+
+  test('totals never include the linked member’s own recipient', async () => {
+    const { ada, bob, groupId, granny, bobR } = await priced();
+    await ada.as.mutation(api.gifts.setBudget, { recipientId: granny, year: 2026, amount: 500 });
+    await ada.as.mutation(api.gifts.setBudget, { recipientId: bobR, year: 2026, amount: 1000 });
+    const his = await bob.as.query(api.gifts.christmas, { groupId });
+    expect(his.totals).toMatchObject({ budget: 500, spent: 300, planned: 99.5 });
+    await expect(
+      bob.as.mutation(api.gifts.setBudget, { recipientId: bobR, year: 2026, amount: 1 }),
+    ).rejects.toThrow(/NOT_FOUND/);
+  });
+
+  test('with no budgets the total budget is null', async () => {
+    const { ada, groupId } = await priced();
+    const xmas = await ada.as.query(api.gifts.christmas, { groupId });
+    expect(xmas.totals.budget).toBeNull();
+    expect(xmas.recipients[1].budget).toBeNull();
+  });
+
+  test('last year’s budget is offered, not copied', async () => {
+    const { ada, groupId, granny } = await planned();
+    await ada.as.mutation(api.gifts.setBudget, { recipientId: granny, year: 2025, amount: 400 });
+    const xmas = await ada.as.query(api.gifts.christmas, { groupId });
+    expect(xmas.recipients[1]).toMatchObject({ budget: null, lastBudget: 400 });
+  });
+
+  test('setting, changing and clearing a budget, and refusing bad amounts', async () => {
+    const { ada, groupId, granny } = await planned();
+    const budget = async () =>
+      (await ada.as.query(api.gifts.christmas, { groupId })).recipients[1].budget;
+    await ada.as.mutation(api.gifts.setBudget, { recipientId: granny, year: 2026, amount: 500 });
+    await ada.as.mutation(api.gifts.setBudget, {
+      recipientId: granny,
+      year: 2026,
+      amount: 650.256,
+    });
+    expect(await budget()).toBe(650.26);
+    await ada.as.mutation(api.gifts.setBudget, { recipientId: granny, year: 2026, amount: null });
+    expect(await budget()).toBeNull();
+    await expect(
+      ada.as.mutation(api.gifts.setBudget, { recipientId: granny, year: 2026, amount: -1 }),
+    ).rejects.toThrow(/INVALID_PRICE/);
+    await expect(
+      ada.as.mutation(api.gifts.setBudget, { recipientId: granny, year: 1999, amount: 1 }),
+    ).rejects.toThrow(/INVALID_YEAR/);
+  });
+});

@@ -9,6 +9,7 @@ import {
   christmasYear,
   cleanPrice,
   GIFT_STATUSES,
+  isSpent,
   MAX_GIFT_YEAR,
   MIN_GIFT_YEAR,
 } from './lib/gifts';
@@ -153,10 +154,30 @@ async function giftsFor(ctx: Ctx, recipientId: Id<'giftRecipients'>, year: numbe
   return gifts.sort((a, b) => a.createdAt - b.createdAt);
 }
 
+async function budgetFor(ctx: Ctx, recipientId: Id<'giftRecipients'>, year: number) {
+  return await ctx.db
+    .query('giftBudgets')
+    .withIndex('by_recipient_occasion', (q) =>
+      q.eq('recipientId', recipientId).eq('occasionKind', KIND).eq('occasionYear', year),
+    )
+    .unique();
+}
+
+/** Counts by status; spent is what Bought and Wrapped gifts cost, planned what ideas would. */
 function tally(gifts: Doc<'gifts'>[]) {
   const counts = { idea: 0, bought: 0, wrapped: 0 };
-  for (const gift of gifts) counts[gift.status] += 1;
-  return counts;
+  let spent = 0;
+  let planned = 0;
+  for (const gift of gifts) {
+    counts[gift.status] += 1;
+    if (isSpent(gift.status)) spent += gift.price ?? 0;
+    else planned += gift.price ?? 0;
+  }
+  return { counts, spent: round(spent), planned: round(planned) };
+}
+
+function round(amount: number) {
+  return Math.round(amount * 100) / 100;
 }
 
 async function giftRow(ctx: Ctx, gift: Doc<'gifts'>) {
@@ -185,20 +206,34 @@ export const christmas = query({
     checkYear(year);
     const recipients = [];
     const totals = { idea: 0, bought: 0, wrapped: 0 };
+    let budget: number | null = null;
+    let spent = 0;
+    let planned = 0;
     for (const recipient of await visibleRecipients(ctx, args.groupId, userId)) {
       if (recipient.archivedAt !== undefined) continue;
       const gifts = await giftsFor(ctx, recipient._id, year);
-      const counts = tally(gifts);
-      for (const key of GIFT_STATUSES) totals[key] += counts[key];
+      const sums = tally(gifts);
+      for (const key of GIFT_STATUSES) totals[key] += sums.counts[key];
+      const own = (await budgetFor(ctx, recipient._id, year))?.amount ?? null;
+      if (own !== null) budget = (budget ?? 0) + own;
+      spent += sums.spent;
+      planned += sums.planned;
       recipients.push({
         _id: recipient._id,
         name: recipient.name,
         linkedName: await userName(ctx, recipient.memberUserId),
-        counts,
+        ...sums,
+        budget: own,
+        lastBudget: (await budgetFor(ctx, recipient._id, year - 1))?.amount ?? null,
         gifts: await Promise.all(gifts.map((g) => giftRow(ctx, g))),
       });
     }
-    return { year, currentYear: thisYear, recipients, totals };
+    const money = {
+      budget: budget === null ? null : round(budget),
+      spent: round(spent),
+      planned: round(planned),
+    };
+    return { year, currentYear: thisYear, recipients, totals: { ...totals, ...money } };
   },
 });
 
@@ -368,5 +403,33 @@ export const removeGift = mutation({
   handler: async (ctx, { giftId }) => {
     const { gift } = await loadGift(ctx, giftId);
     await ctx.db.delete('gifts', gift._id);
+  },
+});
+
+/** Sets a recipient's budget for one Christmas, or clears it with null. */
+export const setBudget = mutation({
+  args: {
+    recipientId: v.id('giftRecipients'),
+    year: v.number(),
+    amount: v.union(v.number(), v.null()),
+  },
+  handler: async (ctx, args) => {
+    const { recipient } = await loadRecipient(ctx, args.recipientId);
+    checkYear(args.year);
+    const amount = checkPrice(args.amount);
+    const existing = await budgetFor(ctx, recipient._id, args.year);
+    if (amount === undefined) {
+      if (existing) await ctx.db.delete('giftBudgets', existing._id);
+    } else if (existing) {
+      if (existing.amount !== amount) await ctx.db.patch('giftBudgets', existing._id, { amount });
+    } else {
+      await ctx.db.insert('giftBudgets', {
+        groupId: recipient.groupId,
+        recipientId: recipient._id,
+        occasionKind: KIND,
+        occasionYear: args.year,
+        amount,
+      });
+    }
   },
 });

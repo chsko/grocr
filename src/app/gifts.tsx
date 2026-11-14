@@ -4,13 +4,19 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, View } from 'react-native';
 
-import { NameSheet, ProgressBar, StatusPill } from '@/components/gift-parts';
+import {
+  BudgetSheet,
+  NameSheet,
+  ProgressBar,
+  StatusPill,
+  useMoneyLine,
+} from '@/components/gift-parts';
 import { ChevronRight, Plus } from '@/components/icons';
 import { Button, Chip, Field, Loading, Text } from '@/components/ui';
 import { Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
-import { GIFT_STATUSES, type GiftStatus } from '@/convex/lib/gifts';
+import { GIFT_STATUSES, isSpent, type GiftStatus } from '@/convex/lib/gifts';
 import { recipeSite } from '@/convex/lib/recipeLink';
 import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
@@ -32,6 +38,8 @@ export default function GiftsScreen() {
   const setStatus = useSetGiftStatus();
   const [adding, setAdding] = useState(false);
   const [filter, setFilter] = useState<GiftStatus | null>(null);
+  const [budgetFor, setBudgetFor] = useState<Id<'giftRecipients'> | null>(null);
+  const moneyLine = useMoneyLine();
 
   if (xmas === undefined) return <Loading />;
   const sorted = [...xmas.recipients].sort((a, b) => a.name.localeCompare(b.name, i18n.language));
@@ -44,6 +52,8 @@ export default function GiftsScreen() {
           .filter((r) => r.gifts.length > 0);
   const { idea, bought, wrapped } = xmas.totals;
   const total = idea + bought + wrapped;
+  const totalMoney = moneyLine(xmas.totals.spent, xmas.totals.budget);
+  const editing = xmas.recipients.find((r) => r._id === budgetFor);
 
   return (
     <ScrollView
@@ -65,6 +75,7 @@ export default function GiftsScreen() {
             {t('gifts.boughtOf', { done: bought + wrapped, count: total })}
           </Text>
           <ProgressBar bought={bought} wrapped={wrapped} total={total} />
+          {totalMoney ? <Text color={colors.muted}>{totalMoney}</Text> : null}
         </View>
       ) : null}
 
@@ -93,7 +104,23 @@ export default function GiftsScreen() {
 
       {groups.map((group) => (
         <View key={group._id} style={styles.group}>
-          <Text variant="item">{group.name}</Text>
+          <View style={styles.head}>
+            <Text variant="item" style={{ flexShrink: 1 }}>
+              {group.name}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('gifts.budgetTitle', { name: group.name })}
+              hitSlop={8}
+              onPress={() => setBudgetFor(group._id)}
+              style={({ pressed }) => pressed && { opacity: 0.7 }}>
+              <Text
+                variant="small"
+                color={group.spent > (group.budget ?? Infinity) ? colors.tomato : colors.muted}>
+                {moneyLine(group.spent, group.budget) ?? t('gifts.setBudget')}
+              </Text>
+            </Pressable>
+          </View>
           {group.gifts.length > 0 ? (
             <View style={styles.list}>
               {group.gifts.map((gift, index) => (
@@ -137,6 +164,17 @@ export default function GiftsScreen() {
         <ChevronRight color={colors.muted} size={18} />
       </Pressable>
 
+      {editing ? (
+        <BudgetSheet
+          recipientId={editing._id}
+          name={editing.name}
+          year={xmas.year}
+          budget={editing.budget}
+          lastBudget={editing.lastBudget}
+          onClose={() => setBudgetFor(null)}
+        />
+      ) : null}
+
       {adding ? (
         <NameSheet
           title={t('gifts.addPerson')}
@@ -175,12 +213,20 @@ function GiftLine({
 function useSetGiftStatus() {
   return useMutation(api.gifts.setGiftStatus).withOptimisticUpdate((store, { giftId, status }) => {
     for (const { args, value } of store.getAllQueries(api.gifts.christmas)) {
-      const from = value?.recipients.flatMap((r) => r.gifts).find((g) => g._id === giftId)?.status;
-      if (!value || from === undefined || from === status) continue;
-      const shift = (c: Record<GiftStatus, number>) => ({
+      const moved = value?.recipients.flatMap((r) => r.gifts).find((g) => g._id === giftId);
+      if (!value || moved === undefined || moved.status === status) continue;
+      const from = moved.status;
+      // Spent and planned follow the price across the Idea line.
+      const money = (isSpent(status) ? 1 : 0) - (isSpent(from) ? 1 : 0);
+      const cost = (moved.price ?? 0) * money;
+      const shift = <T extends Record<GiftStatus, number> & { spent: number; planned: number }>(
+        c: T,
+      ): T => ({
         ...c,
         [from]: c[from] - 1,
         [status]: c[status] + 1,
+        spent: c.spent + cost,
+        planned: c.planned - cost,
       });
       store.setQuery(api.gifts.christmas, args, {
         ...value,
@@ -189,7 +235,11 @@ function useSetGiftStatus() {
           r.gifts.some((g) => g._id === giftId)
             ? {
                 ...r,
-                counts: shift(r.counts),
+                ...(() => {
+                  const next = shift({ ...r.counts, spent: r.spent, planned: r.planned });
+                  const { spent, planned, ...counts } = next;
+                  return { counts, spent, planned };
+                })(),
                 gifts: r.gifts.map((g) => (g._id === giftId ? { ...g, status } : g)),
               }
             : r,
@@ -238,6 +288,12 @@ function AddGift({
 const useStyles = makeStyles((colors) => ({
   content: { padding: 20, paddingBottom: 48, gap: 18 },
   group: { gap: 8 },
+  head: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
   summary: { gap: 10, padding: 16, borderRadius: Radius.card, backgroundColor: colors.saffronTint },
   chips: { gap: 8 },
   list: { borderRadius: Radius.card, backgroundColor: colors.surface, paddingHorizontal: 14 },

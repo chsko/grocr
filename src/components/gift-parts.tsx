@@ -1,14 +1,18 @@
+import { useMutation } from 'convex/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Button, Field, Text } from '@/components/ui';
+import { Button, Chip, Field, Text } from '@/components/ui';
 import { Radius } from '@/constants/theme';
-import type { GiftStatus } from '@/convex/lib/gifts';
+import { api } from '@/convex/_generated/api';
+import type { Id } from '@/convex/_generated/dataModel';
+import { parsePrice, type GiftStatus } from '@/convex/lib/gifts';
 import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
+import { formatKroner, priceInput } from '@/lib/format';
 import { sheetIn } from '@/lib/motion';
 
 /** A bottom sheet over a dimmed screen, for one small edit. */
@@ -136,6 +140,84 @@ export function ProgressBar({
       <View style={[styles.bought, { width: share(bought) }]} />
     </View>
   );
+}
+
+/** A recipient's budget for one Christmas, with last year's amount one tap away. */
+export function BudgetSheet({
+  recipientId,
+  name,
+  year,
+  budget,
+  lastBudget,
+  onClose,
+}: {
+  recipientId: Id<'giftRecipients'>;
+  name: string;
+  year: number;
+  budget: number | null;
+  lastBudget: number | null;
+  onClose: () => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const setBudget = useMutation(api.gifts.setBudget);
+  const [text, setText] = useState(() => priceInput(i18n.language, budget));
+  const [busy, setBusy] = useState(false);
+  const parsed = parsePrice(text);
+
+  async function save(amount: number | null) {
+    setBusy(true);
+    const ok = await attempt(t, () => setBudget({ recipientId, year, amount }).then(() => true));
+    setBusy(false);
+    if (ok) onClose();
+  }
+  function submit() {
+    if (parsed === null) return;
+    if (parsed === undefined && budget === null) return onClose();
+    void save(parsed ?? null);
+  }
+
+  return (
+    <Sheet onClose={onClose}>
+      <Text variant="heading">{t('gifts.budgetTitle', { name })}</Text>
+      <Field
+        label={t('gifts.budgetLabel')}
+        value={text}
+        onChangeText={setText}
+        keyboardType="decimal-pad"
+        autoFocus
+        maxLength={14}
+        returnKeyType="done"
+        onSubmitEditing={submit}
+      />
+      {lastBudget !== null && lastBudget !== budget ? (
+        <View style={{ flexDirection: 'row' }}>
+          <Chip
+            title={t('gifts.lastYear', { amount: formatKroner(i18n.language, lastBudget) })}
+            onPress={() => setText(priceInput(i18n.language, lastBudget))}
+          />
+        </View>
+      ) : null}
+      <Button title={t('common.save')} loading={busy} disabled={parsed === null} onPress={submit} />
+      {budget !== null ? (
+        <Button kind="danger" title={t('gifts.removeBudget')} onPress={() => void save(null)} />
+      ) : null}
+    </Sheet>
+  );
+}
+
+/** "300 kr av 1 000 kr · 700 kr igjen", or what fits when there is no budget. */
+export function useMoneyLine() {
+  const { t, i18n } = useTranslation();
+  const kr = (amount: number) => formatKroner(i18n.language, amount);
+  return (spent: number, budget: number | null) => {
+    if (budget === null) return spent > 0 ? t('gifts.spentOnly', { spent: kr(spent) }) : null;
+    const rest = Math.round((budget - spent) * 100) / 100;
+    const tail =
+      rest >= 0
+        ? t('gifts.left', { amount: kr(rest) })
+        : t('gifts.over', { amount: kr(Math.abs(rest)) });
+    return `${t('gifts.spentOf', { spent: kr(spent), budget: kr(budget) })} · ${tail}`;
+  };
 }
 
 const useStyles = makeStyles((colors) => ({

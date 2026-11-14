@@ -95,6 +95,10 @@ describe('one gift list', () => {
           name: 'Bestemor',
           linkedName: null,
           counts: { idea: 1, bought: 1, wrapped: 0 },
+          spent: 300,
+          planned: 0,
+          budget: 500,
+          lastBudget: null,
           gifts: [gift('a', 'Ullpledd', 'bought'), gift('b', 'Hyasinter')],
         },
         {
@@ -102,11 +106,34 @@ describe('one gift list', () => {
           name: 'Ola',
           linkedName: 'Ola',
           counts: { idea: 0, bought: 0, wrapped: 1 },
+          spent: 900,
+          planned: 0,
+          budget: 800,
+          lastBudget: 750,
           gifts: [gift('c', 'Lego', 'wrapped')],
         },
       ],
-      totals: { idea: 1, bought: 1, wrapped: 1 },
+      totals: { idea: 1, bought: 1, wrapped: 1, budget: 1300, spent: 1200, planned: 0 },
     };
+  });
+
+  test('each person shows spent against budget, left or over', async () => {
+    await render(<GiftsScreen />);
+    expect(screen.getByText('300 kr av 500 kr · 200 kr igjen')).toBeTruthy();
+    expect(screen.getByText('900 kr av 800 kr · 100 kr over budsjett')).toBeTruthy();
+    expect(screen.getByText('1\u00a0200 kr av 1\u00a0300 kr · 100 kr igjen')).toBeTruthy();
+  });
+
+  test('the budget sheet offers last year’s amount and saves the typed one', async () => {
+    await render(<GiftsScreen />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Budsjett for Ola' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'I fjor: 750 kr' }));
+    expect(screen.getByDisplayValue('750')).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText('Beløp i kroner'), '1 000');
+    await fireEvent.press(screen.getByRole('button', { name: 'Lagre' }));
+    expect(mockCalls).toEqual([
+      ['gifts.setBudget', { recipientId: 'r2', year: 2026, amount: 1000 }],
+    ]);
   });
 
   test('groups this Christmas by recipient', async () => {
@@ -171,7 +198,7 @@ describe('one gift list', () => {
       year: 2026,
       currentYear: 2026,
       recipients: [],
-      totals: { idea: 0, bought: 0, wrapped: 0 },
+      totals: { idea: 0, bought: 0, wrapped: 0, budget: null, spent: 0, planned: 0 },
     };
     await render(<GiftsScreen />);
     expect(screen.getByText(/Legg til dem dere gir gaver til/)).toBeTruthy();
