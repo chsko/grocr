@@ -25,3 +25,20 @@ A week whose last day is before today.
 
 **Future week**:
 A week whose first day is after today.
+
+## Gifts
+
+**Gift recipient**:
+A person the family gives gifts to, kept from year to year. Can be linked to a family member, who then never sees anything about them.
+_Avoid_: Person, contact, receiver
+
+**Gift occasion**:
+One time the family gives gifts, such as Christmas 2026. Only Christmas exists for now.
+_Avoid_: Event, season
+
+**Idea bank**:
+Gift ideas noted on a gift recipient outside any gift occasion, waiting to be moved into one.
+_Avoid_: Wish list (that is what the recipient wants, written by them)
+
+**Gift budget**:
+The amount the family plans to spend on one gift recipient for one gift occasion.
