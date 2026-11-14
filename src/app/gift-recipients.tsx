@@ -21,6 +21,7 @@ type Recipient = {
   linkedUserId: Id<'users'> | null;
   linkedName: string | null;
   archived: boolean;
+  giftGroupId: Id<'giftGroups'> | null;
 };
 
 /**
@@ -36,11 +37,18 @@ export default function GiftRecipientsScreen() {
   const addRecipient = useMutation(api.gifts.addRecipient);
   const linkRecipient = useMutation(api.gifts.linkRecipient);
   const renameRecipient = useMutation(api.gifts.renameRecipient);
+  const addGiftGroup = useMutation(api.gifts.addGiftGroup);
+  const setRecipientGroup = useMutation(api.gifts.setRecipientGroup);
   const [name, setName] = useState('');
+  const [groupName, setGroupName] = useState('');
+  const [openGroup, setOpenGroup] = useState<{
+    id: Id<'giftGroups'>;
+    mode: 'menu' | 'rename';
+  }>();
   const [pickingStart, setPickingStart] = useState(false);
   const [open, setOpen] = useState<{
     id: Id<'giftRecipients'>;
-    mode: 'menu' | 'link' | 'rename';
+    mode: 'menu' | 'link' | 'rename' | 'group';
   }>();
 
   if (data === undefined) return <Loading />;
@@ -48,6 +56,18 @@ export default function GiftRecipientsScreen() {
   const active = sorted.filter((r) => !r.archived);
   const archived = sorted.filter((r) => r.archived);
   const unlinked = data.members.filter((m) => !m.linked);
+  const giftGroups = data.groups;
+  const groupNameOf = (id: Id<'giftGroups'> | null) =>
+    giftGroups.find((g) => g._id === id)?.name ?? null;
+  const currentGroup = giftGroups.find((g) => g._id === openGroup?.id);
+
+  async function addGroup() {
+    const typed = groupName;
+    if (typed.trim() === '') return;
+    setGroupName('');
+    const id = await attempt(t, () => addGiftGroup({ groupId: family.groupId, name: typed }));
+    if (id === undefined) setGroupName((now) => (now === '' ? typed : now));
+  }
   const current = sorted.find((r) => r._id === open?.id);
 
   async function add() {
@@ -74,9 +94,14 @@ export default function GiftRecipientsScreen() {
             <View style={{ flex: 1, gap: 2 }}>
               <Text variant="item">{r.name}</Text>
               <Text variant="small" color={colors.muted}>
-                {r.linkedName
-                  ? t('gifts.people_screen.linked', { name: r.linkedName })
-                  : t('gifts.people_screen.notLinked')}
+                {[
+                  r.linkedName
+                    ? t('gifts.people_screen.linked', { name: r.linkedName })
+                    : t('gifts.people_screen.notLinked'),
+                  groupNameOf(r.giftGroupId),
+                ]
+                  .filter((part) => part !== null)
+                  .join(' · ')}
               </Text>
             </View>
             <More color={colors.muted} />
@@ -144,6 +169,54 @@ export default function GiftRecipientsScreen() {
         />
       </View>
 
+      <View style={{ gap: 8 }}>
+        <Text variant="label" color={colors.muted} accessibilityRole="header">
+          {t('gifts.groups')}
+        </Text>
+        {giftGroups.length > 0 ? (
+          <View style={styles.list}>
+            {giftGroups.map((g, index) => (
+              <Pressable
+                key={g._id}
+                accessibilityRole="button"
+                accessibilityLabel={g.name}
+                onPress={() => setOpenGroup({ id: g._id, mode: 'menu' })}
+                style={({ pressed }) => [
+                  styles.row,
+                  index > 0 && styles.divider,
+                  pressed && { opacity: 0.7 },
+                ]}>
+                <Text variant="item" style={{ flex: 1 }}>
+                  {g.name}
+                </Text>
+                <Text variant="small" color={colors.muted}>
+                  {String(active.filter((r) => r.giftGroupId === g._id).length)}
+                </Text>
+                <More color={colors.muted} />
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+        <View style={styles.addRow}>
+          <Field
+            label={t('gifts.newGroup')}
+            value={groupName}
+            onChangeText={setGroupName}
+            maxLength={60}
+            placeholder={t('gifts.newGroupPlaceholder')}
+            returnKeyType="done"
+            onSubmitEditing={() => void addGroup()}
+            style={{ flex: 1 }}
+          />
+          <Button
+            kind="secondary"
+            title={t('gifts.add')}
+            disabled={groupName.trim() === ''}
+            onPress={() => void addGroup()}
+          />
+        </View>
+      </View>
+
       {archived.length > 0 ? (
         <View style={{ gap: 8 }}>
           <Text variant="label" color={colors.muted} accessibilityRole="header">
@@ -172,6 +245,8 @@ export default function GiftRecipientsScreen() {
           canLink={unlinked.length > 0}
           onLink={() => setOpen({ id: current._id, mode: 'link' })}
           onRename={() => setOpen({ id: current._id, mode: 'rename' })}
+          groupName={groupNameOf(current.giftGroupId)}
+          onGroup={() => setOpen({ id: current._id, mode: 'group' })}
           onClose={() => setOpen(undefined)}
         />
       ) : null}
@@ -197,6 +272,39 @@ export default function GiftRecipientsScreen() {
             />
           ))}
         </Sheet>
+      ) : null}
+      {current && open?.mode === 'group' ? (
+        <Sheet onClose={() => setOpen(undefined)}>
+          <Text variant="heading">{t('gifts.pickGroupTitle', { name: current.name })}</Text>
+          {[{ _id: null, name: t('gifts.noGroupChoice') }, ...giftGroups].map((g) => (
+            <Button
+              key={g._id ?? 'none'}
+              kind={current.giftGroupId === g._id ? 'primary' : 'secondary'}
+              title={g.name}
+              onPress={async () => {
+                setOpen(undefined);
+                await attempt(t, () =>
+                  setRecipientGroup({ recipientId: current._id, giftGroupId: g._id }),
+                );
+              }}
+            />
+          ))}
+        </Sheet>
+      ) : null}
+      {currentGroup && openGroup?.mode === 'menu' ? (
+        <GroupSheet
+          name={currentGroup.name}
+          giftGroupId={currentGroup._id}
+          onRename={() => setOpenGroup({ id: currentGroup._id, mode: 'rename' })}
+          onClose={() => setOpenGroup(undefined)}
+        />
+      ) : null}
+      {currentGroup && openGroup?.mode === 'rename' ? (
+        <GroupRename
+          name={currentGroup.name}
+          giftGroupId={currentGroup._id}
+          onClose={() => setOpenGroup(undefined)}
+        />
       ) : null}
       {current && open?.mode === 'rename' ? (
         <NameSheet
@@ -295,18 +403,80 @@ function CardStartSheet({ current, onClose }: { current: string; onClose: () => 
   );
 }
 
-/** What can be done with one person: link or unlink, rename, archive or restore, delete. */
+/** A gift group: rename it, or delete it (its people stay, without a group). */
+function GroupSheet({
+  name,
+  giftGroupId,
+  onRename,
+  onClose,
+}: {
+  name: string;
+  giftGroupId: Id<'giftGroups'>;
+  onRename: () => void;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const removeGiftGroup = useMutation(api.gifts.removeGiftGroup);
+  function remove() {
+    Alert.alert(t('gifts.deleteGroupTitle', { name }), t('gifts.deleteGroupBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('gifts.deleteGroup'),
+        style: 'destructive',
+        onPress: () => {
+          onClose();
+          void attempt(t, () => removeGiftGroup({ giftGroupId }));
+        },
+      },
+    ]);
+  }
+  return (
+    <Sheet onClose={onClose}>
+      <Text variant="heading">{name}</Text>
+      <Button kind="secondary" title={t('gifts.people_screen.rename')} onPress={onRename} />
+      <Button kind="danger" title={t('gifts.deleteGroup')} onPress={remove} />
+    </Sheet>
+  );
+}
+
+function GroupRename({
+  name,
+  giftGroupId,
+  onClose,
+}: {
+  name: string;
+  giftGroupId: Id<'giftGroups'>;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const renameGiftGroup = useMutation(api.gifts.renameGiftGroup);
+  return (
+    <NameSheet
+      title={t('gifts.renameGroupTitle', { name })}
+      label={t('gifts.groupLabel')}
+      initial={name}
+      onSave={(next) => renameGiftGroup({ giftGroupId, name: next })}
+      onClose={onClose}
+    />
+  );
+}
+
+/** What can be done with one person: link or unlink, group, rename, archive or restore, delete. */
 function ManageSheet({
   recipient,
   canLink,
   onLink,
   onRename,
+  groupName,
+  onGroup,
   onClose,
 }: {
   recipient: Recipient;
   canLink: boolean;
   onLink: () => void;
   onRename: () => void;
+  groupName: string | null;
+  onGroup: () => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
@@ -363,6 +533,11 @@ function ManageSheet({
       ) : canLink ? (
         <Button kind="secondary" title={t('gifts.people_screen.link')} onPress={onLink} />
       ) : null}
+      <Button
+        kind="secondary"
+        title={t('gifts.groupOf', { name: groupName ?? t('gifts.noGroupChoice') })}
+        onPress={onGroup}
+      />
       <Button kind="secondary" title={t('gifts.people_screen.rename')} onPress={onRename} />
       <Button
         kind="secondary"

@@ -779,3 +779,95 @@ test('a recipient named by first name is matched to the member', async () => {
   const list = await ada.as.query(api.gifts.recipients, { groupId });
   expect(list.members.find((m) => m.name === 'Kid Hansen')).toMatchObject({ match: kidR });
 });
+
+describe('groups of people', () => {
+  test('people are grouped under a named group, and the group is done when each has a bought gift', async () => {
+    const { ada, kid, groupId, bobR, granny, watch, scarf } = await planned();
+    const uncle = await ada.as.mutation(api.gifts.addRecipient, { groupId, name: 'Uncle' });
+    const family = await ada.as.mutation(api.gifts.addGiftGroup, { groupId, name: ' In-laws ' });
+    await ada.as.mutation(api.gifts.setRecipientGroup, {
+      recipientId: granny,
+      giftGroupId: family,
+    });
+    await ada.as.mutation(api.gifts.setRecipientGroup, { recipientId: bobR, giftGroupId: family });
+
+    let xmas = await kid.as.query(api.gifts.christmas, { groupId });
+    expect(xmas.groups).toEqual([{ _id: family, name: 'In-laws', done: false }]);
+    expect(xmas.recipients.map((r) => [r.name, r.giftGroupId])).toEqual([
+      ['Bob', family],
+      ['Granny', family],
+      ['Uncle', null],
+    ]);
+
+    // One bought gift each is enough; an idea left over does not hold it back.
+    await ada.as.mutation(api.gifts.setGiftStatus, { giftId: watch, status: 'bought' });
+    await ada.as.mutation(api.gifts.addGift, { recipientId: granny, title: 'Tea', year: 2026 });
+    expect((await kid.as.query(api.gifts.christmas, { groupId })).groups[0].done).toBe(false);
+    await ada.as.mutation(api.gifts.setGiftStatus, { giftId: scarf, status: 'wrapped' });
+    xmas = await kid.as.query(api.gifts.christmas, { groupId });
+    expect(xmas.groups[0].done).toBe(true);
+    expect(uncle).toBeDefined();
+  });
+
+  test('the done mark counts only the people the viewer may see', async () => {
+    const { ada, bob, groupId, bobR, granny, scarf } = await planned();
+    const family = await ada.as.mutation(api.gifts.addGiftGroup, { groupId, name: 'In-laws' });
+    await ada.as.mutation(api.gifts.setRecipientGroup, {
+      recipientId: granny,
+      giftGroupId: family,
+    });
+    await ada.as.mutation(api.gifts.setRecipientGroup, { recipientId: bobR, giftGroupId: family });
+    await ada.as.mutation(api.gifts.setGiftStatus, { giftId: scarf, status: 'bought' });
+    // Bob's own watch is still an idea, but Bob must not be able to tell.
+    expect((await ada.as.query(api.gifts.christmas, { groupId })).groups[0].done).toBe(false);
+    expect((await bob.as.query(api.gifts.christmas, { groupId })).groups[0].done).toBe(true);
+  });
+
+  test('a group with no one the viewer can see in this Christmas is left out of the list', async () => {
+    const { ada, bob, groupId, bobR } = await planned();
+    const just = await ada.as.mutation(api.gifts.addGiftGroup, { groupId, name: 'Just Bob' });
+    await ada.as.mutation(api.gifts.setRecipientGroup, { recipientId: bobR, giftGroupId: just });
+    expect((await bob.as.query(api.gifts.christmas, { groupId })).groups).toEqual([]);
+    expect((await ada.as.query(api.gifts.christmas, { groupId })).groups).toHaveLength(1);
+  });
+
+  test('groups are named, renamed and deleted; deleting keeps the people', async () => {
+    const { ada, eve, bob, groupId, otherGroupId, granny, bobR } = await planned();
+    await expect(ada.as.mutation(api.gifts.addGiftGroup, { groupId, name: ' ' })).rejects.toThrow(
+      /NAME_REQUIRED/,
+    );
+    const g = await ada.as.mutation(api.gifts.addGiftGroup, { groupId, name: 'Kids' });
+    await ada.as.mutation(api.gifts.renameGiftGroup, { giftGroupId: g, name: 'Children' });
+    await ada.as.mutation(api.gifts.setRecipientGroup, { recipientId: granny, giftGroupId: g });
+    let list = await ada.as.query(api.gifts.recipients, { groupId });
+    expect(list.groups).toEqual([{ _id: g, name: 'Children' }]);
+    expect(list.recipients.find((r) => r._id === granny)).toMatchObject({ giftGroupId: g });
+
+    // The linked member can't move their own recipient, and others can't touch the group.
+    await expect(
+      bob.as.mutation(api.gifts.setRecipientGroup, { recipientId: bobR, giftGroupId: g }),
+    ).rejects.toThrow(/NOT_FOUND/);
+    await expect(
+      eve.as.mutation(api.gifts.renameGiftGroup, { giftGroupId: g, name: 'x' }),
+    ).rejects.toThrow(/NOT_FOUND/);
+    const theirs = await eve.as.mutation(api.gifts.addGiftGroup, {
+      groupId: otherGroupId,
+      name: 'Theirs',
+    });
+    await expect(
+      ada.as.mutation(api.gifts.setRecipientGroup, { recipientId: granny, giftGroupId: theirs }),
+    ).rejects.toThrow(/NOT_FOUND/);
+
+    await ada.as.mutation(api.gifts.removeGiftGroup, { giftGroupId: g });
+    list = await ada.as.query(api.gifts.recipients, { groupId });
+    expect(list.groups).toEqual([]);
+    expect(list.recipients.find((r) => r._id === granny)).toMatchObject({ giftGroupId: null });
+  });
+
+  test('deleting the family deletes its groups', async () => {
+    const { t, ada, bob, kid, groupId } = await planned();
+    await ada.as.mutation(api.gifts.addGiftGroup, { groupId, name: 'Kids' });
+    for (const who of [ada, bob, kid]) await who.as.mutation(api.groups.leave, { groupId });
+    expect(await t.run(async (ctx) => (await ctx.db.query('giftGroups').collect()).length)).toBe(0);
+  });
+});

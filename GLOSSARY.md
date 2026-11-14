@@ -50,6 +50,11 @@ _Avoid_: Wish list (that is what the recipient wants, written by them)
 **Gift budget**:
 The amount the family plans to spend on one gift recipient for one gift occasion.
 
+**Gift group**:
+A named group of gift recipients ("In-laws", "Kids"), shown as a heading in the gift list. A
+recipient is in at most one. The group is done for a Christmas when every recipient in it that
+the viewer may see has at least one Bought or Wrapped gift.
+
 **Gift status**:
 Where a gift is: Idea, Bought or Wrapped. Everything in the idea bank is an Idea.
 

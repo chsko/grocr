@@ -120,8 +120,28 @@ describe('one gift list', () => {
         },
       ],
       others: [],
+      groups: [],
       totals: { idea: 1, bought: 1, wrapped: 1, budget: 1300, spent: 1200, planned: 0 },
     };
+  });
+
+  test('people stand under their gift group, with a check when everyone has a bought gift', async () => {
+    const xmas = mockQueries['gifts.christmas'] as {
+      groups: unknown[];
+      recipients: { giftGroupId?: string | null }[];
+    };
+    xmas.groups = [{ _id: 'gg1', name: 'Svigers', done: true }];
+    xmas.recipients[0].giftGroupId = 'gg1';
+    xmas.recipients[1].giftGroupId = null;
+    await render(<GiftsScreen />);
+    expect(screen.getByText('SVIGERS')).toBeTruthy();
+    expect(screen.getByText('UTEN GRUPPE')).toBeTruthy();
+    expect(screen.getByLabelText('Kjøpt til alle i Svigers')).toBeTruthy();
+  });
+
+  test('no headings when the family has no groups', async () => {
+    await render(<GiftsScreen />);
+    expect(screen.queryByText('UTEN GRUPPE')).toBeNull();
   });
 
   test('each person shows spent against budget, left or over', async () => {
@@ -206,6 +226,7 @@ describe('one gift list', () => {
       currentYear: 2026,
       recipients: [],
       others: [],
+      groups: [],
       totals: { idea: 0, bought: 0, wrapped: 0, budget: null, spent: 0, planned: 0 },
     };
     await render(<GiftsScreen />);
@@ -217,7 +238,14 @@ describe('recipients', () => {
   beforeEach(() => {
     mockQueries['gifts.recipients'] = {
       recipients: [
-        { _id: 'r1', name: 'Bestemor', linkedUserId: null, linkedName: null, archived: false },
+        {
+          _id: 'r1',
+          name: 'Bestemor',
+          linkedUserId: null,
+          linkedName: null,
+          archived: false,
+          giftGroupId: null,
+        },
         { _id: 'r2', name: 'Ola', linkedUserId: 'u2', linkedName: 'Ola', archived: false },
         { _id: 'r4', name: 'Onkel Per', linkedUserId: null, linkedName: null, archived: true },
       ],
@@ -226,6 +254,7 @@ describe('recipients', () => {
         { userId: 'u3', name: 'Emma Hansen', linked: false, match: null },
       ],
       cardStart: '11-01',
+      groups: [{ _id: 'gg1', name: 'Svigers' }],
     };
   });
 
@@ -289,6 +318,43 @@ describe('recipients', () => {
     expect(mockCalls).toEqual([['gifts.renameRecipient', { recipientId: 'r1', name: 'Oldemor' }]]);
   });
 
+  test('adds a group by name', async () => {
+    await render(<GiftRecipientsScreen />);
+    await fireEvent.changeText(screen.getByLabelText('Ny gruppe'), 'Barna');
+    await fireEvent(screen.getByLabelText('Ny gruppe'), 'submitEditing');
+    expect(mockCalls).toEqual([['gifts.addGiftGroup', { groupId: 'g1', name: 'Barna' }]]);
+  });
+
+  test('puts a person in a group', async () => {
+    await render(<GiftRecipientsScreen />);
+    await fireEvent.press(screen.getByText('Bestemor'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Gruppe: Ingen gruppe' }));
+    // The last one is in the sheet; the first is the group's row on the screen behind it.
+    await fireEvent.press(screen.getAllByRole('button', { name: 'Svigers' }).at(-1)!);
+    expect(mockCalls).toEqual([
+      ['gifts.setRecipientGroup', { recipientId: 'r1', giftGroupId: 'gg1' }],
+    ]);
+  });
+
+  test('renames a group, and deletes it after saying the people stay', async () => {
+    const alert = jest.spyOn(Alert, 'alert');
+    await render(<GiftRecipientsScreen />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Svigers' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Gi nytt navn' }));
+    await fireEvent.changeText(screen.getByDisplayValue('Svigers'), 'Svigerfamilien');
+    await fireEvent.press(screen.getByRole('button', { name: 'Lagre' }));
+    expect(mockCalls).toEqual([
+      ['gifts.renameGiftGroup', { giftGroupId: 'gg1', name: 'Svigerfamilien' }],
+    ]);
+    await fireEvent.press(screen.getByRole('button', { name: 'Svigers' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Slett gruppe' }));
+    const [title, body, confirm] = alert.mock.calls.at(-1)!;
+    expect([title, body]).toEqual(['Slette Svigers?', 'Personene blir stående, bare uten gruppe.']);
+    await confirm!.find((a) => a.style === 'destructive')!.onPress!();
+    expect(mockCalls.at(-1)).toEqual(['gifts.removeGiftGroup', { giftGroupId: 'gg1' }]);
+    alert.mockRestore();
+  });
+
   test('sets the day the card on Week starts showing', async () => {
     await render(<GiftRecipientsScreen />);
     expect(screen.getByText('1. nov.')).toBeTruthy();
@@ -330,6 +396,7 @@ describe('earlier Christmases', () => {
       currentYear: 2026,
       recipients: [],
       others: [],
+      groups: [],
       totals: { idea: 0, bought: 0, wrapped: 0, budget: null, spent: 0, planned: 0 },
     };
     const view = await render(<GiftsScreen />);
@@ -381,6 +448,7 @@ describe('idea bank tab', () => {
         },
       ],
       others: [],
+      groups: [],
       totals: { idea: 0, bought: 0, wrapped: 0, budget: null, spent: 0, planned: 0 },
     };
     mockQueries['gifts.ideas'] = {

@@ -658,6 +658,19 @@
     "nextYearLabel": "Neste jul",
     "thisYear": "I år",
     "addPastFor": "Legg til gave til",
-    "christmasTab": "Jul"
+    "christmasTab": "Jul",
+    "noGroup": "Uten gruppe",
+    "groupDone": "Kjøpt til alle i {{name}}",
+    "groups": "Grupper",
+    "newGroup": "Ny gruppe",
+    "newGroupPlaceholder": "F.eks. Svigers",
+    "groupLabel": "Gruppe",
+    "noGroupChoice": "Ingen gruppe",
+    "renameGroupTitle": "Gi {{name}} nytt navn",
+    "deleteGroup": "Slett gruppe",
+    "deleteGroupTitle": "Slette {{name}}?",
+    "deleteGroupBody": "Personene blir stående, bare uten gruppe.",
+    "groupOf": "Gruppe: {{name}}",
+    "pickGroupTitle": "Hvilken gruppe er {{name}} i?"
   }
 }

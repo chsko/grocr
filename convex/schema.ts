@@ -229,10 +229,19 @@ export default defineSchema({
 
   // Christmas gifts (#78, ADR 0002). A gift recipient linked to a member is hidden from that
   // member, with everything about them; every function goes through convex/gifts.ts loaders.
+  // A named group of gift recipients ("In-laws", "Kids"), shown as a heading in the gift list.
+  giftGroups: defineTable({
+    groupId: v.id('groups'),
+    name: v.string(),
+    createdAt: v.number(),
+  }).index('by_group', ['groupId']),
+
   giftRecipients: defineTable({
     groupId: v.id('groups'),
     name: v.string(),
     memberUserId: v.optional(v.id('users')),
+    // The one gift group this person is in, if any.
+    giftGroupId: v.optional(v.id('giftGroups')),
     archivedAt: v.optional(v.number()),
     createdAt: v.number(),
   })

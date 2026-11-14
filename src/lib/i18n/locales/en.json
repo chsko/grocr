@@ -658,6 +658,19 @@
     "nextYearLabel": "Next Christmas",
     "thisYear": "This year",
     "addPastFor": "Add a gift for",
-    "christmasTab": "Christmas"
+    "christmasTab": "Christmas",
+    "noGroup": "No group",
+    "groupDone": "Bought for everyone in {{name}}",
+    "groups": "Groups",
+    "newGroup": "New group",
+    "newGroupPlaceholder": "E.g. In-laws",
+    "groupLabel": "Group",
+    "noGroupChoice": "No group",
+    "renameGroupTitle": "Rename {{name}}",
+    "deleteGroup": "Delete group",
+    "deleteGroupTitle": "Delete {{name}}?",
+    "deleteGroupBody": "The people stay, just without a group.",
+    "groupOf": "Group: {{name}}",
+    "pickGroupTitle": "Which group is {{name}} in?"
   }
 }

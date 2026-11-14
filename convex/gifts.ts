@@ -176,6 +176,21 @@ async function bankFor(ctx: Ctx, recipientId: Id<'giftRecipients'>) {
   return ideas.sort((a, b) => a.createdAt - b.createdAt);
 }
 
+/** The family's gift groups, by name. */
+async function familyGiftGroups(ctx: Ctx, groupId: Id<'groups'>) {
+  const groups = await ctx.db
+    .query('giftGroups')
+    .withIndex('by_group', (q) => q.eq('groupId', groupId))
+    .collect();
+  return groups.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+async function loadGiftGroup(ctx: Ctx, giftGroupId: Id<'giftGroups'>) {
+  const giftGroup = await ctx.db.get('giftGroups', giftGroupId);
+  const access = await requireMemberOf(ctx, giftGroup);
+  return { giftGroup: giftGroup!, ...access };
+}
+
 async function budgetFor(ctx: Ctx, recipientId: Id<'giftRecipients'>, year: number) {
   return await ctx.db
     .query('giftBudgets')
@@ -253,6 +268,7 @@ export const christmas = query({
       recipients.push({
         _id: recipient._id,
         name: recipient.name,
+        giftGroupId: recipient.giftGroupId ?? null,
         linkedName: await userName(ctx, recipient.memberUserId),
         ...sums,
         budget: own,
@@ -266,7 +282,26 @@ export const christmas = query({
       spent: round(spent),
       planned: round(planned),
     };
-    return { year, currentYear: thisYear, recipients, others, totals: { ...totals, ...money } };
+    // Gift groups with someone in this list, done when each of them has a bought or wrapped
+    // gift. Only people the caller may see count, so the mark gives nothing away.
+    const groups = [];
+    for (const giftGroup of await familyGiftGroups(ctx, args.groupId)) {
+      const members = recipients.filter((r) => r.giftGroupId === giftGroup._id);
+      if (members.length === 0) continue;
+      groups.push({
+        _id: giftGroup._id,
+        name: giftGroup.name,
+        done: members.every((r) => r.counts.bought + r.counts.wrapped > 0),
+      });
+    }
+    return {
+      year,
+      currentYear: thisYear,
+      groups,
+      recipients,
+      others,
+      totals: { ...totals, ...money },
+    };
   },
 });
 
@@ -366,6 +401,7 @@ export const recipients = query({
         linkedUserId: r.memberUserId ?? null,
         linkedName: await userName(ctx, r.memberUserId),
         archived: r.archivedAt !== undefined,
+        giftGroupId: r.giftGroupId ?? null,
       })),
     );
     const linked = new Set(visible.map((r) => r.memberUserId).filter((id) => id !== undefined));
@@ -385,7 +421,16 @@ export const recipients = query({
         return { ...m, linked: isLinked, match: !isLinked && same ? same._id : null };
       });
     const group = (await ctx.db.get('groups', groupId))!;
-    return { recipients: rows, members, cardStart: group.giftCardStart ?? DEFAULT_GIFT_CARD_START };
+    const groups = (await familyGiftGroups(ctx, groupId)).map((g) => ({
+      _id: g._id,
+      name: g.name,
+    }));
+    return {
+      recipients: rows,
+      groups,
+      members,
+      cardStart: group.giftCardStart ?? DEFAULT_GIFT_CARD_START,
+    };
   },
 });
 
@@ -623,6 +668,9 @@ export async function deleteFamilyGifts(ctx: MutationCtx, groupId: Id<'groups'>)
     .withIndex('by_group', (q) => q.eq('groupId', groupId))
     .collect();
   for (const recipient of recipients) await deleteRecipient(ctx, recipient._id);
+  for (const giftGroup of await familyGiftGroups(ctx, groupId)) {
+    await ctx.db.delete('giftGroups', giftGroup._id);
+  }
 }
 
 /**
@@ -674,3 +722,64 @@ export async function forgetGiftLinks(ctx: MutationCtx, userId: Id<'users'>) {
     await ctx.db.patch('giftRecipients', recipient._id, { memberUserId: undefined });
   }
 }
+
+/** Adds a named gift group ("In-laws", "Kids"). */
+export const addGiftGroup = mutation({
+  args: { groupId: v.id('groups'), name: v.string() },
+  handler: async (ctx, args) => {
+    await requireMembership(ctx, args.groupId);
+    return await ctx.db.insert('giftGroups', {
+      groupId: args.groupId,
+      name: checkName(args.name),
+      createdAt: Date.now(),
+    });
+  },
+});
+
+export const renameGiftGroup = mutation({
+  args: { giftGroupId: v.id('giftGroups'), name: v.string() },
+  handler: async (ctx, args) => {
+    const { giftGroup } = await loadGiftGroup(ctx, args.giftGroupId);
+    const name = checkName(args.name);
+    if (name !== giftGroup.name) await ctx.db.patch('giftGroups', giftGroup._id, { name });
+  },
+});
+
+/** Deletes a gift group; its people stay, without a group. */
+export const removeGiftGroup = mutation({
+  args: { giftGroupId: v.id('giftGroups') },
+  handler: async (ctx, args) => {
+    const { giftGroup } = await loadGiftGroup(ctx, args.giftGroupId);
+    // Every recipient, also ones hidden from the caller, so none points at a deleted group.
+    const recipients = await ctx.db
+      .query('giftRecipients')
+      .withIndex('by_group', (q) => q.eq('groupId', giftGroup.groupId))
+      .collect();
+    for (const recipient of recipients) {
+      if (recipient.giftGroupId === giftGroup._id) {
+        await ctx.db.patch('giftRecipients', recipient._id, { giftGroupId: undefined });
+      }
+    }
+    await ctx.db.delete('giftGroups', giftGroup._id);
+  },
+});
+
+/** Puts a person in one gift group, or in none with null. Sets absolute state. */
+export const setRecipientGroup = mutation({
+  args: {
+    recipientId: v.id('giftRecipients'),
+    giftGroupId: v.union(v.id('giftGroups'), v.null()),
+  },
+  handler: async (ctx, args) => {
+    const { recipient } = await loadRecipient(ctx, args.recipientId);
+    if (args.giftGroupId !== null) {
+      const giftGroup = await ctx.db.get('giftGroups', args.giftGroupId);
+      if (giftGroup === null || giftGroup.groupId !== recipient.groupId) {
+        throw accessError('NOT_FOUND');
+      }
+    }
+    const next = args.giftGroupId ?? undefined;
+    if (recipient.giftGroupId === next) return;
+    await ctx.db.patch('giftRecipients', recipient._id, { giftGroupId: next });
+  },
+});
