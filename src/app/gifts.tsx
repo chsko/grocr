@@ -12,9 +12,9 @@ import {
   useMoneyLine,
 } from '@/components/gift-parts';
 import { Disclosure } from '@/components/disclosure';
-import { Check, ChevronLeft, ChevronRight, Person, Plus } from '@/components/icons';
+import { Check, ChevronLeft, ChevronRight, Plus } from '@/components/icons';
 import { Button, Chip, Field, IconButton, Loading, Text } from '@/components/ui';
-import { Radius } from '@/constants/theme';
+import { Fonts, Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import {
@@ -113,12 +113,15 @@ export default function GiftsScreen() {
       <Stack.Screen
         options={{
           headerRight: () => (
-            <Button
-              kind="ghost"
-              title={t('gifts.people')}
-              icon={<Person color={colors.tomato} size={20} strokeWidth={2} />}
+            <Pressable
+              accessibilityRole="button"
+              hitSlop={8}
               onPress={() => router.push('/gift-recipients')}
-            />
+              style={({ pressed }) => [styles.headerButton, pressed && { opacity: 0.6 }]}>
+              <Text variant="item" color={colors.tomato}>
+                {t('gifts.people')}
+              </Text>
+            </Pressable>
           ),
         }}
       />
@@ -212,8 +215,8 @@ export default function GiftsScreen() {
               onPress={() => toggle(section.key)}
               style={({ pressed }) => [styles.sectionHead, pressed && { opacity: 0.7 }]}>
               <Disclosure open={!closed.includes(section.key)} color={colors.ink} />
-              <Text variant="label" accessibilityRole="header" style={{ flex: 1 }}>
-                {section.title.toLocaleUpperCase()}
+              <Text accessibilityRole="header" style={styles.sectionTitle}>
+                {section.title}
               </Text>
               <Text variant="small" color={colors.muted}>
                 {t('gifts.peopleCount', { count: section.people.length })}
@@ -326,13 +329,6 @@ export default function GiftsScreen() {
         icon={<Plus color={colors.tomato} size={20} strokeWidth={2.2} />}
         onPress={() => setAdding(true)}
       />
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => router.push('/gift-recipients')}
-        style={styles.setting}>
-        <Text>{t('gifts.people')}</Text>
-        <ChevronRight color={colors.muted} size={18} />
-      </Pressable>
 
       {editing ? (
         <BudgetSheet
@@ -378,29 +374,36 @@ function IdeaBank() {
           {group.ideas.length > 0 ? (
             <View style={styles.list}>
               {group.ideas.map((idea, index) => (
-                <View key={idea._id} style={[styles.row, index > 0 && styles.divider]}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={idea.title}
-                    onPress={() => router.push(`/gift/${idea._id}`)}
-                    style={({ pressed }) => [{ flex: 1, gap: 2 }, pressed && { opacity: 0.7 }]}>
-                    <Text>{idea.title}</Text>
-                    <GiftLine gift={idea} />
-                  </Pressable>
-                  <Chip
-                    title={t('gifts.moveIn', { year: bank.currentYear })}
-                    accessibilityLabel={`${idea.title}: ${t('gifts.moveIn', { year: bank.currentYear })}`}
-                    onPress={() =>
-                      void attempt(t, () => moveGift({ giftId: idea._id, year: bank.currentYear }))
-                    }
-                  />
-                  <StatusPill
-                    title={idea.title}
-                    status={idea.status}
-                    onChange={(status) =>
-                      void attempt(t, () => setStatus({ giftId: idea._id, status }))
-                    }
-                  />
+                <View key={idea._id} style={[styles.idea, index > 0 && styles.divider]}>
+                  <View style={styles.ideaTop}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={idea.title}
+                      onPress={() => router.push(`/gift/${idea._id}`)}
+                      style={({ pressed }) => [{ flex: 1, gap: 2 }, pressed && { opacity: 0.7 }]}>
+                      <Text>{idea.title}</Text>
+                      <GiftLine gift={idea} />
+                    </Pressable>
+                    <StatusPill
+                      title={idea.title}
+                      status={idea.status}
+                      onChange={(status) =>
+                        void attempt(t, () => setStatus({ giftId: idea._id, status }))
+                      }
+                    />
+                  </View>
+                  {/* Under the title, so a long idea never has to break mid-word beside it. */}
+                  <View style={{ alignItems: 'flex-start' }}>
+                    <Chip
+                      title={t('gifts.moveIn', { year: bank.currentYear })}
+                      accessibilityLabel={`${idea.title}: ${t('gifts.moveIn', { year: bank.currentYear })}`}
+                      onPress={() =>
+                        void attempt(t, () =>
+                          moveGift({ giftId: idea._id, year: bank.currentYear }),
+                        )
+                      }
+                    />
+                  </View>
                 </View>
               ))}
             </View>
@@ -525,6 +528,8 @@ function AddGift({
 }
 
 const useStyles = makeStyles((colors) => ({
+  // Room on both sides, so the label sits centred in the header's own button shape.
+  headerButton: { minHeight: 36, paddingHorizontal: 12, justifyContent: 'center' },
   content: { padding: 20, paddingBottom: 48, gap: 18 },
   group: { gap: 8 },
   section: { gap: 12 },
@@ -536,14 +541,18 @@ const useStyles = makeStyles((colors) => ({
     borderBottomWidth: 1,
     borderBottomColor: colors.borderStrong,
   },
-  // People in a group stand indented behind a saffron rule, so each group reads as one block.
+  // A group's name outranks the people in it, so the group reads as the level above them.
+  sectionTitle: { flex: 1, fontFamily: Fonts.bold, fontSize: 20, lineHeight: 26 },
+  // People in a group stand indented behind a thin rule, so each group reads as one block.
   members: {
     gap: 18,
     marginLeft: 7,
     paddingLeft: 14,
-    borderLeftWidth: 2,
-    borderLeftColor: colors.saffronPill,
+    borderLeftWidth: 1,
+    borderLeftColor: colors.borderStrong,
   },
+  idea: { gap: 8, paddingVertical: 12 },
+  ideaTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   done: {
     width: 24,
     height: 24,
@@ -575,13 +584,4 @@ const useStyles = makeStyles((colors) => ({
   list: { borderRadius: Radius.card, backgroundColor: colors.surface, paddingHorizontal: 14 },
   row: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
   divider: { borderTopWidth: 1, borderTopColor: colors.divider },
-  setting: {
-    minHeight: 52,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.divider,
-  },
 }));

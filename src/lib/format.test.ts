@@ -23,8 +23,9 @@ describe('formatKroner', () => {
   });
 
   test('edit fields use the language decimal mark', () => {
-    expect(priceInput('nb', 49.9)).toBe('49,9');
-    expect(priceInput('en', 49.9)).toBe('49.9');
+    expect(priceInput('nb', 49.9)).toBe('49,90');
+    expect(priceInput('nb', 200)).toBe('200');
+    expect(priceInput('en', 49.9)).toBe('49.90');
     expect(priceInput('en', null)).toBe('');
   });
 });

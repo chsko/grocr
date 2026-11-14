@@ -193,6 +193,11 @@ export default function GiftRecipientsScreen() {
             </View>
           ) : null}
 
+          {giftGroups.length > 0 ? (
+            <Text variant="label" color={colors.muted} accessibilityRole="header">
+              {t('gifts.noGroup')}
+            </Text>
+          ) : null}
           <DropZone
             zone={NO_GROUP}
             holds={loose.map((r) => r._id)}
@@ -208,7 +213,7 @@ export default function GiftRecipientsScreen() {
           </DropZone>
           <View style={styles.addRow}>
             <Field
-              label={t('gifts.people_screen.newName')}
+              label={t('gifts.people_screen.newPerson')}
               value={name}
               onChangeText={setName}
               maxLength={60}
@@ -708,14 +713,14 @@ const useStyles = makeStyles((colors) => ({
     borderBottomColor: colors.borderStrong,
   },
   groupToggle: { flex: 1, minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  groupName: { flex: 1, fontFamily: Fonts.bold },
-  // People in a group stand indented behind a saffron rule, so each group reads as one block.
+  groupName: { flex: 1, fontFamily: Fonts.bold, fontSize: 20, lineHeight: 26 },
+  // People in a group stand indented behind a thin rule, so each group reads as one block.
   members: {
     gap: 8,
     marginLeft: 11,
     paddingLeft: 12,
-    borderLeftWidth: 2,
-    borderLeftColor: colors.saffronPill,
+    borderLeftWidth: 1,
+    borderLeftColor: colors.borderStrong,
   },
   empty: {
     minHeight: 56,

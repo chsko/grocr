@@ -617,6 +617,7 @@
     "people_screen": {
       "title": "People",
       "intro": "The people you give gifts to. Link the ones who are in the family, so they never see their own gifts.",
+      "newPerson": "New person",
       "newName": "Name",
       "newPlaceholder": "E.g. Granny",
       "linked": "In the family: {{name}}",

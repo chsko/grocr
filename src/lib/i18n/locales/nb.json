@@ -617,6 +617,7 @@
     "people_screen": {
       "title": "Personer",
       "intro": "Dem dere gir gaver til. Koble de som er i familien, så de aldri ser sine egne gaver.",
+      "newPerson": "Ny person",
       "newName": "Navn",
       "newPlaceholder": "F.eks. Bestemor",
       "linked": "I familien: {{name}}",

@@ -137,8 +137,8 @@ describe('one gift list', () => {
     xmas.recipients[0].giftGroupId = 'gg1';
     xmas.recipients[1].giftGroupId = null;
     await render(<GiftsScreen />);
-    expect(screen.getByText('SVIGERS')).toBeTruthy();
-    expect(screen.getByText('UTEN GRUPPE')).toBeTruthy();
+    expect(screen.getByText('Svigers')).toBeTruthy();
+    expect(screen.getByText('Uten gruppe')).toBeTruthy();
     expect(screen.getByLabelText('Kjøpt til alle i Svigers')).toBeTruthy();
     expect(screen.getAllByText('1 person')).toHaveLength(2);
   });
@@ -153,9 +153,9 @@ describe('one gift list', () => {
     const name = xmas.recipients[0].name;
     await render(<GiftsScreen />);
     expect(screen.getByText(name)).toBeTruthy();
-    await fireEvent.press(screen.getByRole('button', { name: /SVIGERS/ }));
+    await fireEvent.press(screen.getByRole('button', { name: /Svigers/ }));
     expect(screen.queryByText(name)).toBeNull();
-    await fireEvent.press(screen.getByRole('button', { name: /SVIGERS/ }));
+    await fireEvent.press(screen.getByRole('button', { name: /Svigers/ }));
     expect(screen.getByText(name)).toBeTruthy();
   });
 
@@ -167,7 +167,7 @@ describe('one gift list', () => {
 
   test('no headings when the family has no groups', async () => {
     await render(<GiftsScreen />);
-    expect(screen.queryByText('UTEN GRUPPE')).toBeNull();
+    expect(screen.queryByText('Uten gruppe')).toBeNull();
   });
 
   test('each person shows spent against budget, left or over', async () => {
@@ -450,8 +450,8 @@ describe('recipients', () => {
 
   test('adds a recipient by name', async () => {
     await render(<GiftRecipientsScreen />);
-    await fireEvent.changeText(screen.getByLabelText('Navn'), 'Tante Liv');
-    await fireEvent(screen.getByLabelText('Navn'), 'submitEditing');
+    await fireEvent.changeText(screen.getByLabelText('Ny person'), 'Tante Liv');
+    await fireEvent(screen.getByLabelText('Ny person'), 'submitEditing');
     expect(mockCalls).toContainEqual(['gifts.addRecipient', { groupId: 'g1', name: 'Tante Liv' }]);
   });
 });

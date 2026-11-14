@@ -86,6 +86,7 @@ export function formatKroner(language: string, amount: number) {
 /** A price for an edit field: "1299,5" in Norwegian, "1299.5" in English, no grouping. */
 export function priceInput(language: string, amount: number | null) {
   if (amount === null) return '';
-  const text = String(amount);
+  // Øre always in two digits (49,90), like the price on the shelf; whole kroner stay bare.
+  const text = Number.isInteger(amount) ? String(amount) : amount.toFixed(2);
   return language === 'nb' ? text.replace('.', ',') : text;
 }
