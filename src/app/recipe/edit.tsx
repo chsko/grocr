@@ -342,7 +342,7 @@ export default function RecipeEditScreen() {
                 placeholder={t('recipeEdit.stepPlaceholder')}
                 multiline
                 style={{ flex: 1 }}
-                inputStyle={{ paddingTop: 12, paddingBottom: 12, fontSize: 16 }}
+                inputStyle={{ fontSize: 16 }}
               />
               <IconButton
                 label={t('recipeEdit.removeStep')}

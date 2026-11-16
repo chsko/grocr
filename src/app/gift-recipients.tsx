@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Alert, Pressable, ScrollView, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { Disclosure } from '@/components/disclosure';
+import { Disclosure, FoldAll } from '@/components/disclosure';
 import { DragRow, DragZones, DropZone } from '@/components/drag-to-group';
 import { NameSheet, Sheet } from '@/components/gift-parts';
 import { ChevronLeft, ChevronRight, More } from '@/components/icons';
@@ -15,6 +15,7 @@ import type { Id } from '@/convex/_generated/dataModel';
 import { daysInMonth, DEFAULT_GIFT_CARD_START, GIFT_CARD_END } from '@/convex/lib/gifts';
 import { makeStyles, useColors } from '@/lib/appearance';
 import { useDesktop } from '@/lib/desktop';
+import { matchesSearch } from '@/lib/search';
 import { attempt } from '@/lib/errors';
 import { dayMonth } from '@/lib/format';
 import { useFamily } from '@/lib/session';
@@ -54,6 +55,7 @@ export default function GiftRecipientsScreen() {
   const [dragging, setDragging] = useState(false);
   // Groups folded shut on this screen; a folded group still takes people dropped on its name.
   const [closed, setClosed] = useState<string[]>([]);
+  const [search, setSearch] = useState('');
   function toggle(key: string) {
     setClosed((now) => (now.includes(key) ? now.filter((k) => k !== key) : [...now, key]));
   }
@@ -153,6 +155,22 @@ export default function GiftRecipientsScreen() {
     void attempt(t, () => setRecipientGroup({ recipientId: recipient._id, giftGroupId }));
   }
   const loose = active.filter((r) => !giftGroups.some((g) => g._id === r.giftGroupId));
+  // A search keeps groups whose name matches (with everyone in them) and people whose name does.
+  const searching = search.trim() !== '';
+  const looseShown = loose.filter((r) => matchesSearch(search, r.name));
+  const groupsShown = giftGroups
+    .map((g) => {
+      const people = active.filter((r) => r.giftGroupId === g._id);
+      const whole = matchesSearch(search, g.name);
+      return {
+        ...g,
+        people: whole ? people : people.filter((r) => matchesSearch(search, r.name)),
+        whole,
+      };
+    })
+    .filter((g) => !searching || g.whole || g.people.length > 0);
+  const archivedShown = archived.filter((r) => matchesSearch(search, r.name));
+  const isOpen = (id: string) => searching || !closed.includes(id);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -232,24 +250,56 @@ export default function GiftRecipientsScreen() {
             </View>
           ) : null}
 
-          {giftGroups.length > 0 ? (
-            <Text variant="label" color={colors.muted} accessibilityRole="header">
-              {t('gifts.noGroup')}
-            </Text>
+          {giftGroups.length > 0 || sorted.length >= SEARCH_FROM ? (
+            <View style={styles.searchRow}>
+              <Field
+                value={search}
+                onChangeText={setSearch}
+                placeholder={t('gifts.searchPeople')}
+                accessibilityLabel={t('gifts.searchPeople')}
+                autoCorrect={false}
+                clearButtonMode="while-editing"
+                returnKeyType="search"
+                maxLength={60}
+                style={{ flex: 1 }}
+              />
+              {giftGroups.length > 0 && !searching ? (
+                <FoldAll
+                  allClosed={giftGroups.every((g) => closed.includes(g._id))}
+                  onPress={(close) => setClosed(close ? giftGroups.map((g) => g._id) : [])}
+                />
+              ) : null}
+            </View>
           ) : null}
-          <DropZone
-            zone={NO_GROUP}
-            holds={loose.map((r) => r._id)}
-            style={styles.zone}
-            highlight={styles.zoneOver}>
-            {loose.length > 0 ? (
-              dragRows(loose)
-            ) : giftGroups.length > 0 ? (
-              <View style={styles.empty}>
-                <Text color={colors.muted}>{t('gifts.dropNoGroup')}</Text>
-              </View>
-            ) : null}
-          </DropZone>
+          {searching &&
+          looseShown.length === 0 &&
+          groupsShown.length === 0 &&
+          archivedShown.length === 0 ? (
+            <Text color={colors.muted}>{t('gifts.noSearchMatch')}</Text>
+          ) : null}
+
+          {searching && looseShown.length === 0 ? null : (
+            <>
+              {giftGroups.length > 0 ? (
+                <Text variant="label" color={colors.muted} accessibilityRole="header">
+                  {t('gifts.noGroup')}
+                </Text>
+              ) : null}
+              <DropZone
+                zone={NO_GROUP}
+                holds={looseShown.map((r) => r._id)}
+                style={styles.zone}
+                highlight={styles.zoneOver}>
+                {looseShown.length > 0 ? (
+                  dragRows(looseShown)
+                ) : giftGroups.length > 0 ? (
+                  <View style={styles.empty}>
+                    <Text color={colors.muted}>{t('gifts.dropNoGroup')}</Text>
+                  </View>
+                ) : null}
+              </DropZone>
+            </>
+          )}
 
           <View style={{ gap: 12 }}>
             <Text variant="label" color={colors.muted} accessibilityRole="header">
@@ -260,8 +310,8 @@ export default function GiftRecipientsScreen() {
                 {t(desktop ? 'gifts.dragIntroDesktop' : 'gifts.dragIntro')}
               </Text>
             ) : null}
-            {giftGroups.map((g) => {
-              const people = active.filter((r) => r.giftGroupId === g._id);
+            {groupsShown.map((g) => {
+              const people = g.people;
               return (
                 <DropZone
                   key={g._id}
@@ -273,13 +323,13 @@ export default function GiftRecipientsScreen() {
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={g.name}
-                      accessibilityState={{ expanded: !closed.includes(g._id) }}
+                      accessibilityState={{ expanded: isOpen(g._id) }}
                       onPress={() => {
                         if (dragging || Date.now() - draggedAt.current < 500) return;
                         toggle(g._id);
                       }}
                       style={({ pressed }) => [styles.groupToggle, pressed && { opacity: 0.7 }]}>
-                      <Disclosure open={!closed.includes(g._id)} color={colors.ink} />
+                      <Disclosure open={isOpen(g._id)} color={colors.ink} />
                       <Text variant="item" style={styles.groupName}>
                         {g.name}
                       </Text>
@@ -293,7 +343,7 @@ export default function GiftRecipientsScreen() {
                       <More color={colors.muted} />
                     </IconButton>
                   </View>
-                  {closed.includes(g._id) ? null : (
+                  {!isOpen(g._id) ? null : (
                     <View style={styles.members}>
                       {people.length > 0 ? (
                         dragRows(people)
@@ -310,12 +360,12 @@ export default function GiftRecipientsScreen() {
             })}
           </View>
 
-          {archived.length > 0 ? (
+          {archivedShown.length > 0 ? (
             <View style={{ gap: 8 }}>
               <Text variant="label" color={colors.muted} accessibilityRole="header">
                 {t('gifts.people_screen.archivedTitle')}
               </Text>
-              {rows(archived)}
+              {rows(archivedShown)}
             </View>
           ) : null}
 
@@ -417,6 +467,9 @@ export default function GiftRecipientsScreen() {
 const NO_GROUP = 'none';
 
 /** "Emma" from "Emma Hansen": what the family calls them on a gift list. */
+/** With no groups, the search shows once the list is this long. */
+const SEARCH_FROM = 8;
+
 function firstName(name: string) {
   return name.trim().split(/\s+/)[0] || name;
 }
@@ -691,6 +744,7 @@ const useStyles = makeStyles((colors) => ({
   row: { minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
   divider: { borderTopWidth: 1, borderTopColor: colors.divider },
   addRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   setting: {
     minHeight: 52,
     flexDirection: 'row',

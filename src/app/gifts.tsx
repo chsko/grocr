@@ -12,7 +12,7 @@ import {
   useMoneyLine,
 } from '@/components/gift-parts';
 import { CardGrid } from '@/components/card-grid';
-import { Disclosure } from '@/components/disclosure';
+import { Disclosure, FoldAll } from '@/components/disclosure';
 import { Check, ChevronLeft, ChevronRight, Plus } from '@/components/icons';
 import { Button, Chip, Field, IconButton, Loading, Text } from '@/components/ui';
 import { Fonts, Radius } from '@/constants/theme';
@@ -28,6 +28,7 @@ import {
 import { recipeSite } from '@/convex/lib/recipeLink';
 import { makeStyles, useColors } from '@/lib/appearance';
 import { useDesktop } from '@/lib/desktop';
+import { matchesSearch } from '@/lib/search';
 import { attempt } from '@/lib/errors';
 import { formatKroner } from '@/lib/format';
 import { useFamily } from '@/lib/session';
@@ -54,6 +55,7 @@ export default function GiftsScreen() {
   const setStatus = useSetGiftStatus();
   const [adding, setAdding] = useState(false);
   const [filter, setFilter] = useState<GiftStatus | null>(null);
+  const [search, setSearch] = useState('');
   // Groups folded shut on this screen; they open again next time the screen opens.
   const [closed, setClosed] = useState<string[]>([]);
   function toggle(key: string) {
@@ -73,6 +75,12 @@ export default function GiftsScreen() {
       : sorted
           .map((r) => ({ ...r, gifts: r.gifts.filter((g) => g.status === filter) }))
           .filter((r) => r.gifts.length > 0);
+  // A search keeps the people whose own name or group name matches.
+  const searching = search.trim() !== '';
+  const groupNames = new Map(xmas.groups.map((g) => [g._id, g.name]));
+  const found = groups.filter((r) =>
+    matchesSearch(search, r.name, r.giftGroupId ? groupNames.get(r.giftGroupId) : null),
+  );
   // Gift groups as headings, in name order, with everyone not in a group last.
   const sections: {
     key: string;
@@ -81,10 +89,10 @@ export default function GiftsScreen() {
     people: typeof groups;
   }[] = [];
   for (const g of xmas.groups) {
-    const people = groups.filter((r) => r.giftGroupId === g._id);
+    const people = found.filter((r) => r.giftGroupId === g._id);
     if (people.length > 0) sections.push({ key: g._id, title: g.name, done: g.done, people });
   }
-  const loose = groups.filter((r) => !xmas.groups.some((g) => g._id === r.giftGroupId));
+  const loose = found.filter((r) => !xmas.groups.some((g) => g._id === r.giftGroupId));
   if (loose.length > 0) {
     sections.push({
       key: 'none',
@@ -93,6 +101,7 @@ export default function GiftsScreen() {
       people: loose,
     });
   }
+  const foldable = sections.filter((x) => x.title !== null).map((x) => x.key);
   const { idea, bought, wrapped } = xmas.totals;
   const total = idea + bought + wrapped;
   const totalMoney = moneyLine(xmas.totals.spent, xmas.totals.budget);
@@ -104,6 +113,7 @@ export default function GiftsScreen() {
     setYear(next === xmas?.currentYear ? null : next);
     setExtra([]);
     setFilter(null);
+    setSearch('');
   }
 
   const header = (
@@ -208,6 +218,31 @@ export default function GiftsScreen() {
           ))}
         </ScrollView>
       ) : null}
+
+      {tab === 'christmas' && (xmas.groups.length > 0 || xmas.recipients.length >= SEARCH_FROM) ? (
+        <View style={styles.searchRow}>
+          <Field
+            value={search}
+            onChangeText={setSearch}
+            placeholder={t('gifts.searchPeople')}
+            accessibilityLabel={t('gifts.searchPeople')}
+            autoCorrect={false}
+            clearButtonMode="while-editing"
+            returnKeyType="search"
+            maxLength={60}
+            style={{ flex: 1 }}
+          />
+          {foldable.length > 0 && !searching ? (
+            <FoldAll
+              allClosed={foldable.every((k) => closed.includes(k))}
+              onPress={(close) => setClosed(close ? foldable : [])}
+            />
+          ) : null}
+        </View>
+      ) : null}
+      {tab === 'christmas' && searching && sections.length === 0 ? (
+        <Text color={colors.muted}>{t('gifts.noSearchMatch')}</Text>
+      ) : null}
     </>
   );
 
@@ -228,10 +263,10 @@ export default function GiftsScreen() {
           {section.title !== null ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityState={{ expanded: !closed.includes(section.key) }}
+              accessibilityState={{ expanded: searching || !closed.includes(section.key) }}
               onPress={() => toggle(section.key)}
               style={({ pressed }) => [styles.sectionHead, pressed && { opacity: 0.7 }]}>
-              <Disclosure open={!closed.includes(section.key)} color={colors.ink} />
+              <Disclosure open={searching || !closed.includes(section.key)} color={colors.ink} />
               <Text accessibilityRole="header" style={styles.sectionTitle}>
                 {section.title}
               </Text>
@@ -248,7 +283,7 @@ export default function GiftsScreen() {
               ) : null}
             </Pressable>
           ) : null}
-          {section.title !== null && closed.includes(section.key) ? null : (
+          {section.title !== null && !searching && closed.includes(section.key) ? null : (
             <People
               desktop={desktop}
               style={section.title !== null ? styles.members : styles.section}>
@@ -614,6 +649,9 @@ function AddGift({
   );
 }
 
+/** With no groups, the search shows once the list is this long. */
+const SEARCH_FROM = 8;
+
 const useStyles = makeStyles((colors) => ({
   // Room on both sides, so the label sits centred in the header's own button shape.
   headerButton: { minHeight: 36, paddingHorizontal: 12, justifyContent: 'center' },
@@ -668,6 +706,7 @@ const useStyles = makeStyles((colors) => ({
   year: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   summary: { gap: 10, padding: 16, borderRadius: Radius.card, backgroundColor: colors.saffronTint },
   chips: { gap: 8 },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   list: { borderRadius: Radius.card, backgroundColor: colors.surface, paddingHorizontal: 14 },
   row: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
   divider: { borderTopWidth: 1, borderTopColor: colors.divider },

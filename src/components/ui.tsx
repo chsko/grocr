@@ -172,7 +172,7 @@ export function Field({
   const input = (
     <TextInput
       placeholderTextColor={colors.checkbox}
-      style={[styles.input, inputStyle]}
+      style={[styles.input, rest.multiline && styles.multiline, inputStyle]}
       accessibilityLabel={label}
       {...rest}
     />
@@ -432,6 +432,8 @@ const useStyles = makeStyles((colors) => ({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // A note or step starts at the top, so it needs room above the first line.
+  multiline: { paddingTop: 12, paddingBottom: 12, lineHeight: 22 },
   input: {
     minHeight: 50,
     borderRadius: Radius.field,

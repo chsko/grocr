@@ -160,6 +160,32 @@ describe('one gift list', () => {
     expect(screen.getByText(name)).toBeTruthy();
   });
 
+  test('search finds people by their own name or their group, and opens folded groups', async () => {
+    const xmas = mockQueries['gifts.christmas'] as {
+      groups: unknown[];
+      recipients: { giftGroupId?: string | null }[];
+    };
+    xmas.groups = [{ _id: 'gg1', name: 'Svigers', done: false }];
+    xmas.recipients[0].giftGroupId = 'gg1';
+    xmas.recipients[1].giftGroupId = null;
+    await render(<GiftsScreen />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Lukk alle' }));
+    expect(screen.queryByText('Bestemor')).toBeNull();
+    const search = screen.getByLabelText('Søk etter person eller gruppe');
+    await fireEvent.changeText(search, 'sviger');
+    expect(screen.getByText('Bestemor')).toBeTruthy();
+    expect(screen.queryByText('Ola')).toBeNull();
+    await fireEvent.changeText(search, 'ola');
+    expect(screen.queryByText('Bestemor')).toBeNull();
+    expect(screen.getByText('Ola')).toBeTruthy();
+    await fireEvent.changeText(search, 'tante');
+    expect(screen.getByText('Ingen treff på det søket.')).toBeTruthy();
+    await fireEvent.changeText(search, '');
+    expect(screen.queryByText('Bestemor')).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Åpne alle' }));
+    expect(screen.getByText('Bestemor')).toBeTruthy();
+  });
+
   test('Personer is a button in the header', async () => {
     await render(<GiftsScreen />);
     await fireEvent.press(screen.getAllByRole('button', { name: 'Personer' })[0]);
@@ -382,6 +408,26 @@ describe('recipients', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Svigers' }));
     expect(screen.queryByText(ola.name)).toBeNull();
     expect(screen.getByText('1 person')).toBeTruthy();
+  });
+
+  test('search keeps matching groups whole and matching people, and fold all shuts every group', async () => {
+    const data = mockQueries['gifts.recipients'] as {
+      recipients: { _id: string; name: string; giftGroupId?: string | null }[];
+    };
+    data.recipients.find((r) => r._id === 'r2')!.giftGroupId = 'gg1';
+    await render(<GiftRecipientsScreen />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Lukk alle' }));
+    expect(screen.queryByText('Ola')).toBeNull();
+    const search = screen.getByLabelText('Søk etter person eller gruppe');
+    await fireEvent.changeText(search, 'svig');
+    expect(screen.getByText('Ola')).toBeTruthy();
+    expect(screen.queryByText('Bestemor')).toBeNull();
+    await fireEvent.changeText(search, 'beste');
+    expect(screen.getByText('Bestemor')).toBeTruthy();
+    expect(screen.queryByText('Svigers')).toBeNull();
+    await fireEvent.changeText(search, 'per');
+    expect(screen.getByText('Onkel Per')).toBeTruthy();
+    expect(screen.queryByText('Bestemor')).toBeNull();
   });
 
   test('adds a person straight into a group', async () => {
