@@ -1,7 +1,18 @@
 {
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/join/:code", "destination": "/join" },
+    {
+      "source": "/app",
+      "destination": "https://grocr-web.vercel.app/app"
+    },
+    {
+      "source": "/app/:path*",
+      "destination": "https://grocr-web.vercel.app/app/:path*"
+    },
+    {
+      "source": "/join/:code",
+      "destination": "/join"
+    },
     {
       "source": "/api/auth/:path*",
       "destination": "https://silent-otter-909.eu-west-1.convex.site/api/auth/:path*"

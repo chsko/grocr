@@ -1,4 +1,5 @@
 import '@/lib/i18n';
+import '@/lib/web-alert';
 
 import { BricolageGrotesque_400Regular } from '@expo-google-fonts/bricolage-grotesque/400Regular';
 import { BricolageGrotesque_500Medium } from '@expo-google-fonts/bricolage-grotesque/500Medium';
@@ -13,6 +14,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Fonts, Palettes } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
@@ -23,9 +25,12 @@ import {
   useColors,
   useResolvedScheme,
 } from '@/lib/appearance';
+import { isWebSite } from '@/lib/build';
 import { convex, tokenStorage } from '@/lib/convex';
 import { restoreLanguage } from '@/lib/i18n/preference';
 import { SessionContext } from '@/lib/session';
+import { APP_ONLY_ROUTES } from '@/lib/web-site';
+import { WebNoFamily, WebSignOut } from '@/components/web-only';
 import { restoreShownWeek, useShownWeekRestored } from '@/lib/shown-week';
 import { useForegroundUpdateCheck } from '@/lib/updates';
 
@@ -118,7 +123,59 @@ function AppStack() {
     headerTintColor: colors.ink,
     headerTitleStyle: { fontFamily: Fonts.bold, fontSize: 17 },
     headerBackButtonDisplayMode: 'minimal' as const,
+    headerTitleAlign: 'center' as const,
   };
+
+  if (isWebSite) {
+    return (
+      <SessionContext.Provider value={signedIn ? me : null}>
+        {/* A phone-wide column on big screens, like the app. */}
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
+          <View style={{ flex: 1, width: '100%', maxWidth: 640, alignSelf: 'center' }}>
+            {signedIn && !hasFamily ? (
+              <WebNoFamily />
+            ) : (
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: colors.background },
+                }}>
+                <Stack.Screen name="index" />
+                <Stack.Protected guard={!signedIn}>
+                  <Stack.Screen name="sign-in" />
+                </Stack.Protected>
+                {/* The website (grocr.io/app) only carries the Christmas gift lists. */}
+                <Stack.Protected guard={hasFamily}>
+                  <Stack.Screen
+                    name="gifts"
+                    options={{
+                      ...header,
+                      title: t('gifts.title'),
+                      headerLeft: () => <WebSignOut />,
+                    }}
+                  />
+                  <Stack.Screen
+                    name="gift/[id]"
+                    options={{ ...header, title: t('gifts.edit.title') }}
+                  />
+                  <Stack.Screen
+                    name="gift-recipients"
+                    options={{ ...header, title: t('gifts.people_screen.title') }}
+                  />
+                </Stack.Protected>
+                {/* Expo Router registers every route file; keep the rest of the app unreachable. */}
+                <Stack.Protected guard={false}>
+                  {APP_ONLY_ROUTES.map((name) => (
+                    <Stack.Screen key={name} name={name} />
+                  ))}
+                </Stack.Protected>
+              </Stack>
+            )}
+          </View>
+        </View>
+      </SessionContext.Provider>
+    );
+  }
 
   return (
     <SessionContext.Provider value={signedIn ? me : null}>

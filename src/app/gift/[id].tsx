@@ -18,13 +18,19 @@ import { priceInput } from '@/lib/format';
  * One gift's details (#81): title, price, link, note and who buys it. The buyer choices leave
  * out the person the gift is for. A gift deleted or hidden on another phone just closes.
  */
+/** Back to the list; a gift opened straight from a link (the website) has nothing behind it. */
+function close() {
+  if (router.canGoBack()) router.back();
+  else router.replace('/gifts');
+}
+
 export default function GiftScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const giftId = id as Id<'gifts'>;
   const gift = useQuery(api.gifts.gift, { giftId });
   const gone = gift === null;
   useEffect(() => {
-    if (gone && router.canGoBack()) router.back();
+    if (gone) close();
   }, [gone]);
   if (!gift) return <Loading />;
   return <GiftForm key={gift._id} gift={gift} />;
@@ -68,7 +74,7 @@ function GiftForm({ gift }: { gift: Gift }) {
       }).then(() => true),
     );
     setBusy(false);
-    if (ok) router.back();
+    if (ok) close();
   }
 
   function remove() {
@@ -78,8 +84,8 @@ function GiftForm({ gift }: { gift: Gift }) {
         text: t('gifts.edit.delete'),
         style: 'destructive',
         onPress: async () => {
-          const ok = await attempt(t, () => removeGift({ giftId: gift._id }).then(() => true));
-          if (ok && router.canGoBack()) router.back();
+          // The list query turns null and GiftScreen closes the sheet, so close only once.
+          await attempt(t, () => removeGift({ giftId: gift._id }));
         },
       },
     ]);
@@ -178,7 +184,7 @@ function GiftForm({ gift }: { gift: Gift }) {
             const ok = await attempt(t, () =>
               moveGift({ giftId: gift._id, year: null }).then(() => true),
             );
-            if (ok && router.canGoBack()) router.back();
+            if (ok) close();
           }}
         />
       ) : null}

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm web:export --output-dir dist/app",
+  "outputDirectory": "dist",
+  "redirects": [{ "source": "/", "destination": "/app", "permanent": false }],
+  "rewrites": [
+    { "source": "/app", "destination": "/app/index.html" },
+    { "source": "/app/((?!_expo/|assets/|favicon).*)", "destination": "/app/index.html" }
+  ]
+}

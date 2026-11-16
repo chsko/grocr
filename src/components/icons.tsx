@@ -181,6 +181,16 @@ export const Shuffle = (p: IconProps) => (
 
 /** Logo 7, "Grocery bag": tomato bag, ink handle, herb sprig, white G. */
 /** Google's "G" in its brand colors, for the sign-in button. */
+/** Apple's logo for the website's Sign in with Apple button (the app uses Apple's native one). */
+export const AppleLogo = ({ size = 20, color }: { size?: number; color: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 17 20">
+    <Path
+      fill={color}
+      d="M14.1 10.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.4-.9C3.6 4.8 2 5.8 1.1 7.4c-1.8 3.2-.5 7.9 1.3 10.4.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9 0 0-2.7-1-2.7-4.4zM11.6 3c.7-.9 1.2-2 1.1-3.2-1 0-2.3.7-3 1.6-.7.8-1.3 2-1.1 3.1 1.1.1 2.3-.6 3-1.5z"
+    />
+  </Svg>
+);
+
 export const GoogleLogo = ({ size = 20 }: { size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 48 48">
     <Path

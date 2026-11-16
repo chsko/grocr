@@ -8,10 +8,11 @@ import { findOrCreateUser, refreshEmail } from './lib/authUsers';
 import { setup, signedInUser } from './test.setup';
 
 describe('isAllowedRedirect', () => {
-  test('allows the app scheme and the delete-account page', () => {
+  test('allows the app scheme, the delete-account page and the gift lists website', () => {
     expect(isAllowedRedirect('grocr:///', false)).toBe(true);
     expect(isAllowedRedirect('https://grocr.io/delete-account', false)).toBe(true);
     expect(isAllowedRedirect('https://grocr.io/delete-account?lang=en', false)).toBe(true);
+    expect(isAllowedRedirect('https://grocr.io/app', false)).toBe(true);
   });
 
   test('refuses other sites, look-alikes and Expo Go unless enabled', () => {
@@ -20,6 +21,9 @@ describe('isAllowedRedirect', () => {
     expect(isAllowedRedirect('https://grocr.io@evil.example/delete-account', false)).toBe(false);
     expect(isAllowedRedirect('http://grocr.io/delete-account', false)).toBe(false);
     expect(isAllowedRedirect('https://grocr.io/join', false)).toBe(false);
+    expect(isAllowedRedirect('https://grocr.io/app/gifts', false)).toBe(false);
+    expect(isAllowedRedirect('https://grocr.io/apps', false)).toBe(false);
+    expect(isAllowedRedirect('https://evil.example/app', false)).toBe(false);
     expect(isAllowedRedirect('/relative', false)).toBe(false);
     expect(isAllowedRedirect('exp://u.expo.dev/abc/--/', false)).toBe(false);
     expect(isAllowedRedirect('exp://u.expo.dev/abc/--/', true)).toBe(true);

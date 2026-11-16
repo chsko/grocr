@@ -76,7 +76,8 @@
     "jev:risk": "node scripts/jev/risk.mjs",
     "jev:i18n": "node scripts/jev/i18n-parity.mjs",
     "go": "expo start --go",
-    "go:tunnel": "expo start --go --tunnel"
+    "go:tunnel": "expo start --go --tunnel",
+    "web:export": "GROCR_WEB_BASE_URL=/app expo export --platform web --clear"
   },
   "private": true,
   "packageManager": "pnpm@12.15.0",

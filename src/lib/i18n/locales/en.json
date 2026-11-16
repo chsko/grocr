@@ -42,7 +42,11 @@
     "pitch": "Your family's recipes, one shared menu, one list to tick off in the store.",
     "testUsers": "Test users",
     "continueAs": "Continue as {{name}}",
-    "google": "Continue with Google"
+    "google": "Continue with Google",
+    "apple": "Continue with Apple",
+    "webHeadline": "The family's Christmas gifts.",
+    "webHeadlineAccent": "The same lists as in the app.",
+    "webPitch": "Sign in with the account you use in Grocr. See what's bought and who gets what, but never your own gifts."
   },
   "account": {
     "hiddenAppleEmail": "Apple ID with hidden email",
@@ -681,5 +685,9 @@
     "dragIntro": "Hold a person and drag them into a group. People without a group stay at the top.",
     "dropHere": "Drag people here",
     "dropNoGroup": "Drag here to take out of a group"
+  },
+  "web": {
+    "noFamilyTitle": "Join a family in the app first",
+    "noFamilyBody": "The gift lists belong to your family. Create a family in the Grocr app, or use an invite code there, and the lists show up here."
   }
 }

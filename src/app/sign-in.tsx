@@ -6,12 +6,12 @@ import { useTranslation } from 'react-i18next';
 import { Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { GoogleLogo, Logo } from '@/components/icons';
+import { AppleLogo, GoogleLogo, Logo } from '@/components/icons';
 import { Button, Text } from '@/components/ui';
 import { Radius, Spacing } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import { makeStyles, useColors, useResolvedScheme } from '@/lib/appearance';
-import { isDevBuild } from '@/lib/build';
+import { isDevBuild, isWebSite } from '@/lib/build';
 import { showError } from '@/lib/errors';
 import { appleSignInAvailable, signInWithApple, signInWithGoogle } from '@/lib/socialSignIn';
 
@@ -34,7 +34,7 @@ export default function SignInScreen() {
   const [appleAvailable, setAppleAvailable] = useState(false);
 
   useEffect(() => {
-    if (Platform.OS !== 'ios') return;
+    if (Platform.OS !== 'ios' && Platform.OS !== 'web') return;
     let live = true;
     void appleSignInAvailable().then((available) => {
       if (live) setAppleAvailable(available);
@@ -69,15 +69,26 @@ export default function SignInScreen() {
       </View>
       <View style={styles.body}>
         <Text variant="heading" style={{ fontSize: 28, lineHeight: 32 }}>
-          {t('signIn.headline')}{' '}
+          {t(isWebSite ? 'signIn.webHeadline' : 'signIn.headline')}{' '}
           <Text variant="heading" color={colors.tomato} style={{ fontSize: 28, lineHeight: 32 }}>
-            {t('signIn.headlineAccent')}
+            {t(isWebSite ? 'signIn.webHeadlineAccent' : 'signIn.headlineAccent')}
           </Text>
         </Text>
-        <Text color={colors.muted}>{t('signIn.pitch')}</Text>
+        <Text color={colors.muted}>{t(isWebSite ? 'signIn.webPitch' : 'signIn.pitch')}</Text>
       </View>
       <View style={styles.actions}>
-        {appleAvailable && options?.apple ? (
+        {Platform.OS === 'web' && appleAvailable && options?.apple ? (
+          <Button
+            testID="sign-in-apple"
+            kind="dark"
+            title={t('signIn.apple')}
+            icon={<AppleLogo size={18} color={colors.background} />}
+            loading={pending === 'apple'}
+            disabled={pending !== null && pending !== 'apple'}
+            onPress={() => void run('apple', () => signInWithApple(signIn))}
+          />
+        ) : null}
+        {Platform.OS !== 'web' && appleAvailable && options?.apple ? (
           <AppleAuthentication.AppleAuthenticationButton
             testID="sign-in-apple"
             buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}

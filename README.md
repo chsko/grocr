@@ -86,3 +86,18 @@ jev runs locally only and needs `TYPESAFE_API_KEY` in the environment. Besides `
 - `pnpm jev:i18n` asks whether changed Norwegian/English string pairs mean the same.
 - `pnpm jev <state> <questions>` asks jev anything, e.g. to weigh a design or product choice
   (see `scripts/jev/ask.mjs`).
+
+## Website: gift lists at grocr.io/app
+
+The Christmas gift lists (and only those) also run on the web, behind sign-in, at
+`https://grocr.io/app`. The Vercel project **grocr-web** builds it from this repo on every push to
+`main` (`vercel.json`: `pnpm web:export --output-dir dist/app`, with `experiments.baseUrl=/app`
+set only for that export by `app.config.ts`). The static site project (`site/`, grocr.io) proxies
+`/app/*` to it, so the page shares grocr.io's origin: Google returns to `https://grocr.io/app`
+(allowed in `convex/lib/authRedirect.ts`) and Sign in with Apple JS reuses the delete-account
+page's registered return URL. Route scope lives in `src/lib/web-site.ts`; on the web,
+`Alert.alert` maps to `window.confirm`/`alert` (`src/lib/web-alert.ts`).
+
+For click-through tests and screenshots of the whole app on the web, export with
+`EXPO_PUBLIC_GROCR_WEB_TESTING=enabled pnpm exec expo export --platform web`: that build has every
+screen plus the dev deployment's test users. The public build never shows test users.

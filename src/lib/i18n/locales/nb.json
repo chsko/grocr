@@ -42,7 +42,11 @@
     "pitch": "Familiens oppskrifter, én felles meny og én liste å krysse av i butikken.",
     "testUsers": "Testbrukere",
     "continueAs": "Fortsett som {{name}}",
-    "google": "Fortsett med Google"
+    "google": "Fortsett med Google",
+    "apple": "Fortsett med Apple",
+    "webHeadline": "Familiens julegaver.",
+    "webHeadlineAccent": "Samme lister som i appen.",
+    "webPitch": "Logg inn med kontoen du bruker i Grocr. Du ser hva som er kjøpt og hvem som får hva, men aldri dine egne gaver."
   },
   "account": {
     "hiddenAppleEmail": "Apple-ID med skjult e-post",
@@ -681,5 +685,9 @@
     "dragIntro": "Hold inne på en person og dra dem inn i en gruppe. De uten gruppe står øverst.",
     "dropHere": "Dra personer hit",
     "dropNoGroup": "Dra hit for å ta ut av gruppe"
+  },
+  "web": {
+    "noFamilyTitle": "Bli med i en familie i appen først",
+    "noFamilyBody": "Julegavelistene hører til familien din. Lag en familie i Grocr-appen, eller bruk en invitasjonskode der, så finner du listene her."
   }
 }

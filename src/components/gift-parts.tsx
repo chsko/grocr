@@ -246,5 +246,9 @@ const useStyles = makeStyles((colors) => ({
     borderTopRightRadius: 24,
     padding: 20,
     gap: 14,
+    // The website's column on big screens (phones are narrower anyway).
+    width: '100%',
+    maxWidth: 640,
+    alignSelf: 'center',
   },
 }));
