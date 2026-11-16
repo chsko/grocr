@@ -38,11 +38,15 @@ export default function GiftScreen() {
   return <GiftForm key={gift._id} gift={gift} />;
 }
 
+/** How many search matches show under the field at once. */
+const MAX_MATCHES = 8;
+
 type Gift = NonNullable<ReturnType<typeof useQuery<typeof api.gifts.gift>>>;
 
 /**
  * Who the gift is for. Picking more than one makes it a joint gift ("fellesgave"): it shows
- * under each of them and its price is shared between their budgets. Saved at once.
+ * under each of them and its price is shared between their budgets. Saved at once. Only the
+ * chosen people show; others are found by searching, so a big family doesn't fill the sheet.
  */
 function ForWhom({ gift }: { gift: Gift }) {
   const colors = useColors();
@@ -61,25 +65,64 @@ function ForWhom({ gift }: { gift: Gift }) {
     await attempt(t, () => setGiftRecipients({ giftId: gift._id, recipientIds: next }));
     if (call === sent.current) setPending(null);
   }
+  const [query, setQuery] = useState('');
+  const names = new Map(gift.choices.map((r) => [r._id, r.name]));
+  for (const r of gift.recipients) if (!names.has(r._id)) names.set(r._id, r.name);
+  const q = query.trim().toLocaleLowerCase();
+  const matches =
+    q === ''
+      ? []
+      : gift.choices
+          .filter((r) => !chosen.includes(r._id) && r.name.toLocaleLowerCase().includes(q))
+          .slice(0, MAX_MATCHES);
+  function add(id: (typeof chosen)[number]) {
+    setQuery('');
+    void toggle(id);
+  }
+  const full = chosen.length >= MAX_JOINT;
   return (
     <View style={{ gap: 8 }}>
       <Text variant="label" color={colors.muted}>
         {t('gifts.edit.forWhom')}
       </Text>
       <View style={styles.chips}>
-        {gift.choices.map((r) => {
-          const on = chosen.includes(r._id);
-          return (
-            <Chip
-              key={r._id}
-              title={r.name}
-              selected={on}
-              accessibilityState={{ selected: on, disabled: on && chosen.length === 1 }}
-              onPress={() => void toggle(r._id)}
-            />
-          );
-        })}
+        {chosen.map((id) => (
+          <Chip
+            key={id}
+            title={names.get(id) ?? ''}
+            selected
+            accessibilityState={{ selected: true, disabled: chosen.length === 1 }}
+            onPress={() => void toggle(id)}
+          />
+        ))}
       </View>
+      {full ? null : (
+        <Field
+          value={query}
+          onChangeText={setQuery}
+          placeholder={t('gifts.edit.findPerson')}
+          accessibilityLabel={t('gifts.edit.findPerson')}
+          autoCorrect={false}
+          returnKeyType="done"
+          onSubmitEditing={() => {
+            if (matches.length === 1) add(matches[0]._id);
+          }}
+          maxLength={60}
+        />
+      )}
+      {q !== '' && !full ? (
+        matches.length > 0 ? (
+          <View style={styles.chips}>
+            {matches.map((r) => (
+              <Chip key={r._id} title={r.name} selected={false} onPress={() => add(r._id)} />
+            ))}
+          </View>
+        ) : (
+          <Text variant="small" color={colors.muted}>
+            {t('gifts.edit.noMatch')}
+          </Text>
+        )
+      ) : null}
       <Text variant="small" color={colors.muted}>
         {chosen.length > 1 ? t('gifts.edit.jointHint') : t('gifts.edit.forWhomHint')}
       </Text>

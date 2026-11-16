@@ -603,15 +603,26 @@ describe('gift sheet', () => {
     expect(mockRouter.back).toHaveBeenCalled();
   });
 
-  test('picking another person makes it a joint gift, saved at once', async () => {
+  test('searching for another person makes it a joint gift, saved at once', async () => {
     await render(<GiftScreen />);
-    expect(screen.getByText('Velg flere for å gi en fellesgave.')).toBeTruthy();
+    expect(screen.getByText('Søk opp flere for å gi en fellesgave.')).toBeTruthy();
+    // Only the chosen show until you search.
+    expect(screen.queryByRole('button', { name: 'Bestefar' })).toBeNull();
+    await fireEvent.changeText(screen.getByLabelText('Søk etter flere å gi til'), 'tante');
+    expect(screen.getByText('Ingen med det navnet')).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText('Søk etter flere å gi til'), 'besteF');
+    expect(screen.queryByRole('button', { name: 'Bestemor', selected: false })).toBeNull();
     await fireEvent.press(screen.getByRole('button', { name: 'Bestefar' }));
-    // The last person can't be taken off.
-    await fireEvent.press(screen.getByRole('button', { name: 'Bestemor' }));
+    expect(screen.getByLabelText('Søk etter flere å gi til').props.value).toBe('');
     expect(mockCalls).toEqual([
       ['gifts.setGiftRecipients', { giftId: 'a', recipientIds: ['r1', 'r3'] }],
     ]);
+  });
+
+  test('the last person cannot be taken off', async () => {
+    await render(<GiftScreen />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Bestemor' }));
+    expect(mockCalls).toEqual([]);
   });
 
   test('a price that is not a price is refused before saving', async () => {

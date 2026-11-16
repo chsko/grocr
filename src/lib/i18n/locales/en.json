@@ -626,7 +626,9 @@
       "delete": "Delete gift",
       "deleteTitle": "Delete {{title}}?",
       "forWhom": "For",
-      "forWhomHint": "Pick more than one person for a joint gift.",
+      "findPerson": "Search for someone to add",
+      "noMatch": "No one by that name",
+      "forWhomHint": "Search for more people to make it a joint gift.",
       "jointHint": "Joint gift: it shows under each of them, and the price is shared evenly between their budgets."
     },
     "people_screen": {

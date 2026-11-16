@@ -626,7 +626,9 @@
       "delete": "Slett gave",
       "deleteTitle": "Slette {{title}}?",
       "forWhom": "Til",
-      "forWhomHint": "Velg flere for å gi en fellesgave.",
+      "findPerson": "Søk etter flere å gi til",
+      "noMatch": "Ingen med det navnet",
+      "forWhomHint": "Søk opp flere for å gi en fellesgave.",
       "jointHint": "Fellesgave: den vises hos hver av dem, og prisen deles likt mellom budsjettene."
     },
     "people_screen": {
