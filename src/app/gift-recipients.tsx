@@ -164,6 +164,43 @@ export default function GiftRecipientsScreen() {
           scrollEnabled={!dragging}
           style={{ backgroundColor: colors.background }}
           contentContainerStyle={[styles.content, desktop && styles.column]}>
+          <View style={styles.addRow}>
+            <Field
+              label={t('gifts.people_screen.newPerson')}
+              value={name}
+              onChangeText={setName}
+              maxLength={60}
+              placeholder={t('gifts.people_screen.newPlaceholder')}
+              returnKeyType="done"
+              onSubmitEditing={() => void add()}
+              style={{ flex: 1 }}
+            />
+            <Button
+              kind="secondary"
+              title={t('gifts.add')}
+              disabled={name.trim() === ''}
+              onPress={() => void add()}
+            />
+          </View>
+          <View style={styles.addRow}>
+            <Field
+              label={t('gifts.newGroup')}
+              value={groupName}
+              onChangeText={setGroupName}
+              maxLength={60}
+              placeholder={t('gifts.newGroupPlaceholder')}
+              returnKeyType="done"
+              onSubmitEditing={() => void addGroup()}
+              style={{ flex: 1 }}
+            />
+            <Button
+              kind="secondary"
+              title={t('gifts.add')}
+              disabled={groupName.trim() === ''}
+              onPress={() => void addGroup()}
+            />
+          </View>
+
           <Text color={colors.muted}>{t('gifts.people_screen.intro')}</Text>
 
           {unlinked.length > 0 ? (
@@ -213,24 +250,6 @@ export default function GiftRecipientsScreen() {
               </View>
             ) : null}
           </DropZone>
-          <View style={styles.addRow}>
-            <Field
-              label={t('gifts.people_screen.newPerson')}
-              value={name}
-              onChangeText={setName}
-              maxLength={60}
-              placeholder={t('gifts.people_screen.newPlaceholder')}
-              returnKeyType="done"
-              onSubmitEditing={() => void add()}
-              style={{ flex: 1 }}
-            />
-            <Button
-              kind="secondary"
-              title={t('gifts.add')}
-              disabled={name.trim() === ''}
-              onPress={() => void add()}
-            />
-          </View>
 
           <View style={{ gap: 12 }}>
             <Text variant="label" color={colors.muted} accessibilityRole="header">
@@ -289,24 +308,6 @@ export default function GiftRecipientsScreen() {
                 </DropZone>
               );
             })}
-            <View style={styles.addRow}>
-              <Field
-                label={t('gifts.newGroup')}
-                value={groupName}
-                onChangeText={setGroupName}
-                maxLength={60}
-                placeholder={t('gifts.newGroupPlaceholder')}
-                returnKeyType="done"
-                onSubmitEditing={() => void addGroup()}
-                style={{ flex: 1 }}
-              />
-              <Button
-                kind="secondary"
-                title={t('gifts.add')}
-                disabled={groupName.trim() === ''}
-                onPress={() => void addGroup()}
-              />
-            </View>
           </View>
 
           {archived.length > 0 ? (
