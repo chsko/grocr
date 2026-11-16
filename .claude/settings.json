@@ -11,11 +11,18 @@
         "source": "github",
         "repo": "pbakaus/impeccable"
       }
+    },
+    "mattpocock": {
+      "source": {
+        "source": "github",
+        "repo": "mattpocock/skills"
+      }
     }
   },
   "enabledPlugins": {
     "convex@claude-plugins-official": true,
     "expo@claude-plugins-official": true,
-    "impeccable@impeccable": true
+    "impeccable@impeccable": true,
+    "mattpocock-skills@mattpocock": true
   }
 }

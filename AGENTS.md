@@ -50,3 +50,19 @@ Docs: https://docs.expo.dev/eas/index.md
 - Dates are local `YYYY-MM-DD` strings in the family's timezone; use `src/lib/week.ts`.
 - Convex functions: never trust client-supplied user or group ids. Load the document, then call the helpers in `convex/lib/access.ts`. Add a cross-family test in `convex/*.test.ts` for every new function.
 - Grocery mutations set absolute state (never toggle), so retries and two people ticking at once are safe. The app requires a connection; there is no offline mode (decided 2026-10-24).
+
+## Agent skills
+
+Matt Pocock's skills (github.com/mattpocock/skills) are enabled as the `mattpocock-skills` plugin in `.claude/settings.json`. Main flow: `/grill-with-docs` -> `/to-spec` -> `/to-tickets` -> `/implement` (drives `/tdd`, ends with `/code-review`) -> `/retro`. `/ask-matt` explains which skill to use.
+
+### Issue tracker
+
+GitHub Issues on `chsko/grocr` (in cloud sessions via the GitHub MCP tools, not `gh`). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five default triage roles, each label named after its role (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
