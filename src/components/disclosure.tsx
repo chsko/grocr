@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Pressable } from 'react-native';
+import { Pressable, View } from 'react-native';
 import Animated, { useReducedMotion } from 'react-native-reanimated';
 
 import { ChevronRight } from '@/components/icons';
@@ -22,25 +22,36 @@ export function Disclosure({ open, color }: { open: boolean; color?: string }) {
   );
 }
 
-/** "Fold all" while any group is open, "Open all" once every group is shut. */
+/**
+ * A slim line above the groups: how many there are, and "Fold all" while any is open or
+ * "Open all" once every one is shut. It sits with the groups it folds, never by the search.
+ */
 export function FoldAll({
+  count,
   allClosed,
   onPress,
 }: {
+  /** Groups on screen. */
+  count: number;
   allClosed: boolean;
   onPress: (close: boolean) => void;
 }) {
   const colors = useColors();
   const { t } = useTranslation();
   return (
-    <Pressable
-      accessibilityRole="button"
-      hitSlop={8}
-      onPress={() => onPress(!allClosed)}
-      style={({ pressed }) => [{ paddingVertical: 8 }, pressed && { opacity: 0.6 }]}>
-      <Text variant="small" color={colors.tomato}>
-        {allClosed ? t('gifts.openAll') : t('gifts.closeAll')}
+    <View style={{ minHeight: 32, flexDirection: 'row', alignItems: 'center' }}>
+      <Text variant="small" color={colors.muted} style={{ flex: 1 }}>
+        {t('gifts.groupCount', { count })}
       </Text>
-    </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        hitSlop={10}
+        onPress={() => onPress(!allClosed)}
+        style={({ pressed }) => [{ paddingVertical: 6 }, pressed && { opacity: 0.6 }]}>
+        <Text variant="label" color={colors.tomato}>
+          {allClosed ? t('gifts.openAll') : t('gifts.closeAll')}
+        </Text>
+      </Pressable>
+    </View>
   );
 }

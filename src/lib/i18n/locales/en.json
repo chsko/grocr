@@ -550,6 +550,10 @@
       "jointGifts": {
         "title": "Joint gifts",
         "body": "One gift can be for several people, like Granny and Grandpa together. Open the gift and pick more than one under For. The price is shared evenly between their budgets."
+      },
+      "tidierGifts": {
+        "title": "Tidier gift lists",
+        "body": "The gifts now come first. Tap the counts in the summary to show only ideas, bought or wrapped gifts, and type new gifts straight into the list under each person. \"Fold all\" sits with the groups."
       }
     }
   },
@@ -599,7 +603,6 @@
     "giftsTitle": "Gifts",
     "newGift": "New gift",
     "newGiftPlaceholder": "E.g. Wool socks",
-    "add": "Add",
     "ideasTitle": "Idea bank",
     "ideasIntro": "Ideas you note during the year wait here until a Christmas comes.",
     "newIdea": "New idea",
@@ -634,7 +637,6 @@
     "people_screen": {
       "title": "People",
       "intro": "The people you give gifts to. Link the ones who are in the family, so they never see their own gifts.",
-      "newPerson": "New person",
       "newName": "Name",
       "newPlaceholder": "E.g. Granny",
       "linked": "In the family: {{name}}",
@@ -668,7 +670,6 @@
     "weekCardEmpty": "Nothing bought yet",
     "weekCardLeft": "{{amount}} left",
     "newGiftFor": "New gift for {{name}}",
-    "filterAll": "All",
     "boughtOf": "{{done}} of {{count}} bought",
     "filterHint": "Show gifts",
     "newIdeaFor": "New idea for {{name}}",
@@ -687,9 +688,6 @@
     "groupMenu": "Options for {{name}}",
     "addToGroup": "Add a person to {{name}}",
     "groupDone": "Bought for everyone in {{name}}",
-    "groups": "Groups",
-    "newGroup": "New group",
-    "newGroupPlaceholder": "E.g. In-laws",
     "groupLabel": "Group",
     "noGroupChoice": "No group",
     "renameGroupTitle": "Rename {{name}}",
@@ -703,7 +701,20 @@
     "dropHere": "Drag people here",
     "dropNoGroup": "Drag here to take out of a group",
     "dragIntroDesktop": "Drag a person into a group with the mouse. People without a group stay at the top.",
-    "jointWith": "Together with {{names}}"
+    "jointWith": "Together with {{names}}",
+    "groupCount_one": "{{count}} group",
+    "groupCount_other": "{{count}} groups",
+    "addToGroupShort": "New person in the group",
+    "statusCount": {
+      "idea_one": "{{count}} idea",
+      "idea_other": "{{count}} ideas",
+      "bought": "{{count}} bought",
+      "wrapped": "{{count}} wrapped"
+    },
+    "filterBy": "Show only {{status}}",
+    "newPersonButton": "New person",
+    "newGroupButton": "New group",
+    "noFilterMatch": "No gifts with this status. Tap the count again to show them all."
   },
   "web": {
     "noFamilyTitle": "Join a family in the app first",

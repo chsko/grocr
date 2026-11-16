@@ -10,6 +10,7 @@ import {
   type ScrollViewInstance,
   type ScrollViewProps,
   type StyleProp,
+  type TextInputInstance,
   type TextInputProps,
   type TextProps,
   type TextStyle,
@@ -166,6 +167,7 @@ export function Field({
   label?: string;
   style?: StyleProp<ViewStyle>;
   inputStyle?: StyleProp<TextStyle>;
+  ref?: React.Ref<TextInputInstance>;
 }) {
   const colors = useColors();
   const styles = useStyles();

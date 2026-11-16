@@ -1,8 +1,15 @@
 import { useMutation, useQuery } from 'convex/react';
 import { router, Stack } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, ScrollView, type StyleProp, View, type ViewStyle } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  type StyleProp,
+  type TextInputInstance,
+  View,
+  type ViewStyle,
+} from 'react-native';
 
 import {
   BudgetSheet,
@@ -102,6 +109,8 @@ export default function GiftsScreen() {
     });
   }
   const foldable = sections.filter((x) => x.title !== null).map((x) => x.key);
+  // Fold all shows from two real groups, as on Personer; it still folds "No group" too.
+  const groupKeys = foldable.filter((k) => k !== 'none');
   const { idea, bought, wrapped } = xmas.totals;
   const total = idea + bought + wrapped;
   const totalMoney = moneyLine(xmas.totals.spent, xmas.totals.budget);
@@ -180,68 +189,70 @@ export default function GiftsScreen() {
         </View>
       ) : null}
 
-      {tab === 'christmas' && groups.length === 0 && picked.length === 0 ? (
+      {tab === 'christmas' && sorted.length === 0 && picked.length === 0 ? (
         <Text color={colors.muted}>
           {past ? t('gifts.noPeopleThisYear') : `${t('gifts.intro')} ${t('gifts.empty')}`}
         </Text>
       ) : null}
 
-      {tab === 'christmas' && total > 0 ? (
+      {/* Kept while a filter is on, so it can always be turned off again. */}
+      {tab === 'christmas' && (total > 0 || filter !== null) ? (
         <View style={styles.summary}>
           <Text variant="item">
             {t('gifts.boughtOf', { done: bought + wrapped, count: total })}
           </Text>
           <ProgressBar bought={bought} wrapped={wrapped} total={total} />
           {totalMoney ? <Text color={colors.muted}>{totalMoney}</Text> : null}
+          {/* The counts are the legend of the bar and the status filter in one. */}
+          <View style={styles.filters}>
+            {GIFT_STATUSES.map((status) => {
+              const on = filter === status;
+              const count = xmas.totals[status];
+              return (
+                <Pressable
+                  key={status}
+                  accessibilityRole="button"
+                  accessibilityLabel={t(`gifts.statusCount.${status}`, { count })}
+                  accessibilityHint={t('gifts.filterBy', { status: t(`gifts.status.${status}`) })}
+                  accessibilityState={{ selected: on, disabled: count === 0 && !on }}
+                  disabled={count === 0 && !on}
+                  hitSlop={4}
+                  onPress={() => setFilter(on ? null : status)}
+                  style={({ pressed }) => [
+                    styles.filter,
+                    on && styles.filterOn,
+                    pressed && { opacity: 0.7 },
+                  ]}>
+                  <View style={[styles.dot, styles[`dot_${status}`], on && styles.dotOn]} />
+                  <Text
+                    variant="label"
+                    color={on ? colors.background : count === 0 ? colors.muted : colors.ink}>
+                    {t(`gifts.statusCount.${status}`, { count })}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
       ) : null}
 
-      {tab === 'christmas' && total > 0 ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chips}>
-          <Chip
-            title={t('gifts.filterAll')}
-            selected={filter === null}
-            accessibilityState={{ selected: filter === null }}
-            onPress={() => setFilter(null)}
-          />
-          {GIFT_STATUSES.map((status) => (
-            <Chip
-              key={status}
-              title={t(`gifts.status.${status}`)}
-              selected={filter === status}
-              accessibilityState={{ selected: filter === status }}
-              onPress={() => setFilter(filter === status ? null : status)}
-            />
-          ))}
-        </ScrollView>
-      ) : null}
-
-      {tab === 'christmas' && (xmas.groups.length > 0 || xmas.recipients.length >= SEARCH_FROM) ? (
-        <View style={styles.searchRow}>
-          <Field
-            value={search}
-            onChangeText={setSearch}
-            placeholder={t('gifts.searchPeople')}
-            accessibilityLabel={t('gifts.searchPeople')}
-            autoCorrect={false}
-            clearButtonMode="while-editing"
-            returnKeyType="search"
-            maxLength={60}
-            style={{ flex: 1 }}
-          />
-          {foldable.length > 0 && !searching ? (
-            <FoldAll
-              allClosed={foldable.every((k) => closed.includes(k))}
-              onPress={(close) => setClosed(close ? foldable : [])}
-            />
-          ) : null}
-        </View>
+      {tab === 'christmas' && (xmas.recipients.length >= SEARCH_FROM || searching) ? (
+        <Field
+          value={search}
+          onChangeText={setSearch}
+          placeholder={t('gifts.searchPeople')}
+          accessibilityLabel={t('gifts.searchPeople')}
+          autoCorrect={false}
+          clearButtonMode="while-editing"
+          returnKeyType="search"
+          maxLength={60}
+        />
       ) : null}
       {tab === 'christmas' && searching && sections.length === 0 ? (
         <Text color={colors.muted}>{t('gifts.noSearchMatch')}</Text>
+      ) : null}
+      {tab === 'christmas' && !searching && filter !== null && sections.length === 0 ? (
+        <Text color={colors.muted}>{t('gifts.noFilterMatch')}</Text>
       ) : null}
     </>
   );
@@ -258,6 +269,13 @@ export default function GiftsScreen() {
   const list = (
     <>
       {tab === 'bank' ? <IdeaBank desktop={desktop} /> : null}
+      {tab === 'christmas' && groupKeys.length >= 2 && !searching ? (
+        <FoldAll
+          count={groupKeys.length}
+          allClosed={foldable.every((k) => closed.includes(k))}
+          onPress={(close) => setClosed(close ? foldable : [])}
+        />
+      ) : null}
       {(tab === 'christmas' ? sections : []).map((section) => (
         <View key={section.key} style={styles.section}>
           {section.title !== null ? (
@@ -309,8 +327,8 @@ export default function GiftsScreen() {
                       </Text>
                     </Pressable>
                   </View>
-                  {group.gifts.length > 0 ? (
-                    <View style={styles.list}>
+                  {group.gifts.length > 0 || filter === null ? (
+                    <View style={[styles.list, desktop && styles.flat]}>
                       {group.gifts.map((gift, index) => (
                         <View key={gift._id} style={[styles.row, index > 0 && styles.divider]}>
                           <Pressable
@@ -333,10 +351,15 @@ export default function GiftsScreen() {
                           />
                         </View>
                       ))}
+                      {filter === null ? (
+                        <AddGift
+                          recipientId={group._id}
+                          name={group.name}
+                          year={xmas.year}
+                          divider={group.gifts.length > 0}
+                        />
+                      ) : null}
                     </View>
-                  ) : null}
-                  {filter === null ? (
-                    <AddGift recipientId={group._id} name={group.name} year={xmas.year} />
                   ) : null}
                   {filter === null && group.bankCount > 0 ? (
                     <Pressable
@@ -360,7 +383,9 @@ export default function GiftsScreen() {
         ? picked.map((r) => (
             <View key={r._id} style={styles.group}>
               <Text variant="item">{r.name}</Text>
-              <AddGift recipientId={r._id} name={r.name} year={xmas.year} />
+              <View style={styles.list}>
+                <AddGift recipientId={r._id} name={r.name} year={xmas.year} />
+              </View>
             </View>
           ))
         : null}
@@ -475,44 +500,42 @@ function IdeaBank({ desktop }: { desktop: boolean }) {
         {groups.map((group) => (
           <View key={group._id} style={[styles.group, desktop && styles.card]}>
             <Text variant="item">{group.name}</Text>
-            {group.ideas.length > 0 ? (
-              <View style={styles.list}>
-                {group.ideas.map((idea, index) => (
-                  <View key={idea._id} style={[styles.idea, index > 0 && styles.divider]}>
-                    <View style={styles.ideaTop}>
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={idea.title}
-                        onPress={() => router.push(`/gift/${idea._id}`)}
-                        style={({ pressed }) => [{ flex: 1, gap: 2 }, pressed && { opacity: 0.7 }]}>
-                        <Text>{idea.title}</Text>
-                        <GiftLine gift={idea} forId={group._id} />
-                      </Pressable>
-                      <StatusPill
-                        title={idea.title}
-                        status={idea.status}
-                        onChange={(status) =>
-                          void attempt(t, () => setStatus({ giftId: idea._id, status }))
-                        }
-                      />
-                    </View>
-                    {/* Under the title, so a long idea never has to break mid-word beside it. */}
-                    <View style={{ alignItems: 'flex-start' }}>
-                      <Chip
-                        title={t('gifts.moveIn', { year: bank.currentYear })}
-                        accessibilityLabel={`${idea.title}: ${t('gifts.moveIn', { year: bank.currentYear })}`}
-                        onPress={() =>
-                          void attempt(t, () =>
-                            moveGift({ giftId: idea._id, year: bank.currentYear }),
-                          )
-                        }
-                      />
-                    </View>
+            <View style={[styles.list, desktop && styles.flat]}>
+              {group.ideas.map((idea, index) => (
+                <View key={idea._id} style={[styles.idea, index > 0 && styles.divider]}>
+                  <View style={styles.ideaTop}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={idea.title}
+                      onPress={() => router.push(`/gift/${idea._id}`)}
+                      style={({ pressed }) => [{ flex: 1, gap: 2 }, pressed && { opacity: 0.7 }]}>
+                      <Text>{idea.title}</Text>
+                      <GiftLine gift={idea} forId={group._id} />
+                    </Pressable>
+                    <StatusPill
+                      title={idea.title}
+                      status={idea.status}
+                      onChange={(status) =>
+                        void attempt(t, () => setStatus({ giftId: idea._id, status }))
+                      }
+                    />
                   </View>
-                ))}
-              </View>
-            ) : null}
-            <AddGift recipientId={group._id} name={group.name} />
+                  {/* Under the title, so a long idea never has to break mid-word beside it. */}
+                  <View style={{ alignItems: 'flex-start' }}>
+                    <Chip
+                      title={t('gifts.moveIn', { year: bank.currentYear })}
+                      accessibilityLabel={`${idea.title}: ${t('gifts.moveIn', { year: bank.currentYear })}`}
+                      onPress={() =>
+                        void attempt(t, () =>
+                          moveGift({ giftId: idea._id, year: bank.currentYear }),
+                        )
+                      }
+                    />
+                  </View>
+                </View>
+              ))}
+              <AddGift recipientId={group._id} name={group.name} divider={group.ideas.length > 0} />
+            </View>
           </View>
         ))}
       </People>
@@ -609,21 +632,30 @@ function useSetGiftStatus() {
   });
 }
 
-/** The add field under a recipient's gifts. Clears at once; a failed add puts the text back. */
+/**
+ * The last line of a recipient's gifts: a quiet "+ New gift" that takes typing in place, so the
+ * gifts stay what the eye lands on. Clears at once; a failed add puts the text back.
+ */
 function AddGift({
   recipientId,
   name,
   year,
+  divider,
 }: {
   recipientId: Id<'giftRecipients'>;
   name: string;
   /** Left out for the idea bank. */
   year?: number;
+  /** A rule above it, when gifts stand over it. */
+  divider?: boolean;
 }) {
+  const colors = useColors();
+  const styles = useStyles();
   const { t } = useTranslation();
   const addGift = useMutation(api.gifts.addGift);
   const label = t(year === undefined ? 'gifts.newIdeaFor' : 'gifts.newGiftFor', { name });
   const [text, setText] = useState('');
+  const input = useRef<TextInputInstance>(null);
 
   async function add() {
     const title = text;
@@ -636,16 +668,25 @@ function AddGift({
   }
 
   return (
-    <Field
-      accessibilityLabel={label}
-      value={text}
-      onChangeText={setText}
-      maxLength={120}
-      placeholder={label}
-      returnKeyType="done"
-      blurOnSubmit={false}
-      onSubmitEditing={() => void add()}
-    />
+    <Pressable
+      accessible={false}
+      onPress={() => input.current?.focus()}
+      style={[styles.addRow, divider && styles.divider]}>
+      <Plus color={colors.tomato} size={18} strokeWidth={2.2} />
+      <Field
+        ref={input}
+        accessibilityLabel={label}
+        value={text}
+        onChangeText={setText}
+        maxLength={120}
+        placeholder={t(year === undefined ? 'gifts.newIdea' : 'gifts.newGift')}
+        returnKeyType="done"
+        blurOnSubmit={false}
+        onSubmitEditing={() => void add()}
+        style={{ flex: 1 }}
+        inputStyle={styles.addInput}
+      />
+    </Pressable>
   );
 }
 
@@ -705,8 +746,33 @@ const useStyles = makeStyles((colors) => ({
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   year: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   summary: { gap: 10, padding: 16, borderRadius: Radius.card, backgroundColor: colors.saffronTint },
-  chips: { gap: 8 },
-  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  // The counts in the summary: legend and filter at once.
+  filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  filter: {
+    minHeight: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    borderRadius: Radius.pill,
+    backgroundColor: colors.raised,
+  },
+  filterOn: { backgroundColor: colors.ink },
+  dot: { width: 10, height: 10, borderRadius: 5 },
+  // On the dark selected pill the dot keeps a light ring, so it still reads.
+  dotOn: { borderWidth: 1.5, borderColor: colors.background, opacity: 1 },
+  dot_idea: { backgroundColor: colors.saffronSoft, borderWidth: 1, borderColor: colors.saffronInk },
+  dot_bought: { backgroundColor: colors.saffronInk, opacity: 0.5 },
+  dot_wrapped: { backgroundColor: colors.saffronInk },
+  addRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  addInput: {
+    minHeight: 48,
+    borderWidth: 0,
+    paddingHorizontal: 0,
+    backgroundColor: 'transparent',
+  },
+  // In a desktop card the card is the box; the gifts stand straight in it.
+  flat: { backgroundColor: 'transparent', paddingHorizontal: 0 },
   list: { borderRadius: Radius.card, backgroundColor: colors.surface, paddingHorizontal: 14 },
   row: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
   divider: { borderTopWidth: 1, borderTopColor: colors.divider },

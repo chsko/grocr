@@ -7,7 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Disclosure, FoldAll } from '@/components/disclosure';
 import { DragRow, DragZones, DropZone } from '@/components/drag-to-group';
 import { NameSheet, Sheet } from '@/components/gift-parts';
-import { ChevronLeft, ChevronRight, More } from '@/components/icons';
+import { ChevronLeft, ChevronRight, More, Plus } from '@/components/icons';
 import { Button, Field, IconButton, Loading, Text } from '@/components/ui';
 import { Fonts, Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
@@ -45,8 +45,8 @@ export default function GiftRecipientsScreen() {
   const renameRecipient = useMutation(api.gifts.renameRecipient);
   const addGiftGroup = useMutation(api.gifts.addGiftGroup);
   const setRecipientGroup = useMutation(api.gifts.setRecipientGroup);
-  const [name, setName] = useState('');
-  const [groupName, setGroupName] = useState('');
+  // The sheet for a new person or a new group, opened from the buttons at the top.
+  const [adding, setAdding] = useState<'person' | 'group' | null>(null);
   const [openGroup, setOpenGroup] = useState<{
     id: Id<'giftGroups'>;
     mode: 'menu' | 'rename';
@@ -80,22 +80,7 @@ export default function GiftRecipientsScreen() {
     giftGroups.find((g) => g._id === id)?.name ?? null;
   const currentGroup = giftGroups.find((g) => g._id === openGroup?.id);
 
-  async function addGroup() {
-    const typed = groupName;
-    if (typed.trim() === '') return;
-    setGroupName('');
-    const id = await attempt(t, () => addGiftGroup({ groupId: family.groupId, name: typed }));
-    if (id === undefined) setGroupName((now) => (now === '' ? typed : now));
-  }
   const current = sorted.find((r) => r._id === open?.id);
-
-  async function add() {
-    const typed = name;
-    if (typed.trim() === '') return;
-    setName('');
-    const id = await attempt(t, () => addRecipient({ groupId: family.groupId, name: typed }));
-    if (id === undefined) setName((now) => (now === '' ? typed : now));
-  }
 
   function row(r: Recipient, index: number) {
     return (
@@ -182,44 +167,24 @@ export default function GiftRecipientsScreen() {
           scrollEnabled={!dragging}
           style={{ backgroundColor: colors.background }}
           contentContainerStyle={[styles.content, desktop && styles.column]}>
-          <View style={styles.addRow}>
-            <Field
-              label={t('gifts.people_screen.newPerson')}
-              value={name}
-              onChangeText={setName}
-              maxLength={60}
-              placeholder={t('gifts.people_screen.newPlaceholder')}
-              returnKeyType="done"
-              onSubmitEditing={() => void add()}
-              style={{ flex: 1 }}
-            />
-            <Button
-              kind="secondary"
-              title={t('gifts.add')}
-              disabled={name.trim() === ''}
-              onPress={() => void add()}
-            />
-          </View>
-          <View style={styles.addRow}>
-            <Field
-              label={t('gifts.newGroup')}
-              value={groupName}
-              onChangeText={setGroupName}
-              maxLength={60}
-              placeholder={t('gifts.newGroupPlaceholder')}
-              returnKeyType="done"
-              onSubmitEditing={() => void addGroup()}
-              style={{ flex: 1 }}
-            />
-            <Button
-              kind="secondary"
-              title={t('gifts.add')}
-              disabled={groupName.trim() === ''}
-              onPress={() => void addGroup()}
-            />
-          </View>
-
           <Text color={colors.muted}>{t('gifts.people_screen.intro')}</Text>
+          {/* Same pattern as "Add person" on the gift list: a button that opens a small sheet. */}
+          <View style={styles.addRow}>
+            <Button
+              kind="secondary"
+              title={t('gifts.newPersonButton')}
+              icon={<Plus color={colors.tomato} size={18} strokeWidth={2.2} />}
+              onPress={() => setAdding('person')}
+              style={{ flex: 1 }}
+            />
+            <Button
+              kind="secondary"
+              title={t('gifts.newGroupButton')}
+              icon={<Plus color={colors.tomato} size={18} strokeWidth={2.2} />}
+              onPress={() => setAdding('group')}
+              style={{ flex: 1 }}
+            />
+          </View>
 
           {unlinked.length > 0 ? (
             <View style={styles.suggest}>
@@ -250,26 +215,17 @@ export default function GiftRecipientsScreen() {
             </View>
           ) : null}
 
-          {giftGroups.length > 0 || sorted.length >= SEARCH_FROM ? (
-            <View style={styles.searchRow}>
-              <Field
-                value={search}
-                onChangeText={setSearch}
-                placeholder={t('gifts.searchPeople')}
-                accessibilityLabel={t('gifts.searchPeople')}
-                autoCorrect={false}
-                clearButtonMode="while-editing"
-                returnKeyType="search"
-                maxLength={60}
-                style={{ flex: 1 }}
-              />
-              {giftGroups.length > 0 && !searching ? (
-                <FoldAll
-                  allClosed={giftGroups.every((g) => closed.includes(g._id))}
-                  onPress={(close) => setClosed(close ? giftGroups.map((g) => g._id) : [])}
-                />
-              ) : null}
-            </View>
+          {sorted.length >= SEARCH_FROM || searching ? (
+            <Field
+              value={search}
+              onChangeText={setSearch}
+              placeholder={t('gifts.searchPeople')}
+              accessibilityLabel={t('gifts.searchPeople')}
+              autoCorrect={false}
+              clearButtonMode="while-editing"
+              returnKeyType="search"
+              maxLength={60}
+            />
           ) : null}
           {searching &&
           looseShown.length === 0 &&
@@ -302,13 +258,17 @@ export default function GiftRecipientsScreen() {
           )}
 
           <View style={{ gap: 12 }}>
-            <Text variant="label" color={colors.muted} accessibilityRole="header">
-              {t('gifts.groups')}
-            </Text>
-            {giftGroups.length > 0 ? (
-              <Text color={colors.muted}>
+            {giftGroups.length > 0 && !searching ? (
+              <Text variant="small" color={colors.muted}>
                 {t(desktop ? 'gifts.dragIntroDesktop' : 'gifts.dragIntro')}
               </Text>
+            ) : null}
+            {giftGroups.length >= 2 && !searching ? (
+              <FoldAll
+                count={giftGroups.length}
+                allClosed={giftGroups.every((g) => closed.includes(g._id))}
+                onPress={(close) => setClosed(close ? giftGroups.map((g) => g._id) : [])}
+              />
             ) : null}
             {groupsShown.map((g) => {
               const people = g.people;
@@ -330,7 +290,7 @@ export default function GiftRecipientsScreen() {
                       }}
                       style={({ pressed }) => [styles.groupToggle, pressed && { opacity: 0.7 }]}>
                       <Disclosure open={isOpen(g._id)} color={colors.ink} />
-                      <Text variant="item" style={styles.groupName}>
+                      <Text variant="item" accessibilityRole="header" style={styles.groupName}>
                         {g.name}
                       </Text>
                       <Text variant="small" color={colors.muted}>
@@ -378,6 +338,19 @@ export default function GiftRecipientsScreen() {
             <Text color={colors.muted}>{dayMonth(t, `2000-${data.cardStart}`)}</Text>
             <ChevronRight color={colors.muted} size={18} />
           </Pressable>
+          {adding !== null ? (
+            <NameSheet
+              title={t(adding === 'person' ? 'gifts.newPersonButton' : 'gifts.newGroupButton')}
+              label={t('gifts.people_screen.newName')}
+              initial=""
+              onSave={(typed) =>
+                adding === 'person'
+                  ? addRecipient({ groupId: family.groupId, name: typed })
+                  : addGiftGroup({ groupId: family.groupId, name: typed })
+              }
+              onClose={() => setAdding(null)}
+            />
+          ) : null}
           {pickingStart ? (
             <CardStartSheet current={data.cardStart} onClose={() => setPickingStart(false)} />
           ) : null}
@@ -706,6 +679,8 @@ function ManageSheet({
 
 /** Adds a person straight into a gift group. */
 function AddToGroup({ giftGroupId, name }: { giftGroupId: Id<'giftGroups'>; name: string }) {
+  const colors = useColors();
+  const styles = useStyles();
   const { t } = useTranslation();
   const family = useFamily();
   const addRecipient = useMutation(api.gifts.addRecipient);
@@ -723,16 +698,21 @@ function AddToGroup({ giftGroupId, name }: { giftGroupId: Id<'giftGroups'>; name
   }
 
   return (
-    <Field
-      accessibilityLabel={label}
-      value={text}
-      onChangeText={setText}
-      maxLength={60}
-      placeholder={label}
-      returnKeyType="done"
-      blurOnSubmit={false}
-      onSubmitEditing={() => void add()}
-    />
+    <View style={styles.addTo}>
+      <Plus color={colors.tomato} size={18} strokeWidth={2.2} />
+      <Field
+        accessibilityLabel={label}
+        value={text}
+        onChangeText={setText}
+        maxLength={60}
+        placeholder={t('gifts.addToGroupShort')}
+        returnKeyType="done"
+        blurOnSubmit={false}
+        onSubmitEditing={() => void add()}
+        style={{ flex: 1 }}
+        inputStyle={styles.addInput}
+      />
+    </View>
   );
 }
 
@@ -743,8 +723,10 @@ const useStyles = makeStyles((colors) => ({
   list: { borderRadius: Radius.card, backgroundColor: colors.surface, paddingHorizontal: 14 },
   row: { minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
   divider: { borderTopWidth: 1, borderTopColor: colors.divider },
-  addRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
-  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  addRow: { flexDirection: 'row', gap: 10 },
+  // A quiet last line under a group's people, lined up with the names in the rows.
+  addTo: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 14 },
+  addInput: { minHeight: 48, borderWidth: 0, paddingHorizontal: 0, backgroundColor: 'transparent' },
   setting: {
     minHeight: 52,
     flexDirection: 'row',

@@ -550,6 +550,10 @@
       "jointGifts": {
         "title": "Fellesgaver",
         "body": "Én gave kan gå til flere, for eksempel til bestemor og bestefar sammen. Åpne gaven og velg flere under Til. Prisen deles likt mellom budsjettene."
+      },
+      "tidierGifts": {
+        "title": "Ryddigere julegaver",
+        "body": "Gavene står nå øverst. Trykk på tallene i oppsummeringen for å vise bare idéer, kjøpte eller pakkede gaver, og skriv nye gaver rett i listen under hver person. «Lukk alle» står ved gruppene."
       }
     }
   },
@@ -599,7 +603,6 @@
     "giftsTitle": "Gaver",
     "newGift": "Ny gave",
     "newGiftPlaceholder": "F.eks. Ullsokker",
-    "add": "Legg til",
     "ideasTitle": "Idébank",
     "ideasIntro": "Idéer du noterer gjennom året venter her til det blir jul.",
     "newIdea": "Ny idé",
@@ -634,7 +637,6 @@
     "people_screen": {
       "title": "Personer",
       "intro": "Dem dere gir gaver til. Koble de som er i familien, så de aldri ser sine egne gaver.",
-      "newPerson": "Ny person",
       "newName": "Navn",
       "newPlaceholder": "F.eks. Bestemor",
       "linked": "I familien: {{name}}",
@@ -668,7 +670,6 @@
     "weekCardEmpty": "Ingenting kjøpt ennå",
     "weekCardLeft": "{{amount}} igjen",
     "newGiftFor": "Ny gave til {{name}}",
-    "filterAll": "Alle",
     "boughtOf": "{{done}} av {{count}} kjøpt",
     "filterHint": "Vis gaver",
     "newIdeaFor": "Ny idé til {{name}}",
@@ -687,9 +688,6 @@
     "groupMenu": "Valg for {{name}}",
     "addToGroup": "Legg til person i {{name}}",
     "groupDone": "Kjøpt til alle i {{name}}",
-    "groups": "Grupper",
-    "newGroup": "Ny gruppe",
-    "newGroupPlaceholder": "F.eks. Svigers",
     "groupLabel": "Gruppe",
     "noGroupChoice": "Ingen gruppe",
     "renameGroupTitle": "Gi {{name}} nytt navn",
@@ -703,7 +701,20 @@
     "dropHere": "Dra personer hit",
     "dropNoGroup": "Dra hit for å ta ut av gruppe",
     "dragIntroDesktop": "Dra en person inn i en gruppe med musen. De uten gruppe står øverst.",
-    "jointWith": "Felles med {{names}}"
+    "jointWith": "Felles med {{names}}",
+    "groupCount_one": "{{count}} gruppe",
+    "groupCount_other": "{{count}} grupper",
+    "addToGroupShort": "Ny person i gruppen",
+    "statusCount": {
+      "idea_one": "{{count}} idé",
+      "idea_other": "{{count}} idéer",
+      "bought": "{{count}} kjøpt",
+      "wrapped": "{{count}} pakket"
+    },
+    "filterBy": "Vis bare {{status}}",
+    "newPersonButton": "Ny person",
+    "newGroupButton": "Ny gruppe",
+    "noFilterMatch": "Ingen gaver med denne statusen. Trykk på tallet igjen for å vise alle."
   },
   "web": {
     "noFamilyTitle": "Bli med i en familie i appen først",

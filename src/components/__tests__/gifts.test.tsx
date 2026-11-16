@@ -165,10 +165,24 @@ describe('one gift list', () => {
       groups: unknown[];
       recipients: { giftGroupId?: string | null }[];
     };
-    xmas.groups = [{ _id: 'gg1', name: 'Svigers', done: false }];
+    xmas.groups = [
+      { _id: 'gg1', name: 'Svigers', done: false },
+      { _id: 'gg2', name: 'Venner', done: false },
+    ];
     xmas.recipients[0].giftGroupId = 'gg1';
     xmas.recipients[1].giftGroupId = null;
+    // The search shows from eight people.
+    const extra = Array.from({ length: 8 }, (_, i) => ({
+      ...xmas.recipients[1],
+      _id: `x${i}`,
+      name: `Venn ${i}`,
+      giftGroupId: 'gg2',
+      gifts: [],
+    }));
+    xmas.recipients.push(...extra);
     await render(<GiftsScreen />);
+    // Fold all stands with the groups, never by the search field.
+    expect(screen.getByText('2 grupper')).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: 'Lukk alle' }));
     expect(screen.queryByText('Bestemor')).toBeNull();
     const search = screen.getByLabelText('Søk etter person eller gruppe');
@@ -273,11 +287,13 @@ describe('one gift list', () => {
 
   test('the status filter narrows the list and hides empty groups', async () => {
     await render(<GiftsScreen />);
-    await fireEvent.press(screen.getByRole('button', { name: 'Idé' }));
+    expect(screen.queryByLabelText('Søk etter person eller gruppe')).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: '1 idé' }));
     expect(screen.getByText('Hyasinter')).toBeTruthy();
     expect(screen.queryByText('Ullpledd')).toBeNull();
     expect(screen.queryByText('Ola')).toBeNull();
-    await fireEvent.press(screen.getByRole('button', { name: 'Alle' }));
+    // Tapping the chosen count again shows everything.
+    await fireEvent.press(screen.getByRole('button', { name: '1 idé' }));
     expect(screen.getByText('Ola')).toBeTruthy();
   });
 
@@ -415,9 +431,19 @@ describe('recipients', () => {
       recipients: { _id: string; name: string; giftGroupId?: string | null }[];
     };
     data.recipients.find((r) => r._id === 'r2')!.giftGroupId = 'gg1';
+    (data as unknown as { groups: { _id: string; name: string }[] }).groups.push({
+      _id: 'gg2',
+      name: 'Barna',
+    });
+    // The search shows from eight people.
+    for (let i = 0; i < 8; i++) {
+      data.recipients.push({ _id: `x${i}`, name: `Venn ${i}`, giftGroupId: 'gg2' });
+    }
     await render(<GiftRecipientsScreen />);
+    expect(screen.getByText('2 grupper')).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: 'Lukk alle' }));
     expect(screen.queryByText('Ola')).toBeNull();
+    expect(screen.queryByText('Venn 0')).toBeNull();
     const search = screen.getByLabelText('Søk etter person eller gruppe');
     await fireEvent.changeText(search, 'svig');
     expect(screen.getByText('Ola')).toBeTruthy();
@@ -442,8 +468,9 @@ describe('recipients', () => {
 
   test('adds a group by name', async () => {
     await render(<GiftRecipientsScreen />);
-    await fireEvent.changeText(screen.getByLabelText('Ny gruppe'), 'Barna');
-    await fireEvent(screen.getByLabelText('Ny gruppe'), 'submitEditing');
+    await fireEvent.press(screen.getByRole('button', { name: 'Ny gruppe' }));
+    await fireEvent.changeText(screen.getByLabelText('Navn'), 'Barna');
+    await fireEvent(screen.getByLabelText('Navn'), 'submitEditing');
     expect(mockCalls).toEqual([['gifts.addGiftGroup', { groupId: 'g1', name: 'Barna' }]]);
   });
 
@@ -505,8 +532,9 @@ describe('recipients', () => {
 
   test('adds a recipient by name', async () => {
     await render(<GiftRecipientsScreen />);
-    await fireEvent.changeText(screen.getByLabelText('Ny person'), 'Tante Liv');
-    await fireEvent(screen.getByLabelText('Ny person'), 'submitEditing');
+    await fireEvent.press(screen.getByRole('button', { name: 'Ny person' }));
+    await fireEvent.changeText(screen.getByLabelText('Navn'), 'Tante Liv');
+    await fireEvent(screen.getByLabelText('Navn'), 'submitEditing');
     expect(mockCalls).toContainEqual(['gifts.addRecipient', { groupId: 'g1', name: 'Tante Liv' }]);
   });
 });
