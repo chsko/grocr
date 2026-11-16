@@ -684,7 +684,8 @@
     "dragHint": "Hold and drag to a group",
     "dragIntro": "Hold a person and drag them into a group. People without a group stay at the top.",
     "dropHere": "Drag people here",
-    "dropNoGroup": "Drag here to take out of a group"
+    "dropNoGroup": "Drag here to take out of a group",
+    "dragIntroDesktop": "Drag a person into a group with the mouse. People without a group stay at the top."
   },
   "web": {
     "noFamilyTitle": "Join a family in the app first",

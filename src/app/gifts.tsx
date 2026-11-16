@@ -2,7 +2,7 @@ import { useMutation, useQuery } from 'convex/react';
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, type StyleProp, View, type ViewStyle } from 'react-native';
 
 import {
   BudgetSheet,
@@ -11,6 +11,7 @@ import {
   StatusPill,
   useMoneyLine,
 } from '@/components/gift-parts';
+import { CardGrid } from '@/components/card-grid';
 import { Disclosure } from '@/components/disclosure';
 import { Check, ChevronLeft, ChevronRight, Plus } from '@/components/icons';
 import { Button, Chip, Field, IconButton, Loading, Text } from '@/components/ui';
@@ -26,6 +27,7 @@ import {
 } from '@/convex/lib/gifts';
 import { recipeSite } from '@/convex/lib/recipeLink';
 import { makeStyles, useColors } from '@/lib/appearance';
+import { useDesktop } from '@/lib/desktop';
 import { attempt } from '@/lib/errors';
 import { formatKroner } from '@/lib/format';
 import { useFamily } from '@/lib/session';
@@ -60,6 +62,7 @@ export default function GiftsScreen() {
   const [budgetFor, setBudgetFor] = useState<Id<'giftRecipients'> | null>(null);
   const [tab, setTab] = useState<'christmas' | 'bank'>('christmas');
   const moneyLine = useMoneyLine();
+  const desktop = useDesktop();
 
   if (xmas === undefined) return <Loading />;
   const sorted = [...xmas.recipients].sort((a, b) => a.name.localeCompare(b.name, i18n.language));
@@ -103,44 +106,44 @@ export default function GiftsScreen() {
     setFilter(null);
   }
 
-  return (
-    <ScrollView
-      contentInsetAdjustmentBehavior="automatic"
-      automaticallyAdjustKeyboardInsets
-      keyboardShouldPersistTaps="handled"
-      style={{ backgroundColor: colors.background }}
-      contentContainerStyle={styles.content}>
-      <Stack.Screen
-        options={{
-          headerRight: () => (
-            <Pressable
-              accessibilityRole="button"
-              hitSlop={8}
-              onPress={() => router.push('/gift-recipients')}
-              style={({ pressed }) => [styles.headerButton, pressed && { opacity: 0.6 }]}>
-              <Text variant="item" color={colors.tomato}>
-                {t('gifts.people')}
-              </Text>
-            </Pressable>
-          ),
-        }}
-      />
-      <View style={styles.tabs} accessibilityRole="tablist">
-        {(['christmas', 'bank'] as const).map((key) => (
+  const header = (
+    <Stack.Screen
+      options={{
+        headerRight: () => (
           <Pressable
-            key={key}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: tab === key }}
-            onPress={() => setTab(key)}
-            style={[styles.tab, tab === key && styles.tabOn]}>
-            <Text variant="label" color={tab === key ? colors.ink : colors.muted}>
-              {key === 'christmas' ? t('gifts.christmasTab') : t('gifts.ideasTitle')}
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={() => router.push('/gift-recipients')}
+            style={({ pressed }) => [styles.headerButton, pressed && { opacity: 0.6 }]}>
+            <Text variant="item" color={colors.tomato}>
+              {t('gifts.people')}
             </Text>
           </Pressable>
-        ))}
-      </View>
+        ),
+      }}
+    />
+  );
 
-      {tab === 'bank' ? <IdeaBank /> : null}
+  const tabs = (
+    <View style={styles.tabs} accessibilityRole="tablist">
+      {(['christmas', 'bank'] as const).map((key) => (
+        <Pressable
+          key={key}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: tab === key }}
+          onPress={() => setTab(key)}
+          style={[styles.tab, tab === key && styles.tabOn]}>
+          <Text variant="label" color={tab === key ? colors.ink : colors.muted}>
+            {key === 'christmas' ? t('gifts.christmasTab') : t('gifts.ideasTitle')}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+
+  // Year, progress and filters: above the list on a phone, in a side column on a big screen.
+  const overview = (
+    <>
       {tab === 'christmas' ? (
         <View style={styles.stepper}>
           <IconButton
@@ -205,7 +208,21 @@ export default function GiftsScreen() {
           ))}
         </ScrollView>
       ) : null}
+    </>
+  );
 
+  const addPerson = (
+    <Button
+      kind="ghost"
+      title={t('gifts.addPerson')}
+      icon={<Plus color={colors.tomato} size={20} strokeWidth={2.2} />}
+      onPress={() => setAdding(true)}
+    />
+  );
+
+  const list = (
+    <>
+      {tab === 'bank' ? <IdeaBank desktop={desktop} /> : null}
       {(tab === 'christmas' ? sections : []).map((section) => (
         <View key={section.key} style={styles.section}>
           {section.title !== null ? (
@@ -232,9 +249,11 @@ export default function GiftsScreen() {
             </Pressable>
           ) : null}
           {section.title !== null && closed.includes(section.key) ? null : (
-            <View style={section.title !== null ? styles.members : styles.section}>
+            <People
+              desktop={desktop}
+              style={section.title !== null ? styles.members : styles.section}>
               {section.people.map((group) => (
-                <View key={group._id} style={styles.group}>
+                <View key={group._id} style={[styles.group, desktop && styles.card]}>
                   <View style={styles.head}>
                     <Text variant="item">{group.name}</Text>
                     <Pressable
@@ -297,7 +316,7 @@ export default function GiftsScreen() {
                   ) : null}
                 </View>
               ))}
-            </View>
+            </People>
           )}
         </View>
       ))}
@@ -322,14 +341,11 @@ export default function GiftsScreen() {
           </View>
         </View>
       ) : null}
+    </>
+  );
 
-      <Button
-        kind="ghost"
-        title={t('gifts.addPerson')}
-        icon={<Plus color={colors.tomato} size={20} strokeWidth={2.2} />}
-        onPress={() => setAdding(true)}
-      />
-
+  const sheets = (
+    <>
       {editing ? (
         <BudgetSheet
           recipientId={editing._id}
@@ -350,12 +366,62 @@ export default function GiftsScreen() {
           onClose={() => setAdding(false)}
         />
       ) : null}
+    </>
+  );
+
+  if (desktop) {
+    return (
+      <View style={styles.desktop}>
+        {header}
+        <ScrollView style={styles.side} contentContainerStyle={styles.sideContent}>
+          {tabs}
+          {overview}
+          {addPerson}
+        </ScrollView>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.main}>
+          {list}
+        </ScrollView>
+        {sheets}
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      contentInsetAdjustmentBehavior="automatic"
+      automaticallyAdjustKeyboardInsets
+      keyboardShouldPersistTaps="handled"
+      style={{ backgroundColor: colors.background }}
+      contentContainerStyle={styles.content}>
+      {header}
+      {tabs}
+      {tab === 'bank' ? null : overview}
+      {list}
+      {addPerson}
+      {sheets}
     </ScrollView>
   );
 }
 
+/** A group's people: indented under the heading on a phone, cards in columns on a big screen. */
+function People({
+  desktop,
+  style,
+  children,
+}: {
+  desktop: boolean;
+  style: StyleProp<ViewStyle>;
+  children: React.ReactNode;
+}) {
+  if (desktop) return <CardGrid>{children}</CardGrid>;
+  return <View style={style}>{children}</View>;
+}
+
 /** The idea bank tab: ideas per recipient, noted all year, moved into a Christmas with a tap. */
-function IdeaBank() {
+function IdeaBank({ desktop }: { desktop: boolean }) {
   const colors = useColors();
   const styles = useStyles();
   const { t, i18n } = useTranslation();
@@ -367,50 +433,54 @@ function IdeaBank() {
   const groups = [...bank.recipients].sort((a, b) => a.name.localeCompare(b.name, i18n.language));
   return (
     <>
-      <Text color={colors.muted}>{t('gifts.ideasIntro')}</Text>
-      {groups.map((group) => (
-        <View key={group._id} style={styles.group}>
-          <Text variant="item">{group.name}</Text>
-          {group.ideas.length > 0 ? (
-            <View style={styles.list}>
-              {group.ideas.map((idea, index) => (
-                <View key={idea._id} style={[styles.idea, index > 0 && styles.divider]}>
-                  <View style={styles.ideaTop}>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={idea.title}
-                      onPress={() => router.push(`/gift/${idea._id}`)}
-                      style={({ pressed }) => [{ flex: 1, gap: 2 }, pressed && { opacity: 0.7 }]}>
-                      <Text>{idea.title}</Text>
-                      <GiftLine gift={idea} />
-                    </Pressable>
-                    <StatusPill
-                      title={idea.title}
-                      status={idea.status}
-                      onChange={(status) =>
-                        void attempt(t, () => setStatus({ giftId: idea._id, status }))
-                      }
-                    />
+      <Text color={colors.muted} style={desktop && { maxWidth: 640 }}>
+        {t('gifts.ideasIntro')}
+      </Text>
+      <People desktop={desktop} style={styles.section}>
+        {groups.map((group) => (
+          <View key={group._id} style={[styles.group, desktop && styles.card]}>
+            <Text variant="item">{group.name}</Text>
+            {group.ideas.length > 0 ? (
+              <View style={styles.list}>
+                {group.ideas.map((idea, index) => (
+                  <View key={idea._id} style={[styles.idea, index > 0 && styles.divider]}>
+                    <View style={styles.ideaTop}>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={idea.title}
+                        onPress={() => router.push(`/gift/${idea._id}`)}
+                        style={({ pressed }) => [{ flex: 1, gap: 2 }, pressed && { opacity: 0.7 }]}>
+                        <Text>{idea.title}</Text>
+                        <GiftLine gift={idea} />
+                      </Pressable>
+                      <StatusPill
+                        title={idea.title}
+                        status={idea.status}
+                        onChange={(status) =>
+                          void attempt(t, () => setStatus({ giftId: idea._id, status }))
+                        }
+                      />
+                    </View>
+                    {/* Under the title, so a long idea never has to break mid-word beside it. */}
+                    <View style={{ alignItems: 'flex-start' }}>
+                      <Chip
+                        title={t('gifts.moveIn', { year: bank.currentYear })}
+                        accessibilityLabel={`${idea.title}: ${t('gifts.moveIn', { year: bank.currentYear })}`}
+                        onPress={() =>
+                          void attempt(t, () =>
+                            moveGift({ giftId: idea._id, year: bank.currentYear }),
+                          )
+                        }
+                      />
+                    </View>
                   </View>
-                  {/* Under the title, so a long idea never has to break mid-word beside it. */}
-                  <View style={{ alignItems: 'flex-start' }}>
-                    <Chip
-                      title={t('gifts.moveIn', { year: bank.currentYear })}
-                      accessibilityLabel={`${idea.title}: ${t('gifts.moveIn', { year: bank.currentYear })}`}
-                      onPress={() =>
-                        void attempt(t, () =>
-                          moveGift({ giftId: idea._id, year: bank.currentYear }),
-                        )
-                      }
-                    />
-                  </View>
-                </View>
-              ))}
-            </View>
-          ) : null}
-          <AddGift recipientId={group._id} name={group.name} />
-        </View>
-      ))}
+                ))}
+              </View>
+            ) : null}
+            <AddGift recipientId={group._id} name={group.name} />
+          </View>
+        ))}
+      </People>
     </>
   );
 }
@@ -584,4 +654,16 @@ const useStyles = makeStyles((colors) => ({
   list: { borderRadius: Radius.card, backgroundColor: colors.surface, paddingHorizontal: 14 },
   row: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
   divider: { borderTopWidth: 1, borderTopColor: colors.divider },
+  // Big screens: overview in a side column, the people as cards in columns beside it.
+  desktop: { flex: 1, flexDirection: 'row', backgroundColor: colors.background },
+  side: { width: 340, flexGrow: 0, borderRightWidth: 1, borderRightColor: colors.border },
+  sideContent: { padding: 24, gap: 18 },
+  main: { padding: 24, paddingBottom: 48, gap: 24 },
+  card: {
+    padding: 16,
+    borderRadius: Radius.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.raised,
+  },
 }));

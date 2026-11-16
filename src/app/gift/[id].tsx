@@ -3,14 +3,16 @@ import * as WebBrowser from 'expo-web-browser';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Linking, ScrollView, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
-import { Button, Chip, Field, Loading, Text } from '@/components/ui';
+import { Close } from '@/components/icons';
+import { Button, Chip, Field, IconButton, Loading, Text } from '@/components/ui';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { parsePrice } from '@/convex/lib/gifts';
 import { normalizeRecipeUrl, recipeSite } from '@/convex/lib/recipeLink';
 import { makeStyles, useColors } from '@/lib/appearance';
+import { useDesktop } from '@/lib/desktop';
 import { attempt } from '@/lib/errors';
 import { priceInput } from '@/lib/format';
 
@@ -51,6 +53,15 @@ function GiftForm({ gift }: { gift: Gift }) {
   const [note, setNote] = useState(gift.note ?? '');
   const [buyer, setBuyer] = useState(gift.buyerUserId);
   const [busy, setBusy] = useState(false);
+  const desktop = useDesktop();
+  useEffect(() => {
+    if (!desktop) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [desktop]);
 
   async function save() {
     const parsed = parsePrice(price);
@@ -103,12 +114,12 @@ function GiftForm({ gift }: { gift: Gift }) {
     }
   }
 
-  return (
+  const form = (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
       automaticallyAdjustKeyboardInsets
       keyboardShouldPersistTaps="handled"
-      style={{ backgroundColor: colors.background }}
+      style={{ backgroundColor: desktop ? colors.raised : colors.background }}
       contentContainerStyle={styles.content}>
       <Text color={colors.muted}>{t('gifts.edit.forPerson', { name: gift.recipientName })}</Text>
       <Field
@@ -191,9 +202,58 @@ function GiftForm({ gift }: { gift: Gift }) {
       <Button kind="danger" title={t('gifts.edit.delete')} onPress={remove} />
     </ScrollView>
   );
+  if (!desktop) return form;
+
+  // The website on a big screen: a dialog over the list, closed by Esc, the cross or a click
+  // beside it.
+  return (
+    <View style={styles.backdrop}>
+      <Pressable
+        accessibilityLabel={t('common.close')}
+        style={StyleSheet.absoluteFill}
+        onPress={close}
+      />
+      <View style={styles.dialog} accessibilityViewIsModal>
+        <View style={styles.dialogHead}>
+          <Text variant="heading" accessibilityRole="header" style={{ flex: 1 }}>
+            {t('gifts.edit.title')}
+          </Text>
+          <IconButton label={t('common.close')} onPress={close}>
+            <Close color={colors.ink} size={20} />
+          </IconButton>
+        </View>
+        {form}
+      </View>
+    </View>
+  );
 }
 
-const useStyles = makeStyles(() => ({
+const useStyles = makeStyles((colors) => ({
   content: { padding: 20, paddingBottom: 48, gap: 18 },
+  backdrop: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
+    backgroundColor: colors.overlay,
+  },
+  dialog: {
+    width: '100%',
+    maxWidth: 560,
+    maxHeight: '100%',
+    flexShrink: 1,
+    overflow: 'hidden',
+    borderRadius: 24,
+    backgroundColor: colors.raised,
+  },
+  dialogHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 20,
+    paddingRight: 8,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+  },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
 }));

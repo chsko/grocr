@@ -26,6 +26,7 @@ import {
   useResolvedScheme,
 } from '@/lib/appearance';
 import { isWebSite } from '@/lib/build';
+import { useDesktop } from '@/lib/desktop';
 import { convex, tokenStorage } from '@/lib/convex';
 import { restoreLanguage } from '@/lib/i18n/preference';
 import { SessionContext } from '@/lib/session';
@@ -101,6 +102,7 @@ function AppStack() {
   const { isLoading, isAuthenticated } = useConvexAuth();
   const me = useQuery(api.users.me, isAuthenticated ? {} : 'skip');
   const appearanceRestored = useAppearanceRestored();
+  const desktop = useDesktop();
   const weekRestored = useShownWeekRestored();
   useForegroundUpdateCheck();
   const ready =
@@ -129,9 +131,10 @@ function AppStack() {
   if (isWebSite) {
     return (
       <SessionContext.Provider value={signedIn ? me : null}>
-        {/* A phone-wide column on big screens, like the app. */}
+        {/* A phone-wide column on tablets; screens spread into columns on a desktop. */}
         <View style={{ flex: 1, backgroundColor: colors.background }}>
-          <View style={{ flex: 1, width: '100%', maxWidth: 640, alignSelf: 'center' }}>
+          <View
+            style={{ flex: 1, width: '100%', maxWidth: desktop ? 1440 : 640, alignSelf: 'center' }}>
             {signedIn && !hasFamily ? (
               <WebNoFamily />
             ) : (
@@ -156,7 +159,17 @@ function AppStack() {
                   />
                   <Stack.Screen
                     name="gift/[id]"
-                    options={{ ...header, title: t('gifts.edit.title') }}
+                    options={
+                      desktop
+                        ? // A dialog over the list (the screen draws its backdrop and title).
+                          {
+                            presentation: 'transparentModal',
+                            animation: 'fade',
+                            title: t('gifts.edit.title'),
+                            contentStyle: { backgroundColor: 'transparent' },
+                          }
+                        : { ...header, title: t('gifts.edit.title') }
+                    }
                   />
                   <Stack.Screen
                     name="gift-recipients"

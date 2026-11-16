@@ -12,6 +12,7 @@ import { Radius, Spacing } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import { makeStyles, useColors, useResolvedScheme } from '@/lib/appearance';
 import { isDevBuild, isWebSite } from '@/lib/build';
+import { useDesktop } from '@/lib/desktop';
 import { showError } from '@/lib/errors';
 import { appleSignInAvailable, signInWithApple, signInWithGoogle } from '@/lib/socialSignIn';
 
@@ -30,6 +31,7 @@ export default function SignInScreen() {
   const personas = isDevBuild() ? options?.personas : [];
   const { signIn } = useAuthActions();
   const scheme = useResolvedScheme();
+  const desktop = useDesktop();
   const [pending, setPending] = useState<string | null>(null);
   const [appleAvailable, setAppleAvailable] = useState(false);
 
@@ -58,8 +60,12 @@ export default function SignInScreen() {
   return (
     <ScrollView
       style={{ backgroundColor: colors.background }}
-      contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + 32 }]}>
-      <View style={[styles.hero, { paddingTop: insets.top + 24 }]}>
+      contentContainerStyle={[
+        styles.container,
+        { paddingBottom: insets.bottom + 32 },
+        desktop && styles.desktop,
+      ]}>
+      <View style={[styles.hero, { paddingTop: insets.top + 24 }, desktop && styles.desktopHero]}>
         <View style={styles.logoTile}>
           <Logo size={104} />
         </View>
@@ -67,72 +73,74 @@ export default function SignInScreen() {
           Grocr
         </Text>
       </View>
-      <View style={styles.body}>
-        <Text variant="heading" style={{ fontSize: 28, lineHeight: 32 }}>
-          {t(isWebSite ? 'signIn.webHeadline' : 'signIn.headline')}{' '}
-          <Text variant="heading" color={colors.tomato} style={{ fontSize: 28, lineHeight: 32 }}>
-            {t(isWebSite ? 'signIn.webHeadlineAccent' : 'signIn.headlineAccent')}
-          </Text>
-        </Text>
-        <Text color={colors.muted}>{t(isWebSite ? 'signIn.webPitch' : 'signIn.pitch')}</Text>
-      </View>
-      <View style={styles.actions}>
-        {Platform.OS === 'web' && appleAvailable && options?.apple ? (
-          <Button
-            testID="sign-in-apple"
-            kind="dark"
-            title={t('signIn.apple')}
-            icon={<AppleLogo size={18} color={colors.background} />}
-            loading={pending === 'apple'}
-            disabled={pending !== null && pending !== 'apple'}
-            onPress={() => void run('apple', () => signInWithApple(signIn))}
-          />
-        ) : null}
-        {Platform.OS !== 'web' && appleAvailable && options?.apple ? (
-          <AppleAuthentication.AppleAuthenticationButton
-            testID="sign-in-apple"
-            buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
-            buttonStyle={
-              scheme === 'dark'
-                ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
-                : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
-            }
-            cornerRadius={Radius.button}
-            style={[styles.appleButton, pending !== null && { opacity: 0.45 }]}
-            onPress={() => {
-              if (pending === null) void run('apple', () => signInWithApple(signIn));
-            }}
-          />
-        ) : null}
-        {options?.google ? (
-          <Button
-            testID="sign-in-google"
-            kind="secondary"
-            title={t('signIn.google')}
-            icon={<GoogleLogo size={20} />}
-            loading={pending === 'google'}
-            disabled={pending !== null && pending !== 'google'}
-            onPress={() => void run('google', () => signInWithGoogle(signIn))}
-          />
-        ) : null}
-        {personas !== undefined && personas.length > 0 ? (
-          <>
-            <Text variant="section" color={colors.muted} style={{ marginTop: 12 }}>
-              {t('signIn.testUsers')}
+      <View style={desktop ? styles.desktopSide : { flexGrow: 1 }}>
+        <View style={styles.body}>
+          <Text variant="heading" style={{ fontSize: 28, lineHeight: 32 }}>
+            {t(isWebSite ? 'signIn.webHeadline' : 'signIn.headline')}{' '}
+            <Text variant="heading" color={colors.tomato} style={{ fontSize: 28, lineHeight: 32 }}>
+              {t(isWebSite ? 'signIn.webHeadlineAccent' : 'signIn.headlineAccent')}
             </Text>
-            {personas.map((p, index) => (
-              <Button
-                key={p.id}
-                testID={`dev-sign-in-${p.id}`}
-                kind={index === 0 ? 'dark' : 'secondary'}
-                title={t('signIn.continueAs', { name: p.name })}
-                loading={pending === p.id}
-                disabled={pending !== null && pending !== p.id}
-                onPress={() => void run(p.id, () => signIn('dev', { persona: p.id }))}
-              />
-            ))}
-          </>
-        ) : null}
+          </Text>
+          <Text color={colors.muted}>{t(isWebSite ? 'signIn.webPitch' : 'signIn.pitch')}</Text>
+        </View>
+        <View style={[styles.actions, desktop && { marginTop: 0 }]}>
+          {Platform.OS === 'web' && appleAvailable && options?.apple ? (
+            <Button
+              testID="sign-in-apple"
+              kind="dark"
+              title={t('signIn.apple')}
+              icon={<AppleLogo size={18} color={colors.background} />}
+              loading={pending === 'apple'}
+              disabled={pending !== null && pending !== 'apple'}
+              onPress={() => void run('apple', () => signInWithApple(signIn))}
+            />
+          ) : null}
+          {Platform.OS !== 'web' && appleAvailable && options?.apple ? (
+            <AppleAuthentication.AppleAuthenticationButton
+              testID="sign-in-apple"
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+              buttonStyle={
+                scheme === 'dark'
+                  ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+                  : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+              }
+              cornerRadius={Radius.button}
+              style={[styles.appleButton, pending !== null && { opacity: 0.45 }]}
+              onPress={() => {
+                if (pending === null) void run('apple', () => signInWithApple(signIn));
+              }}
+            />
+          ) : null}
+          {options?.google ? (
+            <Button
+              testID="sign-in-google"
+              kind="secondary"
+              title={t('signIn.google')}
+              icon={<GoogleLogo size={20} />}
+              loading={pending === 'google'}
+              disabled={pending !== null && pending !== 'google'}
+              onPress={() => void run('google', () => signInWithGoogle(signIn))}
+            />
+          ) : null}
+          {personas !== undefined && personas.length > 0 ? (
+            <>
+              <Text variant="section" color={colors.muted} style={{ marginTop: 12 }}>
+                {t('signIn.testUsers')}
+              </Text>
+              {personas.map((p, index) => (
+                <Button
+                  key={p.id}
+                  testID={`dev-sign-in-${p.id}`}
+                  kind={index === 0 ? 'dark' : 'secondary'}
+                  title={t('signIn.continueAs', { name: p.name })}
+                  loading={pending === p.id}
+                  disabled={pending !== null && pending !== p.id}
+                  onPress={() => void run(p.id, () => signIn('dev', { persona: p.id }))}
+                />
+              ))}
+            </>
+          ) : null}
+        </View>
       </View>
     </ScrollView>
   );
@@ -162,4 +170,8 @@ const useStyles = makeStyles((colors) => ({
   body: { paddingHorizontal: Spacing.four, paddingTop: 32, gap: 12 },
   actions: { paddingHorizontal: Spacing.four, paddingTop: 32, gap: 12, marginTop: 'auto' },
   appleButton: { height: 54 },
+  // The website on a big screen: the saffron hero on the left, sign-in on the right.
+  desktop: { flexDirection: 'row', paddingBottom: 0 },
+  desktopHero: { flex: 1, minHeight: '100%' },
+  desktopSide: { width: 480, justifyContent: 'center', paddingVertical: 48 },
 }));

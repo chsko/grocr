@@ -14,6 +14,7 @@ import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { daysInMonth, DEFAULT_GIFT_CARD_START, GIFT_CARD_END } from '@/convex/lib/gifts';
 import { makeStyles, useColors } from '@/lib/appearance';
+import { useDesktop } from '@/lib/desktop';
 import { attempt } from '@/lib/errors';
 import { dayMonth } from '@/lib/format';
 import { useFamily } from '@/lib/session';
@@ -34,6 +35,7 @@ type Recipient = {
 export default function GiftRecipientsScreen() {
   const colors = useColors();
   const styles = useStyles();
+  const desktop = useDesktop();
   const { t, i18n } = useTranslation();
   const family = useFamily();
   const data = useQuery(api.gifts.recipients, { groupId: family.groupId });
@@ -161,7 +163,7 @@ export default function GiftRecipientsScreen() {
           keyboardShouldPersistTaps="handled"
           scrollEnabled={!dragging}
           style={{ backgroundColor: colors.background }}
-          contentContainerStyle={styles.content}>
+          contentContainerStyle={[styles.content, desktop && styles.column]}>
           <Text color={colors.muted}>{t('gifts.people_screen.intro')}</Text>
 
           {unlinked.length > 0 ? (
@@ -235,7 +237,9 @@ export default function GiftRecipientsScreen() {
               {t('gifts.groups')}
             </Text>
             {giftGroups.length > 0 ? (
-              <Text color={colors.muted}>{t('gifts.dragIntro')}</Text>
+              <Text color={colors.muted}>
+                {t(desktop ? 'gifts.dragIntroDesktop' : 'gifts.dragIntro')}
+              </Text>
             ) : null}
             {giftGroups.map((g) => {
               const people = active.filter((r) => r.giftGroupId === g._id);
@@ -680,6 +684,8 @@ function AddToGroup({ giftGroupId, name }: { giftGroupId: Id<'giftGroups'>; name
 
 const useStyles = makeStyles((colors) => ({
   content: { padding: 20, paddingBottom: 48, gap: 16 },
+  // The website on a big screen: a readable column rather than the full width.
+  column: { width: '100%', maxWidth: 720, alignSelf: 'center' },
   list: { borderRadius: Radius.card, backgroundColor: colors.surface, paddingHorizontal: 14 },
   row: { minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
   divider: { borderTopWidth: 1, borderTopColor: colors.divider },

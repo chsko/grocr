@@ -684,7 +684,8 @@
     "dragHint": "Hold inne og dra til en gruppe",
     "dragIntro": "Hold inne på en person og dra dem inn i en gruppe. De uten gruppe står øverst.",
     "dropHere": "Dra personer hit",
-    "dropNoGroup": "Dra hit for å ta ut av gruppe"
+    "dropNoGroup": "Dra hit for å ta ut av gruppe",
+    "dragIntroDesktop": "Dra en person inn i en gruppe med musen. De uten gruppe står øverst."
   },
   "web": {
     "noFamilyTitle": "Bli med i en familie i appen først",
