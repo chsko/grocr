@@ -31,6 +31,7 @@
     "INVALID_PRICE": "Det ser ikke ut som et beløp i kroner.",
     "INVALID_LINK": "Det ser ikke ut som en nettadresse. Kopier lenken fra butikken og lim den inn.",
     "INVALID_BUYER": "Den personen kan ikke kjøpe denne gaven.",
+    "INVALID_RECIPIENTS": "En gave kan være til mellom 1 og 10 personer.",
     "ALREADY_LINKED": "Det familiemedlemmet er allerede koblet til en annen.",
     "CANNOT_LINK_SELF": "Du kan ikke koble deg selv. Det gjør de andre i familien, så det forblir en overraskelse.",
     "NOT_IN_CHRISTMAS": "Legg idéen til i en jul først.",
@@ -541,6 +542,14 @@
       "christmasGifts": {
         "title": "Julegaver",
         "body": "Planlegg julegavene sammen under Familie › Julegaver. Noter idéer gjennom året, sett et budsjett og merk det som er kjøpt og pakket. Gaver til noen i familien skjules for dem."
+      },
+      "giftsOnWeb": {
+        "title": "Julegaver på nett",
+        "body": "Julegavelistene finnes også på grocr.io/app. Logg inn med samme konto som i appen og planlegg fra PC-en."
+      },
+      "jointGifts": {
+        "title": "Fellesgaver",
+        "body": "Én gave kan gå til flere, for eksempel til bestemor og bestefar sammen. Åpne gaven og velg flere under Til. Prisen deles likt mellom budsjettene."
       }
     }
   },
@@ -616,7 +625,9 @@
       "toBank": "Flytt til idébanken",
       "delete": "Slett gave",
       "deleteTitle": "Slette {{title}}?",
-      "forPerson": "Til {{name}}"
+      "forWhom": "Til",
+      "forWhomHint": "Velg flere for å gi en fellesgave.",
+      "jointHint": "Fellesgave: den vises hos hver av dem, og prisen deles likt mellom budsjettene."
     },
     "people_screen": {
       "title": "Personer",
@@ -685,7 +696,8 @@
     "dragIntro": "Hold inne på en person og dra dem inn i en gruppe. De uten gruppe står øverst.",
     "dropHere": "Dra personer hit",
     "dropNoGroup": "Dra hit for å ta ut av gruppe",
-    "dragIntroDesktop": "Dra en person inn i en gruppe med musen. De uten gruppe står øverst."
+    "dragIntroDesktop": "Dra en person inn i en gruppe med musen. De uten gruppe står øverst.",
+    "jointWith": "Felles med {{names}}"
   },
   "web": {
     "noFamilyTitle": "Bli med i en familie i appen først",

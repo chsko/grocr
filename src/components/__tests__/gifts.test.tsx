@@ -83,6 +83,7 @@ const gift = (id: string, title: string, status = 'idea') => ({
   note: null,
   buyerUserId: null,
   buyerName: null,
+  recipients: [] as { _id: string; name: string }[],
 });
 
 beforeEach(async () => {
@@ -215,7 +216,15 @@ describe('one gift list', () => {
       buyerName: 'Ola',
       url: 'https://www.example.com/pledd',
     };
+    xmas.recipients[0].gifts[1] = {
+      ...gift('b', 'Hyasinter'),
+      recipients: [
+        { _id: 'r1', name: 'Bestemor' },
+        { _id: 'r3', name: 'Bestefar' },
+      ],
+    };
     await render(<GiftsScreen />);
+    expect(screen.getByText('Felles med Bestefar')).toBeTruthy();
     expect(screen.getByText('1\u00a0299,50 kr · Ola · example.com')).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: 'Ullpledd' }));
     expect(mockRouter.push).toHaveBeenCalledWith('/gift/a');
@@ -557,6 +566,11 @@ describe('gift sheet', () => {
       year: 2026,
       recipientId: 'r1',
       recipientName: 'Bestemor',
+      recipients: [{ _id: 'r1', name: 'Bestemor' }],
+      choices: [
+        { _id: 'r1', name: 'Bestemor' },
+        { _id: 'r3', name: 'Bestefar' },
+      ],
       buyers: [
         { userId: 'u1', name: 'Kari' },
         { userId: 'u2', name: 'Ola' },
@@ -566,7 +580,7 @@ describe('gift sheet', () => {
 
   test('saves the details with the price read the Norwegian way', async () => {
     await render(<GiftScreen />);
-    expect(screen.getByText('Til Bestemor')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Bestemor', selected: true })).toBeTruthy();
     expect(screen.getByDisplayValue('499')).toBeTruthy();
     await fireEvent.changeText(screen.getByLabelText('Pris (kr)'), '1 299,50');
     await fireEvent.changeText(screen.getByLabelText('Lenke'), 'example.com/pledd');
@@ -587,6 +601,17 @@ describe('gift sheet', () => {
       ],
     ]);
     expect(mockRouter.back).toHaveBeenCalled();
+  });
+
+  test('picking another person makes it a joint gift, saved at once', async () => {
+    await render(<GiftScreen />);
+    expect(screen.getByText('Velg flere for å gi en fellesgave.')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Bestefar' }));
+    // The last person can't be taken off.
+    await fireEvent.press(screen.getByRole('button', { name: 'Bestemor' }));
+    expect(mockCalls).toEqual([
+      ['gifts.setGiftRecipients', { giftId: 'a', recipientIds: ['r1', 'r3'] }],
+    ]);
   });
 
   test('a price that is not a price is refused before saving', async () => {

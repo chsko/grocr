@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from 'convex/react';
 import * as WebBrowser from 'expo-web-browser';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -9,7 +9,7 @@ import { Close } from '@/components/icons';
 import { Button, Chip, Field, IconButton, Loading, Text } from '@/components/ui';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
-import { parsePrice } from '@/convex/lib/gifts';
+import { MAX_JOINT, parsePrice } from '@/convex/lib/gifts';
 import { normalizeRecipeUrl, recipeSite } from '@/convex/lib/recipeLink';
 import { makeStyles, useColors } from '@/lib/appearance';
 import { useDesktop } from '@/lib/desktop';
@@ -40,6 +40,53 @@ export default function GiftScreen() {
 
 type Gift = NonNullable<ReturnType<typeof useQuery<typeof api.gifts.gift>>>;
 
+/**
+ * Who the gift is for. Picking more than one makes it a joint gift ("fellesgave"): it shows
+ * under each of them and its price is shared between their budgets. Saved at once.
+ */
+function ForWhom({ gift }: { gift: Gift }) {
+  const colors = useColors();
+  const styles = useStyles();
+  const { t } = useTranslation();
+  const setGiftRecipients = useMutation(api.gifts.setGiftRecipients);
+  // Taps show at once and build on each other until the server has caught up.
+  const [pending, setPending] = useState<Gift['recipients'][number]['_id'][] | null>(null);
+  const sent = useRef(0);
+  const chosen = pending ?? gift.recipients.map((r) => r._id);
+  async function toggle(id: (typeof chosen)[number]) {
+    const next = chosen.includes(id) ? chosen.filter((c) => c !== id) : [...chosen, id];
+    if (next.length === 0 || next.length > MAX_JOINT) return;
+    setPending(next);
+    const call = ++sent.current;
+    await attempt(t, () => setGiftRecipients({ giftId: gift._id, recipientIds: next }));
+    if (call === sent.current) setPending(null);
+  }
+  return (
+    <View style={{ gap: 8 }}>
+      <Text variant="label" color={colors.muted}>
+        {t('gifts.edit.forWhom')}
+      </Text>
+      <View style={styles.chips}>
+        {gift.choices.map((r) => {
+          const on = chosen.includes(r._id);
+          return (
+            <Chip
+              key={r._id}
+              title={r.name}
+              selected={on}
+              accessibilityState={{ selected: on, disabled: on && chosen.length === 1 }}
+              onPress={() => void toggle(r._id)}
+            />
+          );
+        })}
+      </View>
+      <Text variant="small" color={colors.muted}>
+        {chosen.length > 1 ? t('gifts.edit.jointHint') : t('gifts.edit.forWhomHint')}
+      </Text>
+    </View>
+  );
+}
+
 function GiftForm({ gift }: { gift: Gift }) {
   const colors = useColors();
   const styles = useStyles();
@@ -51,7 +98,9 @@ function GiftForm({ gift }: { gift: Gift }) {
   const [price, setPrice] = useState(priceInput(i18n.language, gift.price));
   const [url, setUrl] = useState(gift.url ?? '');
   const [note, setNote] = useState(gift.note ?? '');
-  const [buyer, setBuyer] = useState(gift.buyerUserId);
+  const [picked, setBuyer] = useState(gift.buyerUserId);
+  // Someone made one of those the gift is for can no longer be its buyer.
+  const buyer = picked !== null && gift.buyers.some((b) => b.userId === picked) ? picked : null;
   const [busy, setBusy] = useState(false);
   const desktop = useDesktop();
   useEffect(() => {
@@ -121,7 +170,7 @@ function GiftForm({ gift }: { gift: Gift }) {
       keyboardShouldPersistTaps="handled"
       style={{ backgroundColor: desktop ? colors.raised : colors.background }}
       contentContainerStyle={styles.content}>
-      <Text color={colors.muted}>{t('gifts.edit.forPerson', { name: gift.recipientName })}</Text>
+      <ForWhom gift={gift} />
       <Field
         label={t('gifts.edit.titleLabel')}
         value={title}

@@ -31,6 +31,7 @@
     "INVALID_PRICE": "That doesn't look like an amount in kroner.",
     "INVALID_LINK": "That doesn't look like a web address. Copy the link from the shop and paste it in.",
     "INVALID_BUYER": "That person can't buy this gift.",
+    "INVALID_RECIPIENTS": "A gift can be for 1 to 10 people.",
     "ALREADY_LINKED": "That family member is already linked to someone else.",
     "CANNOT_LINK_SELF": "You can't link yourself. That's for the others in the family, so it stays a surprise.",
     "NOT_IN_CHRISTMAS": "Add the idea to a Christmas first.",
@@ -541,6 +542,14 @@
       "christmasGifts": {
         "title": "Christmas gifts",
         "body": "Plan Christmas gifts together under Family › Christmas gifts. Note ideas during the year, set a budget and mark what's bought and wrapped. Gifts for someone in the family are hidden from them."
+      },
+      "giftsOnWeb": {
+        "title": "Christmas gifts on the web",
+        "body": "The gift lists are also at grocr.io/app. Sign in with the same account as in the app and plan from your computer."
+      },
+      "jointGifts": {
+        "title": "Joint gifts",
+        "body": "One gift can be for several people, like Granny and Grandpa together. Open the gift and pick more than one under For. The price is shared evenly between their budgets."
       }
     }
   },
@@ -616,7 +625,9 @@
       "toBank": "Move to the idea bank",
       "delete": "Delete gift",
       "deleteTitle": "Delete {{title}}?",
-      "forPerson": "For {{name}}"
+      "forWhom": "For",
+      "forWhomHint": "Pick more than one person for a joint gift.",
+      "jointHint": "Joint gift: it shows under each of them, and the price is shared evenly between their budgets."
     },
     "people_screen": {
       "title": "People",
@@ -685,7 +696,8 @@
     "dragIntro": "Hold a person and drag them into a group. People without a group stay at the top.",
     "dropHere": "Drag people here",
     "dropNoGroup": "Drag here to take out of a group",
-    "dragIntroDesktop": "Drag a person into a group with the mouse. People without a group stay at the top."
+    "dragIntroDesktop": "Drag a person into a group with the mouse. People without a group stay at the top.",
+    "jointWith": "Together with {{names}}"
   },
   "web": {
     "noFamilyTitle": "Join a family in the app first",

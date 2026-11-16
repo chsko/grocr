@@ -20,6 +20,7 @@ import {
   isGiftCardStart,
   isSpent,
   MAX_GIFT_YEAR,
+  MAX_JOINT,
   MIN_GIFT_YEAR,
 } from './lib/gifts';
 import { normalizeRecipeUrl } from './lib/recipeLink';
@@ -60,7 +61,19 @@ async function orNull<T>(load: () => Promise<T>): Promise<T | null> {
   }
 }
 
-/** Loads a gift whose recipient the caller may see. */
+/** Everyone a gift is for: its recipient first, then the others of a joint gift. */
+function forIds(gift: Doc<'gifts'>): Id<'giftRecipients'>[] {
+  return [gift.recipientId, ...(gift.alsoForIds ?? [])];
+}
+
+function isFor(gift: Doc<'gifts'>, recipientId: Id<'giftRecipients'>) {
+  return gift.recipientId === recipientId || (gift.alsoForIds ?? []).includes(recipientId);
+}
+
+/**
+ * Loads a gift the caller may see: every person it is for must be visible to them, so a joint
+ * gift for the caller and someone else is hidden from the caller like any gift for them.
+ */
 async function loadGift(ctx: Ctx, giftId: Id<'gifts'>) {
   // Signed out first, so a signed-out caller can't tell a real gift from a missing one.
   await requireUserId(ctx);
@@ -68,7 +81,44 @@ async function loadGift(ctx: Ctx, giftId: Id<'gifts'>) {
   if (gift === null) throw accessError('NOT_FOUND');
   const access = await loadRecipient(ctx, gift.recipientId);
   if (gift.groupId !== access.recipient.groupId) throw accessError('NOT_FOUND');
-  return { gift, ...access };
+  const recipients = [access.recipient];
+  for (const id of gift.alsoForIds ?? []) {
+    const other = (await loadRecipient(ctx, id)).recipient;
+    if (other.groupId !== gift.groupId) throw accessError('NOT_FOUND');
+    recipients.push(other);
+  }
+  return { gift, recipients, ...access };
+}
+
+/**
+ * The family's gifts in one Christmas (or the idea bank with null) that the caller may see:
+ * every person each is for is among `visible`. Oldest first.
+ */
+async function occasionGifts(
+  ctx: Ctx,
+  groupId: Id<'groups'>,
+  year: number | null,
+  visible: Set<Id<'giftRecipients'>>,
+) {
+  const gifts = await ctx.db
+    .query('gifts')
+    .withIndex('by_group_occasion', (q) =>
+      year === null
+        ? q.eq('groupId', groupId).eq('occasionKind', undefined)
+        : q.eq('groupId', groupId).eq('occasionKind', KIND).eq('occasionYear', year),
+    )
+    .collect();
+  return gifts
+    .filter((g) => forIds(g).every((id) => visible.has(id)))
+    .sort((a, b) => a.createdAt - b.createdAt);
+}
+
+/** Every gift and idea of a family, in any Christmas, also ones hidden from the caller. */
+async function allFamilyGifts(ctx: Ctx, groupId: Id<'groups'>) {
+  return await ctx.db
+    .query('gifts')
+    .withIndex('by_group_occasion', (q) => q.eq('groupId', groupId))
+    .collect();
 }
 
 /** The family's recipients the caller may see, by name. */
@@ -121,15 +171,15 @@ function checkNote(note: string) {
   return clean === '' ? undefined : clean;
 }
 
-/** A buyer must be a current member and can't be the one the gift is for. */
+/** A buyer must be a current member and can't be one of those the gift is for. */
 async function checkBuyer(
   ctx: Ctx,
-  recipient: Doc<'giftRecipients'>,
+  recipients: Doc<'giftRecipients'>[],
   buyerUserId: Id<'users'> | null,
 ) {
   if (buyerUserId === null) return undefined;
-  const membership = await getMembership(ctx, recipient.groupId, buyerUserId);
-  if (membership === null || buyerUserId === recipient.memberUserId) {
+  const membership = await getMembership(ctx, recipients[0].groupId, buyerUserId);
+  if (membership === null || recipients.some((r) => r.memberUserId === buyerUserId)) {
     throw new ConvexError({ code: 'INVALID_BUYER' });
   }
   return buyerUserId;
@@ -153,27 +203,6 @@ async function familyMembers(ctx: Ctx, groupId: Id<'groups'>) {
 async function userName(ctx: Ctx, userId: Id<'users'> | undefined) {
   if (userId === undefined) return null;
   return (await ctx.db.get('users', userId))?.name ?? null;
-}
-
-async function giftsFor(ctx: Ctx, recipientId: Id<'giftRecipients'>, year: number) {
-  const gifts = await ctx.db
-    .query('gifts')
-    .withIndex('by_recipient_occasion', (q) =>
-      q.eq('recipientId', recipientId).eq('occasionKind', KIND).eq('occasionYear', year),
-    )
-    .collect();
-  return gifts.sort((a, b) => a.createdAt - b.createdAt);
-}
-
-/** A recipient's idea bank: gifts not yet in any Christmas, oldest first. */
-async function bankFor(ctx: Ctx, recipientId: Id<'giftRecipients'>) {
-  const ideas = await ctx.db
-    .query('gifts')
-    .withIndex('by_recipient_occasion', (q) =>
-      q.eq('recipientId', recipientId).eq('occasionKind', undefined),
-    )
-    .collect();
-  return ideas.sort((a, b) => a.createdAt - b.createdAt);
 }
 
 /** The family's gift groups, by name. */
@@ -200,15 +229,31 @@ async function budgetFor(ctx: Ctx, recipientId: Id<'giftRecipients'>, year: numb
     .unique();
 }
 
-/** Counts by status; spent is what Bought and Wrapped gifts cost, planned what ideas would. */
-function tally(gifts: Doc<'gifts'>[]) {
+/**
+ * One person's share of a gift's price: all of it, or for a joint gift an even share in whole
+ * øre, with what is left over going to its first recipient so the shares add up to the price.
+ */
+function priceShare(gift: Doc<'gifts'>, recipientId: Id<'giftRecipients'>) {
+  const price = gift.price ?? 0;
+  const ids = forIds(gift);
+  if (ids.length === 1) return price;
+  const each = Math.floor((price * 100) / ids.length) / 100;
+  return ids[0] === recipientId ? round(price - each * (ids.length - 1)) : each;
+}
+
+/**
+ * Counts by status; spent is what Bought and Wrapped gifts cost, planned what ideas would.
+ * For one person (`forId`), a joint gift counts their share of the price.
+ */
+function tally(gifts: Doc<'gifts'>[], forId?: Id<'giftRecipients'>) {
   const counts = { idea: 0, bought: 0, wrapped: 0 };
   let spent = 0;
   let planned = 0;
   for (const gift of gifts) {
     counts[gift.status] += 1;
-    if (isSpent(gift.status)) spent += gift.price ?? 0;
-    else planned += gift.price ?? 0;
+    const price = forId === undefined ? (gift.price ?? 0) : priceShare(gift, forId);
+    if (isSpent(gift.status)) spent += price;
+    else planned += price;
   }
   return { counts, spent: round(spent), planned: round(planned) };
 }
@@ -220,6 +265,13 @@ function round(amount: number) {
 async function giftRow(ctx: Ctx, gift: Doc<'gifts'>) {
   return {
     _id: gift._id,
+    // Everyone it is for, so a joint gift can say who it is shared with.
+    recipients: await Promise.all(
+      forIds(gift).map(async (id) => ({
+        _id: id,
+        name: (await ctx.db.get('giftRecipients', id))?.name ?? '',
+      })),
+    ),
     title: gift.title,
     status: gift.status,
     price: gift.price ?? null,
@@ -248,8 +300,12 @@ export const christmas = query({
     let planned = 0;
     // Recipients with nothing in this Christmas, so the app can add a gift to an earlier one.
     const others = [];
-    for (const recipient of await visibleRecipients(ctx, args.groupId, userId)) {
-      const gifts = await giftsFor(ctx, recipient._id, year);
+    const visible = await visibleRecipients(ctx, args.groupId, userId);
+    const visibleIds = new Set(visible.map((r) => r._id));
+    const all = await occasionGifts(ctx, args.groupId, year, visibleIds);
+    const bank = await occasionGifts(ctx, args.groupId, null, visibleIds);
+    for (const recipient of visible) {
+      const gifts = all.filter((g) => isFor(g, recipient._id));
       const own = (await budgetFor(ctx, recipient._id, year))?.amount ?? null;
       // Active recipients are always in this Christmas and later ones. Earlier Christmases, and
       // archived recipients, list only who has gifts or a budget there.
@@ -260,11 +316,8 @@ export const christmas = query({
         }
         continue;
       }
-      const sums = tally(gifts);
-      for (const key of GIFT_STATUSES) totals[key] += sums.counts[key];
+      const sums = tally(gifts, recipient._id);
       if (own !== null) budget = (budget ?? 0) + own;
-      spent += sums.spent;
-      planned += sums.planned;
       recipients.push({
         _id: recipient._id,
         name: recipient.name,
@@ -273,10 +326,15 @@ export const christmas = query({
         ...sums,
         budget: own,
         lastBudget: (await budgetFor(ctx, recipient._id, year - 1))?.amount ?? null,
-        bankCount: (await bankFor(ctx, recipient._id)).length,
+        bankCount: bank.filter((g) => isFor(g, recipient._id)).length,
         gifts: await Promise.all(gifts.map((g) => giftRow(ctx, g))),
       });
     }
+    // Totals count each gift once, joint or not.
+    const whole = tally(all);
+    for (const key of GIFT_STATUSES) totals[key] += whole.counts[key];
+    spent += whole.spent;
+    planned += whole.planned;
     const money = {
       budget: budget === null ? null : round(budget),
       spent: round(spent),
@@ -318,27 +376,27 @@ export const weekCard = query({
     const today = todayIn(group.timezone);
     if (!giftCardShowing(today, group.giftCardStart ?? DEFAULT_GIFT_CARD_START)) return null;
     const year = christmasYear(today);
-    const recipients = (await visibleRecipients(ctx, groupId, userId)).filter(
-      (r) => r.archivedAt === undefined,
-    );
+    const seen = await visibleRecipients(ctx, groupId, userId);
+    const recipients = seen.filter((r) => r.archivedAt === undefined);
     if (recipients.length === 0) return null;
-    let done = 0;
-    let total = 0;
-    let spent = 0;
+    const visible = new Set(seen.map((r) => r._id));
+    const active = new Set(recipients.map((r) => r._id));
+    // Each gift once, when someone it is for is still active.
+    const sums = tally(
+      (await occasionGifts(ctx, groupId, year, visible)).filter((g) =>
+        forIds(g).some((id) => active.has(id)),
+      ),
+    );
     let budget: number | null = null;
     for (const recipient of recipients) {
-      const sums = tally(await giftsFor(ctx, recipient._id, year));
-      done += sums.counts.bought + sums.counts.wrapped;
-      total += sums.counts.idea + sums.counts.bought + sums.counts.wrapped;
-      spent += sums.spent;
       const own = (await budgetFor(ctx, recipient._id, year))?.amount;
       if (own !== undefined) budget = (budget ?? 0) + own;
     }
     return {
       year,
-      done,
-      total,
-      spent: round(spent),
+      done: sums.counts.bought + sums.counts.wrapped,
+      total: sums.counts.idea + sums.counts.bought + sums.counts.wrapped,
+      spent: sums.spent,
       budget: budget === null ? null : round(budget),
     };
   },
@@ -350,13 +408,15 @@ export const ideas = query({
   handler: async (ctx, { groupId }) => {
     const { userId } = await requireMembership(ctx, groupId);
     const recipients = [];
-    for (const recipient of await visibleRecipients(ctx, groupId, userId)) {
+    const visible = await visibleRecipients(ctx, groupId, userId);
+    const bank = await occasionGifts(ctx, groupId, null, new Set(visible.map((r) => r._id)));
+    for (const recipient of visible) {
       if (recipient.archivedAt !== undefined) continue;
-      const bank = await bankFor(ctx, recipient._id);
+      const ideas = bank.filter((g) => isFor(g, recipient._id));
       recipients.push({
         _id: recipient._id,
         name: recipient.name,
-        ideas: await Promise.all(bank.map((g) => giftRow(ctx, g))),
+        ideas: await Promise.all(ideas.map((g) => giftRow(ctx, g))),
       });
     }
     return { currentYear: await currentYear(ctx, groupId), recipients };
@@ -364,22 +424,28 @@ export const ideas = query({
 });
 
 /**
- * One gift, for its edit sheet, with who can be picked as buyer: every member but the one the
- * gift is for. Null when the gift is gone or hidden from the caller, which look the same.
+ * One gift, for its edit sheet, with who can be picked as buyer (every member but those the
+ * gift is for) and who else it could be for. Null when the gift is gone or hidden from the
+ * caller, which look the same.
  */
 export const gift = query({
   args: { giftId: v.id('gifts') },
   handler: async (ctx, { giftId }) => {
     const access = await orNull(() => loadGift(ctx, giftId));
     if (access === null) return null;
-    const { gift, recipient } = access;
+    const { gift, recipient, recipients, userId } = access;
     const members = await familyMembers(ctx, recipient.groupId);
+    const chosen = new Set(recipients.map((r) => r._id));
+    const choices = (await visibleRecipients(ctx, recipient.groupId, userId))
+      .filter((r) => chosen.has(r._id) || r.archivedAt === undefined)
+      .map((r) => ({ _id: r._id, name: r.name }));
     return {
       ...(await giftRow(ctx, gift)),
       year: gift.occasionYear ?? null,
       recipientId: recipient._id,
       recipientName: recipient.name,
-      buyers: members.filter((m) => m.userId !== recipient.memberUserId),
+      choices,
+      buyers: members.filter((m) => !recipients.some((r) => r.memberUserId === m.userId)),
     };
   },
 });
@@ -498,13 +564,9 @@ export const linkRecipient = mutation({
     if (recipient.memberUserId === args.memberUserId) return;
     await checkLink(ctx, recipient.groupId, userId, args.memberUserId, recipient._id);
     await ctx.db.patch('giftRecipients', recipient._id, { memberUserId: args.memberUserId });
-    // A gift can't be bought by the person it is for.
-    const gifts = await ctx.db
-      .query('gifts')
-      .withIndex('by_recipient_occasion', (q) => q.eq('recipientId', recipient._id))
-      .collect();
-    for (const gift of gifts) {
-      if (gift.buyerUserId === args.memberUserId) {
+    // A gift can't be bought by someone it is for, joint gifts included.
+    for (const gift of await allFamilyGifts(ctx, recipient.groupId)) {
+      if (isFor(gift, recipient._id) && gift.buyerUserId === args.memberUserId) {
         await ctx.db.patch('gifts', gift._id, { buyerUserId: undefined });
       }
     }
@@ -581,13 +643,44 @@ export const updateGift = mutation({
     buyerUserId: v.union(v.id('users'), v.null()),
   },
   handler: async (ctx, args) => {
-    const { gift, recipient } = await loadGift(ctx, args.giftId);
+    const { gift, recipients } = await loadGift(ctx, args.giftId);
     await ctx.db.patch('gifts', gift._id, {
       title: checkTitle(args.title),
       price: checkPrice(args.price),
       url: checkUrl(args.url),
       note: checkNote(args.note),
-      buyerUserId: await checkBuyer(ctx, recipient, args.buyerUserId),
+      buyerUserId: await checkBuyer(ctx, recipients, args.buyerUserId),
+    });
+  },
+});
+
+/**
+ * Who a gift is for: one person, or several for a joint gift. Every one must be someone the
+ * caller may see in the gift's family. The gift stays under its first recipient while they are
+ * still among them. A buyer who is now among those it is for stops being the buyer. Sets
+ * absolute state.
+ */
+export const setGiftRecipients = mutation({
+  args: { giftId: v.id('gifts'), recipientIds: v.array(v.id('giftRecipients')) },
+  handler: async (ctx, args) => {
+    const { gift } = await loadGift(ctx, args.giftId);
+    const ids = [...new Set(args.recipientIds)];
+    if (ids.length === 0 || ids.length > MAX_JOINT) {
+      throw new ConvexError({ code: 'INVALID_RECIPIENTS' });
+    }
+    const recipients = [];
+    for (const id of ids) {
+      const { recipient } = await loadRecipient(ctx, id);
+      if (recipient.groupId !== gift.groupId) throw accessError('NOT_FOUND');
+      recipients.push(recipient);
+    }
+    const first = ids.includes(gift.recipientId) ? gift.recipientId : ids[0];
+    const others = ids.filter((id) => id !== first);
+    const buyerIsFor = recipients.some((r) => r.memberUserId === gift.buyerUserId);
+    await ctx.db.patch('gifts', gift._id, {
+      recipientId: first,
+      alsoForIds: others.length > 0 ? others : undefined,
+      ...(gift.buyerUserId !== undefined && buyerIsFor ? { buyerUserId: undefined } : {}),
     });
   },
 });
@@ -659,11 +752,20 @@ export const removeRecipient = mutation({
 });
 
 async function deleteRecipient(ctx: MutationCtx, recipientId: Id<'giftRecipients'>) {
-  const gifts = await ctx.db
-    .query('gifts')
-    .withIndex('by_recipient_occasion', (q) => q.eq('recipientId', recipientId))
-    .collect();
-  for (const gift of gifts) await ctx.db.delete('gifts', gift._id);
+  const recipient = (await ctx.db.get('giftRecipients', recipientId))!;
+  // Their gifts go with them; a joint gift stays for the others.
+  for (const gift of await allFamilyGifts(ctx, recipient.groupId)) {
+    if (!isFor(gift, recipientId)) continue;
+    const rest = forIds(gift).filter((id) => id !== recipientId);
+    if (rest.length === 0) {
+      await ctx.db.delete('gifts', gift._id);
+    } else {
+      await ctx.db.patch('gifts', gift._id, {
+        recipientId: rest[0],
+        alsoForIds: rest.length > 1 ? rest.slice(1) : undefined,
+      });
+    }
+  }
   const budgets = await ctx.db
     .query('giftBudgets')
     .withIndex('by_recipient_occasion', (q) => q.eq('recipientId', recipientId))
@@ -676,6 +778,8 @@ async function deleteRecipient(ctx: MutationCtx, recipientId: Id<'giftRecipients
 
 /** Deletes every gift recipient, gift and budget of a family that is being deleted. */
 export async function deleteFamilyGifts(ctx: MutationCtx, groupId: Id<'groups'>) {
+  // All gifts at once first, so each recipient's clean-up finds none left to read.
+  for (const gift of await allFamilyGifts(ctx, groupId)) await ctx.db.delete('gifts', gift._id);
   const recipients = await ctx.db
     .query('giftRecipients')
     .withIndex('by_group', (q) => q.eq('groupId', groupId))

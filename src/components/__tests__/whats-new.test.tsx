@@ -76,7 +76,7 @@ describe("what's new sheet", () => {
     expect(screen.queryByText('New in Grocr')).toBeNull();
     await act(() => jest.advanceTimersByTime(1000));
     expect(screen.getByText('New in Grocr')).toBeTruthy();
-    expect(screen.getByText('Christmas gifts')).toBeTruthy();
+    expect(screen.getByText('Joint gifts')).toBeTruthy();
     expect(screen.queryByText('Some of it at home')).toBeNull();
   });
 
@@ -130,7 +130,7 @@ describe("what's new sheet", () => {
 
   test('"Show me" closes it and opens the feature', async () => {
     await openSheet(me(LATEST_WHATS_NEW - 1));
-    await fireEvent.press(screen.getByRole('link', { name: 'Show me: Christmas gifts' }));
+    await fireEvent.press(screen.getByRole('link', { name: 'Show me: Joint gifts' }));
     expect(mockSee).toHaveBeenCalledWith({ upTo: LATEST_WHATS_NEW });
     expect(mockRouter.navigate).toHaveBeenCalledWith('/gifts');
     expect(screen.queryByText('New in Grocr')).toBeNull();
@@ -140,7 +140,7 @@ describe("what's new sheet", () => {
     await i18n.changeLanguage('nb');
     await openSheet(me(LATEST_WHATS_NEW - 1));
     expect(screen.getByText('Nytt i Grocr')).toBeTruthy();
-    expect(screen.getByText('Julegaver')).toBeTruthy();
+    expect(screen.getByText('Fellesgaver')).toBeTruthy();
     expect(screen.getByText('Fint')).toBeTruthy();
   });
 });

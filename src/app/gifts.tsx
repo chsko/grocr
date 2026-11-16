@@ -287,7 +287,7 @@ export default function GiftsScreen() {
                               pressed && { opacity: 0.7 },
                             ]}>
                             <Text>{gift.title}</Text>
-                            <GiftLine gift={gift} />
+                            <GiftLine gift={gift} forId={group._id} />
                           </Pressable>
                           <StatusPill
                             title={gift.title}
@@ -451,7 +451,7 @@ function IdeaBank({ desktop }: { desktop: boolean }) {
                         onPress={() => router.push(`/gift/${idea._id}`)}
                         style={({ pressed }) => [{ flex: 1, gap: 2 }, pressed && { opacity: 0.7 }]}>
                         <Text>{idea.title}</Text>
-                        <GiftLine gift={idea} />
+                        <GiftLine gift={idea} forId={group._id} />
                       </Pressable>
                       <StatusPill
                         title={idea.title}
@@ -485,15 +485,29 @@ function IdeaBank({ desktop }: { desktop: boolean }) {
   );
 }
 
-/** Price, buyer and shop under a gift's title, when there are any. */
+/** Who else a joint gift is for, price, buyer and shop under a gift's title, when any. */
 function GiftLine({
   gift,
+  forId,
 }: {
-  gift: { price: number | null; buyerName: string | null; url: string | null };
+  gift: {
+    price: number | null;
+    buyerName: string | null;
+    url: string | null;
+    recipients: { _id: Id<'giftRecipients'>; name: string }[];
+  };
+  /** The person the gift is listed under. */
+  forId: Id<'giftRecipients'>;
 }) {
   const colors = useColors();
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const others = gift.recipients.filter((r) => r._id !== forId).map((r) => r.name);
   const parts = [
+    others.length === 0
+      ? null
+      : t('gifts.jointWith', {
+          names: others.join(', '),
+        }),
     gift.price === null ? null : formatKroner(i18n.language, gift.price),
     gift.buyerName,
     gift.url === null ? null : recipeSite(gift.url),
@@ -529,12 +543,13 @@ function useSetGiftStatus() {
       const cost = (moved.price ?? 0) * money;
       const shift = <T extends Record<GiftStatus, number> & { spent: number; planned: number }>(
         c: T,
+        split = 1,
       ): T => ({
         ...c,
         [from]: c[from] - 1,
         [status]: c[status] + 1,
-        spent: c.spent + cost,
-        planned: c.planned - cost,
+        spent: c.spent + cost / split,
+        planned: c.planned - cost / split,
       });
       store.setQuery(api.gifts.christmas, args, {
         ...value,
@@ -544,7 +559,9 @@ function useSetGiftStatus() {
             ? {
                 ...r,
                 ...(() => {
-                  const next = shift({ ...r.counts, spent: r.spent, planned: r.planned });
+                  // A joint gift moves only this person's share of the price.
+                  const share = moved.recipients.length;
+                  const next = shift({ ...r.counts, spent: r.spent, planned: r.planned }, share);
                   const { spent, planned, ...counts } = next;
                   return { counts, spent, planned };
                 })(),

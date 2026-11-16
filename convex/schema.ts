@@ -254,6 +254,10 @@ export default defineSchema({
   gifts: defineTable({
     groupId: v.id('groups'),
     recipientId: v.id('giftRecipients'),
+    // A joint gift ("fellesgave") is also for these people, besides `recipientId`. It shows
+    // under each of them, is hidden from every linked member among them, and its price is
+    // shared evenly between their budgets.
+    alsoForIds: v.optional(v.array(v.id('giftRecipients'))),
     occasionKind: v.optional(giftOccasionKind),
     occasionYear: v.optional(v.number()),
     title: v.string(),

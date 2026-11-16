@@ -883,3 +883,185 @@ describe('groups of people', () => {
     expect(await t.run(async (ctx) => (await ctx.db.query('giftGroups').collect()).length)).toBe(0);
   });
 });
+
+describe('joint gifts', () => {
+  /** A 600 kr rug for Granny and Grandpa together, bought. */
+  async function joint() {
+    const f = await planned();
+    const { ada, granny, groupId } = f;
+    const grandpa = await ada.as.mutation(api.gifts.addRecipient, { groupId, name: 'Grandpa' });
+    const rug = await ada.as.mutation(api.gifts.addGift, {
+      recipientId: granny,
+      title: 'Rug',
+      year: 2026,
+    });
+    await ada.as.mutation(api.gifts.setGiftRecipients, {
+      giftId: rug,
+      recipientIds: [granny, grandpa],
+    });
+    await ada.as.mutation(api.gifts.updateGift, {
+      giftId: rug,
+      title: 'Rug',
+      price: 600,
+      url: '',
+      note: '',
+      buyerUserId: null,
+    });
+    await ada.as.mutation(api.gifts.setGiftStatus, { giftId: rug, status: 'bought' });
+    return { ...f, grandpa, rug };
+  }
+
+  test('shows under each person, shares the price, and counts once in the totals', async () => {
+    const { kid, groupId } = await joint();
+    const xmas = await kid.as.query(api.gifts.christmas, { groupId });
+    const of = (name: string) => xmas.recipients.find((r) => r.name === name)!;
+    expect(of('Granny').gifts.map((g) => g.title)).toEqual(['Scarf', 'Rug']);
+    expect(of('Grandpa').gifts.map((g) => g.title)).toEqual(['Rug']);
+    expect(of('Grandpa').gifts[0].recipients.map((r) => r.name)).toEqual(['Granny', 'Grandpa']);
+    expect([of('Granny').spent, of('Grandpa').spent]).toEqual([300, 300]);
+    expect(of('Grandpa').counts.bought).toBe(1);
+    expect(xmas.totals).toMatchObject({ idea: 2, bought: 1, spent: 600 });
+    expect(await kid.as.query(api.gifts.weekCard, { groupId })).toMatchObject({
+      done: 1,
+      total: 3,
+      spent: 600,
+    });
+  });
+
+  test('a joint gift that includes a member is hidden from that member everywhere', async () => {
+    const { ada, bob, bobR, granny, groupId, rug } = await joint();
+    await ada.as.mutation(api.gifts.setGiftRecipients, {
+      giftId: rug,
+      recipientIds: [granny, bobR],
+    });
+    const xmas = await bob.as.query(api.gifts.christmas, { groupId });
+    expect(xmas.recipients.find((r) => r.name === 'Granny')!.gifts.map((g) => g.title)).toEqual([
+      'Scarf',
+    ]);
+    expect(xmas.totals.spent).toBe(0);
+    expect(await bob.as.query(api.gifts.gift, { giftId: rug })).toBeNull();
+    await expect(bob.as.mutation(api.gifts.removeGift, { giftId: rug })).rejects.toThrow(
+      /NOT_FOUND/,
+    );
+    // Bob can't add himself or anyone hidden to a gift either.
+    const scarf = (await bob.as.query(api.gifts.christmas, { groupId })).recipients.find(
+      (r) => r.name === 'Granny',
+    )!.gifts[0];
+    await expect(
+      bob.as.mutation(api.gifts.setGiftRecipients, {
+        giftId: scarf._id,
+        recipientIds: [granny, bobR],
+      }),
+    ).rejects.toThrow(/NOT_FOUND/);
+  });
+
+  test('refuses no one, other families and too many; drops a buyer it is now for', async () => {
+    const { ada, bob, bobR, eve, granny, grandpa, otherGroupId, rug, kid } = await joint();
+    await expect(
+      ada.as.mutation(api.gifts.setGiftRecipients, { giftId: rug, recipientIds: [] }),
+    ).rejects.toThrow(/INVALID_RECIPIENTS/);
+    const stranger = await eve.as.mutation(api.gifts.addRecipient, {
+      groupId: otherGroupId,
+      name: 'Stranger',
+    });
+    await expect(
+      ada.as.mutation(api.gifts.setGiftRecipients, {
+        giftId: rug,
+        recipientIds: [granny, stranger],
+      }),
+    ).rejects.toThrow(/NOT_FOUND/);
+    await ada.as.mutation(api.gifts.updateGift, {
+      giftId: rug,
+      title: 'Rug',
+      price: 600,
+      url: '',
+      note: '',
+      buyerUserId: bob.userId,
+    });
+    await ada.as.mutation(api.gifts.setGiftRecipients, {
+      giftId: rug,
+      recipientIds: [granny, grandpa, bobR],
+    });
+    const sheet = await kid.as.query(api.gifts.gift, { giftId: rug });
+    expect(sheet!.buyerUserId).toBeNull();
+    expect(sheet!.buyers.map((b) => b.name)).toEqual(['ada', 'kid']);
+    expect(sheet!.recipients.map((r) => r.name)).toEqual(['Granny', 'Grandpa', 'Bob']);
+    await expect(
+      ada.as.mutation(api.gifts.updateGift, {
+        giftId: rug,
+        title: 'Rug',
+        price: 600,
+        url: '',
+        note: '',
+        buyerUserId: bob.userId,
+      }),
+    ).rejects.toThrow(/INVALID_BUYER/);
+  });
+
+  test('linking a member clears them as buyer of joint gifts for them', async () => {
+    const { ada, kid, grandpa, rug } = await joint();
+    await ada.as.mutation(api.gifts.updateGift, {
+      giftId: rug,
+      title: 'Rug',
+      price: 600,
+      url: '',
+      note: '',
+      buyerUserId: kid.userId,
+    });
+    await ada.as.mutation(api.gifts.linkRecipient, {
+      recipientId: grandpa,
+      memberUserId: kid.userId,
+    });
+    expect(await ada.as.query(api.gifts.gift, { giftId: rug })).toMatchObject({
+      buyerUserId: null,
+    });
+  });
+
+  test('deleting one of the people keeps the gift for the others', async () => {
+    const { ada, granny, grandpa, groupId, rug } = await joint();
+    await ada.as.mutation(api.gifts.removeRecipient, { recipientId: granny });
+    const sheet = await ada.as.query(api.gifts.gift, { giftId: rug });
+    expect(sheet!.recipients.map((r) => r.name)).toEqual(['Grandpa']);
+    await ada.as.mutation(api.gifts.removeRecipient, { recipientId: grandpa });
+    expect(await ada.as.query(api.gifts.gift, { giftId: rug })).toBeNull();
+    expect(names(await ada.as.query(api.gifts.christmas, { groupId }))).toEqual(['Bob']);
+  });
+
+  test('shares add up to the price, the leftover øre on the first person', async () => {
+    const { ada, bobR, granny, grandpa, groupId, rug, kid } = await joint();
+    await ada.as.mutation(api.gifts.linkRecipient, { recipientId: bobR, memberUserId: null });
+    await ada.as.mutation(api.gifts.setGiftRecipients, {
+      giftId: rug,
+      recipientIds: [granny, grandpa, bobR],
+    });
+    await ada.as.mutation(api.gifts.updateGift, {
+      giftId: rug,
+      title: 'Rug',
+      price: 100,
+      url: '',
+      note: '',
+      buyerUserId: kid.userId,
+    });
+    const xmas = await kid.as.query(api.gifts.christmas, { groupId });
+    const spent = (name: string) => xmas.recipients.find((r) => r.name === name)!.spent;
+    expect([spent('Granny'), spent('Grandpa'), spent('Bob')]).toEqual([33.34, 33.33, 33.33]);
+    expect(xmas.totals.spent).toBe(100);
+  });
+
+  test('joint ideas wait in the bank under each person', async () => {
+    const { ada, granny, grandpa, groupId } = await joint();
+    const book = await ada.as.mutation(api.gifts.addGift, { recipientId: grandpa, title: 'Book' });
+    await ada.as.mutation(api.gifts.setGiftRecipients, {
+      giftId: book,
+      recipientIds: [grandpa, granny],
+    });
+    const bank = await ada.as.query(api.gifts.ideas, { groupId });
+    expect(bank.recipients.map((r) => [r.name, r.ideas.map((i) => i.title)])).toEqual([
+      ['Bob', []],
+      ['Grandpa', ['Book']],
+      ['Granny', ['Book']],
+    ]);
+    const xmas = await ada.as.query(api.gifts.christmas, { groupId });
+    expect(xmas.recipients.find((r) => r.name === 'Granny')!.bankCount).toBe(1);
+  });
+});

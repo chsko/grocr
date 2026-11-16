@@ -21,7 +21,9 @@ nothing. Only deleting the account removes it.
 
 ## Consequences
 
-Totals are computed per viewer. The link between recipient and member is now security relevant:
+Totals are computed per viewer. A joint gift (several recipients) is visible only when every
+one of its recipients is, so it is hidden from each linked member among them, and so is their
+share of the other recipients' totals. The link between recipient and member is now security relevant:
 a missing link exposes gifts, so the app suggests links when names match or a member joins.
 
 Hiding follows the account, not the person. An adversarial review (#87) found three ways around

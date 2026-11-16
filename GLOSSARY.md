@@ -55,6 +55,12 @@ A named group of gift recipients ("In-laws", "Kids"), shown as a heading in the 
 recipient is in at most one. The group is done for a Christmas when every recipient in it that
 the viewer may see has at least one Bought or Wrapped gift.
 
+**Joint gift** (fellesgave):
+One gift for several gift recipients together, such as a rug for Granny and Grandpa. It shows
+under each of them, counts once in totals, and its price is shared evenly between their budgets.
+It is hidden from every linked member it is for.
+_Avoid_: Shared gift (sounds like several givers chipping in)
+
 **Gift status**:
 Where a gift is: Idea, Bought or Wrapped. Everything in the idea bank is an Idea.
 

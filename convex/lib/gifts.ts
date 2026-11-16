@@ -18,6 +18,8 @@ export const GIFT_CARD_END = '12-24';
 export const MAX_GIFT_PRICE = 10_000_000;
 export const MIN_GIFT_YEAR = 2000;
 export const MAX_GIFT_YEAR = 2100;
+/** Most people one joint gift can be for. */
+export const MAX_JOINT = 10;
 
 const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
