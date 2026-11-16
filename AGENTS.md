@@ -53,7 +53,20 @@ Docs: https://docs.expo.dev/eas/index.md
 
 ## Agent skills
 
-Matt Pocock's skills (github.com/mattpocock/skills) are enabled as the `mattpocock-skills` plugin in `.claude/settings.json`. Main flow: `/grill-with-docs` -> `/to-spec` -> `/to-tickets` -> `/implement` (drives `/tdd`, ends with `/code-review`) -> `/retro`. `/ask-matt` explains which skill to use.
+Matt Pocock's skills (github.com/mattpocock/skills) are enabled as the `mattpocock-skills` plugin in `.claude/settings.json`. `/ask-matt` explains which skill to use.
+
+### Feature flow (mandatory)
+
+Every request for a new feature, or a change to an existing feature, follows this flow. Don't skip steps and don't start building early (Christian, 2026-11-16):
+
+1. **`/grill-with-docs`**: grill Christian until the frontier is empty and he confirms the shared understanding. Ask with interactive decision cards, one question per card; small defaults may be bundled into one "accept all" card. Resolved terms go into `GLOSSARY.md`, hard decisions into `docs/adr/`.
+2. **Design with prototypes (required)**: use `/prototype` to make 2 to 3 distinct design options (screenshots of the real app in light and dark, or interactive mockups). Christian picks one, or asks for another round. Nothing goes on to spec or implementation until he has picked.
+3. **`/to-spec`**: write the spec, including the chosen prototype, as a GitHub issue. Check the test seams with Christian first.
+4. **`/to-tickets`**: split into vertical tracer-bullet slices with blocking edges, quiz Christian on the breakdown, publish as sub-issues of the spec.
+5. **`/implement`** per ticket, driving `/tdd` and ending with `/code-review` (plus the adversarial review for important changes). `pnpm check` must pass, then push to main.
+6. **`/retro`** when the feature is done.
+
+Small bug fixes and pure chores (dependency bumps, copy typos) don't need the flow unless Christian asks for it.
 
 ### Issue tracker
 
