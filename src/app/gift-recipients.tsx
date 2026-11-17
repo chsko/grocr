@@ -8,7 +8,7 @@ import { Disclosure, FoldAll } from '@/components/disclosure';
 import { DragRow, DragZones, DropZone } from '@/components/drag-to-group';
 import { NameSheet, Sheet } from '@/components/gift-parts';
 import { ChevronLeft, ChevronRight, More, Plus } from '@/components/icons';
-import { Button, Field, IconButton, Loading, Text } from '@/components/ui';
+import { Button, Field, IconButton, Loading, QuietField, Text } from '@/components/ui';
 import { Fonts, Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -679,7 +679,6 @@ function ManageSheet({
 
 /** Adds a person straight into a gift group. */
 function AddToGroup({ giftGroupId, name }: { giftGroupId: Id<'giftGroups'>; name: string }) {
-  const colors = useColors();
   const styles = useStyles();
   const { t } = useTranslation();
   const family = useFamily();
@@ -698,21 +697,17 @@ function AddToGroup({ giftGroupId, name }: { giftGroupId: Id<'giftGroups'>; name
   }
 
   return (
-    <View style={styles.addTo}>
-      <Plus color={colors.tomato} size={18} strokeWidth={2.2} />
-      <Field
-        accessibilityLabel={label}
-        value={text}
-        onChangeText={setText}
-        maxLength={60}
-        placeholder={t('gifts.addToGroupShort')}
-        returnKeyType="done"
-        blurOnSubmit={false}
-        onSubmitEditing={() => void add()}
-        style={{ flex: 1 }}
-        inputStyle={styles.addInput}
-      />
-    </View>
+    <QuietField
+      accessibilityLabel={label}
+      value={text}
+      onChangeText={setText}
+      maxLength={60}
+      placeholder={t('gifts.addToGroupShort')}
+      returnKeyType="done"
+      blurOnSubmit={false}
+      onSubmitEditing={() => void add()}
+      style={styles.addTo}
+    />
   );
 }
 
@@ -725,8 +720,7 @@ const useStyles = makeStyles((colors) => ({
   divider: { borderTopWidth: 1, borderTopColor: colors.divider },
   addRow: { flexDirection: 'row', gap: 10 },
   // A quiet last line under a group's people, lined up with the names in the rows.
-  addTo: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 14 },
-  addInput: { minHeight: 48, borderWidth: 0, paddingHorizontal: 0, backgroundColor: 'transparent' },
+  addTo: { paddingLeft: 14 },
   setting: {
     minHeight: 52,
     flexDirection: 'row',

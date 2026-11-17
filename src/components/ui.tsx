@@ -17,7 +17,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Animated, {
   useAnimatedStyle,
@@ -33,7 +33,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
 import { makeStyles, useColors } from '@/lib/appearance';
 import { EASE_OUT } from '@/lib/motion';
-import { Star } from '@/components/icons';
+import { Plus, Star } from '@/components/icons';
 import { UpdateBanner } from '@/components/update-banner';
 
 // Small building blocks shared by the screens, styled after the design canvas.
@@ -187,6 +187,41 @@ export function Field({
       </Text>
       {input}
     </View>
+  );
+}
+
+/**
+ * The quiet last line of a list: "+ New gift" that takes typing in place. No box of its own;
+ * while it has focus a tomato underline shows where the typing goes (the browser's own focus
+ * ring is turned off, since it would sit tight against the text).
+ */
+export function QuietField({ style, ...rest }: TextInputProps & { style?: StyleProp<ViewStyle> }) {
+  const colors = useColors();
+  const styles = useStyles();
+  const [focused, setFocused] = useState(false);
+  const input = useRef<TextInputInstance>(null);
+  return (
+    <Pressable
+      accessible={false}
+      tabIndex={-1}
+      onPress={() => input.current?.focus()}
+      style={[styles.quiet, style]}>
+      <Plus color={colors.tomato} size={18} strokeWidth={2.2} />
+      <TextInput
+        ref={input}
+        placeholderTextColor={colors.checkbox}
+        {...rest}
+        onFocus={(e) => {
+          setFocused(true);
+          rest.onFocus?.(e);
+        }}
+        onBlur={(e) => {
+          setFocused(false);
+          rest.onBlur?.(e);
+        }}
+        style={[styles.quietInput, focused && { borderBottomColor: colors.tomato }]}
+      />
+    </Pressable>
   );
 }
 
@@ -436,6 +471,19 @@ const useStyles = makeStyles((colors) => ({
   },
   // A note or step starts at the top, so it needs room above the first line.
   multiline: { paddingTop: 12, paddingBottom: 12, lineHeight: 22 },
+  quiet: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  quietInput: {
+    flex: 1,
+    minHeight: 40,
+    borderBottomWidth: 1.5,
+    borderBottomColor: 'transparent',
+    outlineWidth: 0,
+    // A solid outline of width 0 draws nothing; the browser's default 'auto' ring would.
+    outlineStyle: 'solid',
+    fontFamily: Fonts.medium,
+    fontSize: 17,
+    color: colors.ink,
+  },
   input: {
     minHeight: 50,
     borderRadius: Radius.field,

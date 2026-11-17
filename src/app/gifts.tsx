@@ -1,15 +1,8 @@
 import { useMutation, useQuery } from 'convex/react';
 import { router, Stack } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Pressable,
-  ScrollView,
-  type StyleProp,
-  type TextInputInstance,
-  View,
-  type ViewStyle,
-} from 'react-native';
+import { Pressable, ScrollView, type StyleProp, View, type ViewStyle } from 'react-native';
 
 import {
   BudgetSheet,
@@ -21,7 +14,7 @@ import {
 import { CardGrid } from '@/components/card-grid';
 import { Disclosure, FoldAll } from '@/components/disclosure';
 import { Check, ChevronLeft, ChevronRight, Plus } from '@/components/icons';
-import { Button, Chip, Field, IconButton, Loading, Text } from '@/components/ui';
+import { Button, Chip, Field, IconButton, Loading, QuietField, Text } from '@/components/ui';
 import { Fonts, Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
@@ -649,13 +642,11 @@ function AddGift({
   /** A rule above it, when gifts stand over it. */
   divider?: boolean;
 }) {
-  const colors = useColors();
   const styles = useStyles();
   const { t } = useTranslation();
   const addGift = useMutation(api.gifts.addGift);
   const label = t(year === undefined ? 'gifts.newIdeaFor' : 'gifts.newGiftFor', { name });
   const [text, setText] = useState('');
-  const input = useRef<TextInputInstance>(null);
 
   async function add() {
     const title = text;
@@ -668,25 +659,17 @@ function AddGift({
   }
 
   return (
-    <Pressable
-      accessible={false}
-      onPress={() => input.current?.focus()}
-      style={[styles.addRow, divider && styles.divider]}>
-      <Plus color={colors.tomato} size={18} strokeWidth={2.2} />
-      <Field
-        ref={input}
-        accessibilityLabel={label}
-        value={text}
-        onChangeText={setText}
-        maxLength={120}
-        placeholder={t(year === undefined ? 'gifts.newIdea' : 'gifts.newGift')}
-        returnKeyType="done"
-        blurOnSubmit={false}
-        onSubmitEditing={() => void add()}
-        style={{ flex: 1 }}
-        inputStyle={styles.addInput}
-      />
-    </Pressable>
+    <QuietField
+      accessibilityLabel={label}
+      value={text}
+      onChangeText={setText}
+      maxLength={120}
+      placeholder={t(year === undefined ? 'gifts.newIdea' : 'gifts.newGift')}
+      returnKeyType="done"
+      blurOnSubmit={false}
+      onSubmitEditing={() => void add()}
+      style={divider && styles.divider}
+    />
   );
 }
 
@@ -764,13 +747,6 @@ const useStyles = makeStyles((colors) => ({
   dot_idea: { backgroundColor: colors.saffronSoft, borderWidth: 1, borderColor: colors.saffronInk },
   dot_bought: { backgroundColor: colors.saffronInk, opacity: 0.5 },
   dot_wrapped: { backgroundColor: colors.saffronInk },
-  addRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  addInput: {
-    minHeight: 48,
-    borderWidth: 0,
-    paddingHorizontal: 0,
-    backgroundColor: 'transparent',
-  },
   // In a desktop card the card is the box; the gifts stand straight in it.
   flat: { backgroundColor: 'transparent', paddingHorizontal: 0 },
   list: { borderRadius: Radius.card, backgroundColor: colors.surface, paddingHorizontal: 14 },
