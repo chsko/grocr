@@ -35,7 +35,13 @@
     "ALREADY_LINKED": "That family member is already linked to someone else.",
     "CANNOT_LINK_SELF": "You can't link yourself. That's for the others in the family, so it stays a surprise.",
     "NOT_IN_CHRISTMAS": "Add the idea to a Christmas first.",
-    "INVALID_DATE": "Pick a day no later than Christmas Eve."
+    "INVALID_DATE": "Pick a day no later than Christmas Eve.",
+    "DOOR_TITLE_REQUIRED": "Write what goes in the door.",
+    "INVALID_DAYS": "Pick days from the first Sunday in Advent to Christmas Eve.",
+    "RECIPIENT_IS_YOU": "You can't make an Advent calendar for yourself. The others in the family do that, so it stays a surprise.",
+    "INVALID_CALENDAR_RECIPIENTS": "An Advent calendar can be for 1 to 10 people in the family.",
+    "DAYS_HAVE_DOORS": "Someone has just filled a door on a day you removed. Look at the calendar and try again.",
+    "TOO_MANY_CALENDARS": "A family can have at most 30 Advent calendars a year."
   },
   "signIn": {
     "headline": "Pick the week's dinners.",
@@ -554,6 +560,10 @@
       "tidierGifts": {
         "title": "Tidier gift lists",
         "body": "The gifts now come first. Tap the counts in the summary to show only ideas, bought or wrapped gifts, and type new gifts straight into the list under each person. \"Fold all\" sits with the groups."
+      },
+      "adventCalendar": {
+        "title": "Advent calendar",
+        "body": "Plan Advent calendars for the children under Christmas gifts > Calendar: 1–24 December, the Advent Sundays or your own days. A calendar is hidden from the people it is for, and Week reminds you of tomorrow's door."
       }
     }
   },
@@ -719,5 +729,60 @@
   "web": {
     "noFamilyTitle": "Join a family in the app first",
     "noFamilyBody": "The gift lists belong to your family. Create a family in the Grocr app, or use an invite code there, and the lists show up here."
+  },
+  "advent": {
+    "tab": "Calendar",
+    "intro": "Plan Advent calendars for the children, or for anyone in the family. A calendar is hidden from the people it is for.",
+    "noneThisYear": "No Advent calendars this year.",
+    "noMembers": "Invite the rest of the family first, then you can make an Advent calendar for them.",
+    "new": "New calendar",
+    "names": "{{first}} and {{last}}",
+    "forWhom_one": "For {{names}} · {{count}} day",
+    "forWhom_other": "For {{names}} · {{count}} days",
+    "menu": "Options for {{name}}",
+    "wrappedOf": "{{done}} of {{count}} wrapped",
+    "emptyCount_one": "{{count}} empty",
+    "emptyCount_other": "{{count}} empty",
+    "spentOf": "{{spent}} spent of {{planned}} planned",
+    "hiddenFrom": "Hidden from {{names}}.",
+    "rename": "Rename",
+    "renameTitle": "Calendar name",
+    "nameLabel": "Name",
+    "namePlaceholder": "E.g. Sunday calendar",
+    "changeDays": "Change days",
+    "changeRecipients": "Change who it is for",
+    "delete": "Delete calendar",
+    "deleteTitle": "Delete {{name}}?",
+    "deleteBody": "All its doors are deleted too.",
+    "doorLabel": "Door {{number}}, {{date}}: {{what}}",
+    "emptyDoor": "empty",
+    "empty": "Empty",
+    "doorTitle": "Door {{number}} · {{name}}",
+    "whatLabel": "What goes in the door",
+    "whatPlaceholder": "E.g. Eraser",
+    "notePlaceholder": "Where to buy, size",
+    "clearDoor": "Empty the door",
+    "loseDoorsTitle_one": "Remove a day with something in it?",
+    "loseDoorsTitle_other": "Remove {{count}} days with something in them?",
+    "loseDoors": "Remove",
+    "newTitle": "New Advent calendar",
+    "daysTitle": "Days in {{name}}",
+    "recipientsTitle": "Who is {{name}} for?",
+    "toLabel": "For",
+    "toHint": "The calendar is hidden from the people you pick.",
+    "startFrom": "Start from",
+    "template": {
+      "december": "1–24 December",
+      "sundays": "Advent Sundays",
+      "own": "Own days"
+    },
+    "daysPicked_one": "{{count}} day picked. Tap a date to add or remove it.",
+    "daysPicked_other": "{{count}} days picked. Tap a date to add or remove it.",
+    "create": "Make calendar",
+    "weekCard": "Advent calendar",
+    "todayDoor": "Today, door {{number}}: {{what}}",
+    "tomorrowDoor": "Tomorrow, door {{number}}: {{what}}",
+    "notWrapped": "not wrapped",
+    "nextDoor": "Next door {{number}}, {{date}}: {{what}}"
   }
 }

@@ -70,3 +70,23 @@ _Avoid_: Used, cost
 
 **This Christmas**:
 The Christmas of the current year. It becomes next year's on 1 January, so the days after Christmas still show the one just had.
+
+## Advent calendars
+
+**Advent calendar** (julekalender):
+What the adults plan to put behind each door for one or more family members, for one year's Advent. Hidden from every member it is for.
+_Avoid_: Calendar (alone, it means the date picker), julekalender in English text
+
+**Calendar recipient**:
+A family member an Advent calendar is for. Always a member of the family in the app, never a gift recipient, and never the person making the calendar.
+_Avoid_: Child (adults can get one too), owner
+
+**Calendar day**:
+A day an Advent calendar has a door on, from the first Sunday in Advent (or 1 December, when Advent starts later) to Christmas Eve. A calendar has the days its family picks, not always 1 to 24 December.
+
+**Door** (luke):
+What is behind one calendar day: one thing with a gift status, an optional price and a note. A door can be empty. Its number is the date in a 1 to 24 December calendar, else its place among the calendar days (the third Advent Sunday is door 3).
+_Avoid_: Hatch, window, slot
+
+**Calendar template**:
+The days a new Advent calendar starts with: 1 to 24 December, the Advent Sundays, or own days (none, to pick by hand). Days can be added and removed afterwards.

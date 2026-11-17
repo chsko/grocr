@@ -14,7 +14,8 @@ const mockPlan = jest.fn((_args: unknown) => Promise.resolve(1));
 const mockRate = jest.fn((_args: unknown) => Promise.resolve(null));
 jest.mock('convex/react', () => ({
   // No Christmas gifts card on Week here (#86).
-  useQuery: (...args: unknown[]) => (args[0] === 'gifts.weekCard' ? null : mockUseQuery(...args)),
+  useQuery: (...args: unknown[]) =>
+    args[0] === 'gifts.weekCard' || args[0] === 'advent.weekCard' ? null : mockUseQuery(...args),
   useMutation: (name: string) =>
     name === 'mealPlan.planSuggested'
       ? mockPlan

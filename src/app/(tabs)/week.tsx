@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 import Animated, { FadeInLeft, FadeInRight } from 'react-native-reanimated';
 
+import { AdventWeekCard } from '@/components/advent-calendar';
 import { ProgressBar } from '@/components/gift-parts';
 import { Highlight } from '@/components/highlight';
 import { Basket, ChevronRight, Gift, Plus, Sparkle } from '@/components/icons';
@@ -64,6 +65,7 @@ export default function WeekScreen() {
       </View>
 
       <GiftsCard />
+      <AdventWeekCard />
 
       <Animated.View key={startDate} entering={entering} style={{ gap: 8 }}>
         {days.map((date, index) => {

@@ -30,6 +30,12 @@ const KNOWN = new Set([
   'CANNOT_LINK_SELF',
   'NOT_IN_CHRISTMAS',
   'INVALID_DATE',
+  'DOOR_TITLE_REQUIRED',
+  'INVALID_DAYS',
+  'RECIPIENT_IS_YOU',
+  'INVALID_CALENDAR_RECIPIENTS',
+  'DAYS_HAVE_DOORS',
+  'TOO_MANY_CALENDARS',
 ]);
 
 /** Shows a friendly alert for a failed mutation. */

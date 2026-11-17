@@ -35,7 +35,13 @@
     "ALREADY_LINKED": "Det familiemedlemmet er allerede koblet til en annen.",
     "CANNOT_LINK_SELF": "Du kan ikke koble deg selv. Det gjør de andre i familien, så det forblir en overraskelse.",
     "NOT_IN_CHRISTMAS": "Legg idéen til i en jul først.",
-    "INVALID_DATE": "Velg en dag senest julaften."
+    "INVALID_DATE": "Velg en dag senest julaften.",
+    "DOOR_TITLE_REQUIRED": "Skriv hva som ligger i luka.",
+    "INVALID_DAYS": "Velg dager fra første søndag i advent til julaften.",
+    "RECIPIENT_IS_YOU": "Du kan ikke lage en julekalender til deg selv. Det gjør de andre i familien, så det forblir en overraskelse.",
+    "INVALID_CALENDAR_RECIPIENTS": "En julekalender kan være til mellom 1 og 10 personer i familien.",
+    "DAYS_HAVE_DOORS": "Noen har nettopp fylt en luke på en dag du fjernet. Se på kalenderen og prøv igjen.",
+    "TOO_MANY_CALENDARS": "En familie kan ha høyst 30 julekalendere i året."
   },
   "signIn": {
     "headline": "Velg ukens middager.",
@@ -554,6 +560,10 @@
       "tidierGifts": {
         "title": "Ryddigere julegaver",
         "body": "Gavene står nå øverst. Trykk på tallene i oppsummeringen for å vise bare idéer, kjøpte eller pakkede gaver, og skriv nye gaver rett i listen under hver person. «Lukk alle» står ved gruppene."
+      },
+      "adventCalendar": {
+        "title": "Julekalender",
+        "body": "Planlegg julekalendere for barna under Julegaver > Kalender: 1.–24. desember, adventssøndagene eller egne dager. Kalenderen er skjult for dem den er til, og Uke minner deg på morgendagens luke."
       }
     }
   },
@@ -719,5 +729,60 @@
   "web": {
     "noFamilyTitle": "Bli med i en familie i appen først",
     "noFamilyBody": "Julegavelistene hører til familien din. Lag en familie i Grocr-appen, eller bruk en invitasjonskode der, så finner du listene her."
+  },
+  "advent": {
+    "tab": "Kalender",
+    "intro": "Planlegg julekalendere for barna, eller for hvem som helst i familien. En kalender skjules for dem den er til.",
+    "noneThisYear": "Ingen julekalendere dette året.",
+    "noMembers": "Inviter resten av familien først, så kan du lage en julekalender til dem.",
+    "new": "Ny kalender",
+    "names": "{{first}} og {{last}}",
+    "forWhom_one": "Til {{names}} · {{count}} dag",
+    "forWhom_other": "Til {{names}} · {{count}} dager",
+    "menu": "Valg for {{name}}",
+    "wrappedOf": "{{done}} av {{count}} pakket",
+    "emptyCount_one": "{{count}} tom",
+    "emptyCount_other": "{{count}} tomme",
+    "spentOf": "{{spent}} brukt av {{planned}} planlagt",
+    "hiddenFrom": "Skjult for {{names}}.",
+    "rename": "Gi nytt navn",
+    "renameTitle": "Navn på kalenderen",
+    "nameLabel": "Navn",
+    "namePlaceholder": "F.eks. Søndagskalender",
+    "changeDays": "Endre dager",
+    "changeRecipients": "Endre hvem den er til",
+    "delete": "Slett kalender",
+    "deleteTitle": "Slette {{name}}?",
+    "deleteBody": "Alle lukene slettes også.",
+    "doorLabel": "Luke {{number}}, {{date}}: {{what}}",
+    "emptyDoor": "tom",
+    "empty": "Tom",
+    "doorTitle": "Luke {{number}} · {{name}}",
+    "whatLabel": "Hva ligger i luka",
+    "whatPlaceholder": "F.eks. Viskelær",
+    "notePlaceholder": "Hvor kjøpt, størrelse",
+    "clearDoor": "Tøm luka",
+    "loseDoorsTitle_one": "Fjerne en dag med noe i?",
+    "loseDoorsTitle_other": "Fjerne {{count}} dager med noe i?",
+    "loseDoors": "Fjern",
+    "newTitle": "Ny julekalender",
+    "daysTitle": "Dager i {{name}}",
+    "recipientsTitle": "Hvem er {{name}} til?",
+    "toLabel": "Til",
+    "toHint": "Kalenderen skjules for dem du velger.",
+    "startFrom": "Start fra",
+    "template": {
+      "december": "1.–24. desember",
+      "sundays": "Adventssøndagene",
+      "own": "Egne dager"
+    },
+    "daysPicked_one": "{{count}} dag valgt. Trykk på en dato for å legge til eller fjerne den.",
+    "daysPicked_other": "{{count}} dager valgt. Trykk på en dato for å legge til eller fjerne den.",
+    "create": "Lag kalender",
+    "weekCard": "Julekalender",
+    "todayDoor": "I dag, luke {{number}}: {{what}}",
+    "tomorrowDoor": "I morgen, luke {{number}}: {{what}}",
+    "notWrapped": "ikke pakket",
+    "nextDoor": "Neste luke {{number}}, {{date}}: {{what}}"
   }
 }

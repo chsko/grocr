@@ -9,6 +9,7 @@
  */
 
 import type * as account from "../account.js";
+import type * as advent from "../advent.js";
 import type * as appleTokens from "../appleTokens.js";
 import type * as auth from "../auth.js";
 import type * as classify from "../classify.js";
@@ -20,6 +21,7 @@ import type * as http from "../http.js";
 import type * as ingredients from "../ingredients.js";
 import type * as invites from "../invites.js";
 import type * as lib_access from "../lib/access.js";
+import type * as lib_advent from "../lib/advent.js";
 import type * as lib_apple from "../lib/apple.js";
 import type * as lib_appleSignIn from "../lib/appleSignIn.js";
 import type * as lib_authRedirect from "../lib/authRedirect.js";
@@ -52,6 +54,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   account: typeof account;
+  advent: typeof advent;
   appleTokens: typeof appleTokens;
   auth: typeof auth;
   classify: typeof classify;
@@ -63,6 +66,7 @@ declare const fullApi: ApiFromModules<{
   ingredients: typeof ingredients;
   invites: typeof invites;
   "lib/access": typeof lib_access;
+  "lib/advent": typeof lib_advent;
   "lib/apple": typeof lib_apple;
   "lib/appleSignIn": typeof lib_appleSignIn;
   "lib/authRedirect": typeof lib_authRedirect;

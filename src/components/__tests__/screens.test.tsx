@@ -54,6 +54,7 @@ const mockNavigation = {
 const mockUseQuery = jest.fn();
 // The Christmas gifts card on Week has its own answer, so week tests can mock just the week.
 let mockGiftCard: unknown = null;
+let mockAdventCard: unknown = null;
 const mockAddManual = jest.fn();
 const mockRename = jest.fn(() => Promise.resolve(null));
 const mockSetAtHome = jest.fn((_args: unknown) => Promise.resolve(1));
@@ -82,7 +83,11 @@ const mockMutations: Record<string, unknown> = {
 };
 jest.mock('convex/react', () => ({
   useQuery: (...args: unknown[]) =>
-    args[0] === 'gifts.weekCard' ? mockGiftCard : mockUseQuery(...args),
+    args[0] === 'gifts.weekCard'
+      ? mockGiftCard
+      : args[0] === 'advent.weekCard'
+        ? mockAdventCard
+        : mockUseQuery(...args),
   useMutation: (name: string) =>
     mockMutations[name] ??
     (name === 'grocery.addManual'
@@ -145,6 +150,7 @@ beforeEach(() => {
   resetShownWeek();
   mockUseQuery.mockReset();
   mockGiftCard = null;
+  mockAdventCard = null;
   mockAddManual.mockReset();
   mockNav.index = 0;
 });
@@ -405,6 +411,46 @@ describe('week', () => {
     const push = jest.spyOn(router, 'push').mockImplementation(() => {});
     await fireEvent.press(screen.getByText('Julegaver'));
     expect(push).toHaveBeenCalledWith('/gifts');
+    push.mockRestore();
+  });
+
+  test('shows the Advent calendar card and warns about tomorrow’s door', async () => {
+    await i18n.changeLanguage('nb');
+    mockUseQuery.mockReturnValue({ dinners: [], openLines: 0 });
+    mockAdventCard = {
+      today: '2026-12-04',
+      tomorrow: '2026-12-05',
+      calendars: [
+        {
+          _id: 'c1',
+          name: null,
+          recipients: [{ userId: 'u2', name: 'Emma' }],
+          today: { day: '2026-12-04', number: 4, title: 'Viskelær', status: 'wrapped' },
+          tomorrow: { day: '2026-12-05', number: 5, title: 'Fargeblyanter', status: 'bought' },
+          next: null,
+        },
+        {
+          _id: 'c2',
+          name: 'Søndagskalender',
+          recipients: [{ userId: 'u2', name: 'Emma' }],
+          today: null,
+          tomorrow: null,
+          next: { day: '2026-12-06', number: 2, title: null, status: null },
+        },
+      ],
+    };
+    await render(
+      <SessionContext.Provider value={me}>
+        <WeekScreen />
+      </SessionContext.Provider>,
+    );
+    expect(screen.getByText('Julekalender')).toBeTruthy();
+    expect(screen.getByText('I dag, luke 4: Viskelær · Pakket')).toBeTruthy();
+    expect(screen.getByText('I morgen, luke 5: Fargeblyanter · Kjøpt · ikke pakket')).toBeTruthy();
+    expect(screen.getByText('Neste luke 2, søn 6. des.: tom')).toBeTruthy();
+    const push = jest.spyOn(router, 'push').mockImplementation(() => {});
+    await fireEvent.press(screen.getByText('Julekalender'));
+    expect(push).toHaveBeenCalledWith({ pathname: '/gifts', params: { tab: 'calendar' } });
     push.mockRestore();
   });
 

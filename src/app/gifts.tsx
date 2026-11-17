@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from 'convex/react';
-import { router, Stack } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, type StyleProp, View, type ViewStyle } from 'react-native';
@@ -11,6 +11,7 @@ import {
   StatusPill,
   useMoneyLine,
 } from '@/components/gift-parts';
+import { AdventTab } from '@/components/advent-calendar';
 import { CardGrid } from '@/components/card-grid';
 import { Disclosure, FoldAll } from '@/components/disclosure';
 import { Check, ChevronLeft, ChevronRight, Plus } from '@/components/icons';
@@ -62,7 +63,9 @@ export default function GiftsScreen() {
     setClosed((now) => (now.includes(key) ? now.filter((k) => k !== key) : [...now, key]));
   }
   const [budgetFor, setBudgetFor] = useState<Id<'giftRecipients'> | null>(null);
-  const [tab, setTab] = useState<'christmas' | 'bank'>('christmas');
+  // The Week card and What's new can open the Kalender tab straight away.
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const [tab, setTab] = useState<Tab>(params.tab === 'calendar' ? 'calendar' : 'christmas');
   const moneyLine = useMoneyLine();
   const desktop = useDesktop();
 
@@ -138,7 +141,7 @@ export default function GiftsScreen() {
 
   const tabs = (
     <View style={styles.tabs} accessibilityRole="tablist">
-      {(['christmas', 'bank'] as const).map((key) => (
+      {TABS.map((key) => (
         <Pressable
           key={key}
           accessibilityRole="tab"
@@ -146,7 +149,11 @@ export default function GiftsScreen() {
           onPress={() => setTab(key)}
           style={[styles.tab, tab === key && styles.tabOn]}>
           <Text variant="label" color={tab === key ? colors.ink : colors.muted}>
-            {key === 'christmas' ? t('gifts.christmasTab') : t('gifts.ideasTitle')}
+            {key === 'christmas'
+              ? t('gifts.christmasTab')
+              : key === 'calendar'
+                ? t('advent.tab')
+                : t('gifts.ideasTitle')}
           </Text>
         </Pressable>
       ))}
@@ -156,7 +163,7 @@ export default function GiftsScreen() {
   // Year, progress and filters: above the list on a phone, in a side column on a big screen.
   const overview = (
     <>
-      {tab === 'christmas' ? (
+      {tab !== 'bank' ? (
         <View style={styles.stepper}>
           <IconButton
             label={t('gifts.previousYearLabel')}
@@ -262,6 +269,7 @@ export default function GiftsScreen() {
   const list = (
     <>
       {tab === 'bank' ? <IdeaBank desktop={desktop} /> : null}
+      {tab === 'calendar' ? <AdventTab year={xmas.year} /> : null}
       {tab === 'christmas' && groupKeys.length >= 2 && !searching ? (
         <FoldAll
           count={groupKeys.length}
@@ -429,7 +437,7 @@ export default function GiftsScreen() {
         <ScrollView style={styles.side} contentContainerStyle={styles.sideContent}>
           {tabs}
           {overview}
-          {addPerson}
+          {tab === 'calendar' ? null : addPerson}
         </ScrollView>
         <ScrollView
           keyboardShouldPersistTaps="handled"
@@ -453,7 +461,7 @@ export default function GiftsScreen() {
       {tabs}
       {tab === 'bank' ? null : overview}
       {list}
-      {addPerson}
+      {tab === 'calendar' ? null : addPerson}
       {sheets}
     </ScrollView>
   );
@@ -672,6 +680,9 @@ function AddGift({
     />
   );
 }
+
+type Tab = 'christmas' | 'calendar' | 'bank';
+const TABS: readonly Tab[] = ['christmas', 'calendar', 'bank'];
 
 /** With no groups, the search shows once the list is this long. */
 const SEARCH_FROM = 8;

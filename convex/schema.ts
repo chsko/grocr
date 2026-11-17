@@ -282,4 +282,42 @@ export default defineSchema({
   })
     .index('by_recipient_occasion', ['recipientId', 'occasionKind', 'occasionYear'])
     .index('by_group_occasion', ['groupId', 'occasionKind', 'occasionYear']),
+
+  // Advent calendars (#88, ADR 0003): the adults plan what goes behind each door of a calendar
+  // for one or more family members. A calendar is hidden from every one of its recipients;
+  // every function goes through the loaders in convex/advent.ts.
+  adventCalendars: defineTable({
+    groupId: v.id('groups'),
+    year: v.number(),
+    // Missing = the recipients' names, put together by the app in the reader's language.
+    name: v.optional(v.string()),
+    // Its days as local dates ("YYYY-MM-DD"), sorted, from first Sunday in Advent to 24 Dec.
+    days: v.array(v.string()),
+    createdBy: v.optional(v.id('users')),
+    createdAt: v.number(),
+  })
+    .index('by_group_year', ['groupId', 'year'])
+    .index('by_creator', ['createdBy']),
+
+  // Who an Advent calendar is for: family members (users), one row each, so a deleted
+  // account can be found in every family, also ones left earlier.
+  adventRecipients: defineTable({
+    groupId: v.id('groups'),
+    calendarId: v.id('adventCalendars'),
+    userId: v.id('users'),
+  })
+    .index('by_calendar', ['calendarId'])
+    .index('by_group_user', ['groupId', 'userId'])
+    .index('by_user', ['userId']),
+
+  // What is behind one door: at most one per calendar and day.
+  adventDoors: defineTable({
+    groupId: v.id('groups'),
+    calendarId: v.id('adventCalendars'),
+    day: v.string(),
+    title: v.string(),
+    status: giftStatus,
+    price: v.optional(v.number()),
+    note: v.optional(v.string()),
+  }).index('by_calendar_day', ['calendarId', 'day']),
 });

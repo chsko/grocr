@@ -37,20 +37,24 @@ export function NameSheet({
   title,
   label,
   initial,
+  allowEmpty,
   onSave,
   onClose,
 }: {
   title: string;
   label: string;
   initial: string;
+  /** An empty name is a choice too (e.g. "use the recipients' names"). */
+  allowEmpty?: boolean;
   onSave: (name: string) => Promise<unknown>;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
   const [name, setName] = useState(initial);
   const [busy, setBusy] = useState(false);
+  const blocked = name.trim() === '' && !allowEmpty;
   async function save() {
-    if (name.trim() === '') return;
+    if (blocked) return;
     if (name.trim() !== initial) {
       setBusy(true);
       const ok = await attempt(t, () => onSave(name).then(() => true));
@@ -74,7 +78,7 @@ export function NameSheet({
       <Button
         title={t('common.save')}
         loading={busy}
-        disabled={name.trim() === ''}
+        disabled={blocked}
         onPress={() => void save()}
       />
     </Sheet>
