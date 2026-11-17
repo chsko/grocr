@@ -39,6 +39,10 @@ export default function FamilyScreen() {
   const groupId = family!.groupId;
   const isOwner = family!.role === 'owner';
   const members = useQuery(api.groups.members, { groupId });
+  const people = useQuery(api.family.people, { groupId });
+  const personInvites = useQuery(api.invites.forPeople, { groupId });
+  const [adding, setAdding] = useState(false);
+  const [person, setPerson] = useState<{ _id: Id<'familyMembers'>; name: string } | null>(null);
   const invite = useQuery(api.invites.active, { groupId });
   const revoke = useMutation(api.invites.revoke);
   const removeMember = useMutation(api.groups.removeMember);
@@ -158,19 +162,17 @@ export default function FamilyScreen() {
 
       <View style={styles.sectionHead}>
         <Text variant="section" color={colors.muted}>
-          {t('family.members', { count: members?.length ?? 0 })}
+          {t('family.members', { count: (members?.length ?? 0) + (people?.length ?? 0) })}
         </Text>
-        {isOwner ? (
-          <Pressable
-            onPress={() => router.push('/invite')}
-            accessibilityRole="button"
-            style={({ pressed }) => [styles.invite, pressed && { opacity: 0.8 }]}>
-            <Plus color={colors.onTomato} size={18} strokeWidth={2.2} />
-            <Text variant="item" color={colors.onTomato} style={{ fontSize: 15 }}>
-              {t('family.invite')}
-            </Text>
-          </Pressable>
-        ) : null}
+        <Pressable
+          onPress={() => setAdding(true)}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.invite, pressed && { opacity: 0.8 }]}>
+          <Plus color={colors.onTomato} size={18} strokeWidth={2.2} />
+          <Text variant="item" color={colors.onTomato} style={{ fontSize: 15 }}>
+            {t('family.add')}
+          </Text>
+        </Pressable>
       </View>
       {members?.map((m, index) => (
         <View key={m.membershipId} style={styles.member}>
@@ -195,6 +197,41 @@ export default function FamilyScreen() {
           ) : null}
         </View>
       ))}
+      {people?.map((p) => {
+        const sent = personInvites?.find((i) => i.familyMemberId === p._id);
+        return (
+          <View key={p._id} style={styles.member}>
+            <Avatar name={p.name} color={colors.saffronSoft} ink={colors.saffronInk} />
+            <View style={{ flex: 1, gap: 4, alignItems: 'flex-start' }}>
+              <Text variant="item">{p.name}</Text>
+              {sent ? (
+                <Text variant="small" color={colors.muted}>
+                  {t('family.personInvited', {
+                    count: Math.max(1, Math.round((sent.expiresAt - now) / 3600000)),
+                  })}
+                </Text>
+              ) : (
+                <Text variant="label" color={colors.muted} style={styles.noApp}>
+                  {t('family.withoutApp')}
+                </Text>
+              )}
+            </View>
+            {isOwner ? (
+              <Button
+                kind="ghost"
+                title={t('family.invite')}
+                onPress={() => router.push({ pathname: '/invite', params: { person: p._id } })}
+              />
+            ) : null}
+            <IconButton label={t('family.manage', { name: p.name })} onPress={() => setPerson(p)}>
+              <More color={colors.muted} />
+            </IconButton>
+          </View>
+        );
+      })}
+      <Text variant="small" color={colors.muted} style={{ marginTop: 10 }}>
+        {t('family.everyoneHint')}
+      </Text>
       {invite ? (
         <View style={styles.pending}>
           <Clock color={colors.tomato} size={20} />
@@ -324,6 +361,12 @@ export default function FamilyScreen() {
           onClose={() => setRenaming(false)}
         />
       ) : null}
+      {adding ? (
+        <AddPersonSheet groupId={groupId} isOwner={isOwner} onClose={() => setAdding(false)} />
+      ) : null}
+      {person ? (
+        <PersonSheet person={person} isOwner={isOwner} onClose={() => setPerson(null)} />
+      ) : null}
     </TabScreen>
   );
 }
@@ -385,7 +428,197 @@ function FamilyNameEditor({
   );
 }
 
+/** Adds a family member without the app; the owner can invite someone with a phone instead. */
+function AddPersonSheet({
+  groupId,
+  isOwner,
+  onClose,
+}: {
+  groupId: Id<'groups'>;
+  isOwner: boolean;
+  onClose: () => void;
+}) {
+  const colors = useColors();
+  const styles = useStyles();
+  const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const addPerson = useMutation(api.family.addPerson);
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    if (name.trim() === '') return;
+    setBusy(true);
+    const saved = await attempt(t, () => addPerson({ groupId, name }).then(() => true));
+    setBusy(false);
+    if (saved) onClose();
+  }
+
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.backdrop} accessibilityLabel={t('common.close')} onPress={onClose} />
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <Animated.View entering={sheetIn}>
+          <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
+            <Text variant="heading">{t('family.addTitle')}</Text>
+            <Text color={colors.muted}>{t('family.addIntro')}</Text>
+            <Field
+              label={t('family.personName')}
+              value={name}
+              onChangeText={setName}
+              maxLength={60}
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={() => void save()}
+            />
+            <Button
+              title={t('family.addWithoutApp')}
+              loading={busy}
+              disabled={name.trim() === ''}
+              onPress={() => void save()}
+            />
+            {isOwner ? (
+              <Button
+                kind="ghost"
+                title={t('family.inviteWithPhone')}
+                onPress={() => {
+                  onClose();
+                  router.push('/invite');
+                }}
+              />
+            ) : null}
+          </View>
+        </Animated.View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+/** A family member without the app: rename, invite to the app (owner) or remove (owner). */
+function PersonSheet({
+  person,
+  isOwner,
+  onClose,
+}: {
+  person: { _id: Id<'familyMembers'>; name: string };
+  isOwner: boolean;
+  onClose: () => void;
+}) {
+  const colors = useColors();
+  const styles = useStyles();
+  const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const rename = useMutation(api.family.renamePerson);
+  const remove = useMutation(api.family.removePerson);
+  const [name, setName] = useState(person.name);
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    if (name.trim() === '') return;
+    if (name.trim() !== person.name) {
+      setBusy(true);
+      const saved = await attempt(t, () =>
+        rename({ familyMemberId: person._id, name }).then(() => true),
+      );
+      setBusy(false);
+      if (!saved) return;
+    }
+    onClose();
+  }
+
+  function confirmRemove() {
+    Alert.alert(
+      t('family.removeTitle', { name: person.name }),
+      t('family.removePersonBody', { name: person.name }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('family.remove'),
+          style: 'destructive',
+          onPress: () =>
+            void attempt(t, async () => {
+              await remove({ familyMemberId: person._id });
+              onClose();
+            }),
+        },
+      ],
+    );
+  }
+
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.backdrop} accessibilityLabel={t('common.close')} onPress={onClose} />
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <Animated.View entering={sheetIn}>
+          <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+              <Avatar
+                name={person.name}
+                color={colors.saffronSoft}
+                ink={colors.saffronInk}
+                size={52}
+              />
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text variant="heading">{person.name}</Text>
+                <Text variant="small" color={colors.muted}>
+                  {t('family.withoutApp')}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.note}>
+              <Text variant="small" color={colors.muted} style={{ fontSize: 14 }}>
+                {t('family.personNote', { name: person.name })}
+              </Text>
+            </View>
+            <Field
+              label={t('family.personName')}
+              value={name}
+              onChangeText={setName}
+              maxLength={60}
+              returnKeyType="done"
+              onSubmitEditing={() => void save()}
+            />
+            <Button
+              kind={isOwner ? 'secondary' : 'primary'}
+              title={t('common.save')}
+              loading={busy}
+              disabled={name.trim() === ''}
+              onPress={() => void save()}
+            />
+            {isOwner ? (
+              <>
+                <Button
+                  title={t('family.invitePerson', { name: person.name })}
+                  onPress={() => {
+                    onClose();
+                    router.push({ pathname: '/invite', params: { person: person._id } });
+                  }}
+                />
+                <Button kind="danger" title={t('family.remove')} onPress={confirmRemove} />
+              </>
+            ) : (
+              <Text variant="small" color={colors.muted} style={{ textAlign: 'center' }}>
+                {t('family.onlyOwnerInvites')}
+              </Text>
+            )}
+          </View>
+        </Animated.View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
 const useStyles = makeStyles((colors) => ({
+  noApp: {
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: Radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    fontSize: 12,
+    overflow: 'hidden',
+  },
+  note: { backgroundColor: colors.surface, borderRadius: 14, padding: 12 },
   sectionHead: {
     marginTop: 20,
     flexDirection: 'row',

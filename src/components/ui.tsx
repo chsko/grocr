@@ -413,7 +413,18 @@ export function IconTile({
   );
 }
 
-export function Avatar({ name, color, size = 42 }: { name: string; color: string; size?: number }) {
+export function Avatar({
+  name,
+  color,
+  ink = '#FFFFFF',
+  size = 42,
+}: {
+  name: string;
+  color: string;
+  /** The initial's colour, for light avatars (a family member without the app). */
+  ink?: string;
+  size?: number;
+}) {
   return (
     <View
       style={{
@@ -424,7 +435,7 @@ export function Avatar({ name, color, size = 42 }: { name: string; color: string
         alignItems: 'center',
         justifyContent: 'center',
       }}>
-      <Text variant="item" color="#FFFFFF" style={{ fontFamily: Fonts.bold }}>
+      <Text variant="item" color={ink} style={{ fontFamily: Fonts.bold }}>
         {(name.charAt(0) || '?').toLocaleUpperCase()}
       </Text>
     </View>

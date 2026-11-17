@@ -28,21 +28,36 @@ const MAX_NOTE = 500;
 
 type Ctx = QueryCtx | MutationCtx;
 
-async function recipientIds(ctx: Ctx, calendarId: Id<'adventCalendars'>) {
-  const rows = await ctx.db
+/**
+ * Who a calendar can be for: a member (their user id) or a family member without the app (their
+ * family member id, #95). A family member who joined with their invite is their user id.
+ */
+export type RecipientKey = Id<'users'> | Id<'familyMembers'>;
+
+export const recipientKey = v.union(v.id('users'), v.id('familyMembers'));
+
+function keyOf(row: Doc<'adventRecipients'>): RecipientKey {
+  return (row.userId ?? row.familyMemberId)!;
+}
+
+async function recipientRowsOf(ctx: Ctx, calendarId: Id<'adventCalendars'>) {
+  return await ctx.db
     .query('adventRecipients')
     .withIndex('by_calendar', (q) => q.eq('calendarId', calendarId))
     .collect();
-  return rows.map((r) => r.userId);
+}
+
+async function recipientIds(ctx: Ctx, calendarId: Id<'adventCalendars'>) {
+  return (await recipientRowsOf(ctx, calendarId)).map(keyOf);
 }
 
 /** Loads a calendar the caller may see; their own (or another family's) is NOT_FOUND. */
 async function loadCalendar(ctx: Ctx, calendarId: Id<'adventCalendars'>) {
   const calendar = await ctx.db.get('adventCalendars', calendarId);
   const access = await requireMemberOf(ctx, calendar);
-  const recipients = await recipientIds(ctx, calendarId);
-  if (recipients.includes(access.userId)) throw accessError('NOT_FOUND');
-  return { calendar: calendar!, recipients, ...access };
+  const rows = await recipientRowsOf(ctx, calendarId);
+  if (rows.some((r) => r.userId === access.userId)) throw accessError('NOT_FOUND');
+  return { calendar: calendar!, recipients: rows.map(keyOf), ...access };
 }
 
 /** The ids of every calendar in the family that is for `userId`. */
@@ -129,19 +144,20 @@ function checkNote(note: string) {
  * Recipients are one to ten other members of the family. Call `refuseSelf` first, before
  * anything is loaded, so the answer can't tell the caller whether a calendar exists.
  */
-function refuseSelf(userId: Id<'users'>, ids: Id<'users'>[]) {
-  if (ids.includes(userId)) throw new ConvexError({ code: 'RECIPIENT_IS_YOU' });
+function refuseSelf(userId: Id<'users'>, ids: RecipientKey[]) {
+  if ((ids as string[]).includes(userId)) throw new ConvexError({ code: 'RECIPIENT_IS_YOU' });
 }
 
 /**
- * New recipients must be members of the family now. Recipients a calendar already has may stay
- * after leaving, so it stays hidden from them if they come back (`keep`).
+ * New recipients must be in the family now: members, or family members without the app.
+ * Recipients a calendar already has may stay after leaving, so it stays hidden from them if
+ * they come back (`keep`).
  */
 async function checkRecipients(
   ctx: Ctx,
   groupId: Id<'groups'>,
-  ids: Id<'users'>[],
-  keep: Id<'users'>[] = [],
+  ids: RecipientKey[],
+  keep: RecipientKey[] = [],
 ) {
   const unique = [...new Set(ids)];
   if (unique.length === 0 || unique.length > MAX_RECIPIENTS) {
@@ -149,15 +165,26 @@ async function checkRecipients(
   }
   for (const id of unique) {
     if (keep.includes(id)) continue;
-    if ((await getMembership(ctx, groupId, id)) === null) {
-      throw new ConvexError({ code: 'INVALID_CALENDAR_RECIPIENTS' });
-    }
+    const userId = ctx.db.normalizeId('users', id);
+    const ok =
+      userId !== null
+        ? (await getMembership(ctx, groupId, userId)) !== null
+        : await isWithoutApp(ctx, groupId, id as Id<'familyMembers'>);
+    if (!ok) throw new ConvexError({ code: 'INVALID_CALENDAR_RECIPIENTS' });
   }
   return unique;
 }
 
-async function userName(ctx: Ctx, userId: Id<'users'>) {
-  return (await ctx.db.get('users', userId))?.name ?? '';
+/** A family member of `groupId` who has not joined with an account (yet). */
+async function isWithoutApp(ctx: Ctx, groupId: Id<'groups'>, id: Id<'familyMembers'>) {
+  const person = await ctx.db.get('familyMembers', id);
+  return person !== null && person.groupId === groupId && person.userId === undefined;
+}
+
+async function keyName(ctx: Ctx, key: RecipientKey) {
+  const userId = ctx.db.normalizeId('users', key);
+  if (userId !== null) return (await ctx.db.get('users', userId))?.name ?? '';
+  return (await ctx.db.get('familyMembers', key as Id<'familyMembers'>))?.name ?? '';
 }
 
 function round(amount: number) {
@@ -194,8 +221,16 @@ function doorRow(calendar: Doc<'adventCalendars'>, door: Doc<'adventDoors'>) {
   };
 }
 
-async function recipientRows(ctx: Ctx, ids: Id<'users'>[]) {
-  return await Promise.all(ids.map(async (id) => ({ userId: id, name: await userName(ctx, id) })));
+async function recipientRows(ctx: Ctx, ids: RecipientKey[]) {
+  return await Promise.all(
+    ids.map(async (id) => ({
+      id,
+      // The old name of `id`, for apps from before #95.
+      userId: id,
+      withoutApp: ctx.db.normalizeId('familyMembers', id) !== null,
+      name: await keyName(ctx, id),
+    })),
+  );
 }
 
 /**
@@ -215,10 +250,18 @@ export const calendars = query({
       .withIndex('by_group', (q) => q.eq('groupId', args.groupId))
       .collect();
     memberships.sort((a, b) => a.joinedAt - b.joinedAt);
-    const members = await recipientRows(
-      ctx,
-      memberships.map((m) => m.userId).filter((id) => id !== userId),
-    );
+    const people = await ctx.db
+      .query('familyMembers')
+      .withIndex('by_group', (q) => q.eq('groupId', args.groupId))
+      .collect();
+    // Everyone in the family but the caller: members, then those without the app.
+    const members = await recipientRows(ctx, [
+      ...memberships.map((m) => m.userId).filter((id) => id !== userId),
+      ...people
+        .filter((p) => p.userId === undefined)
+        .sort((a, b) => a.createdAt - b.createdAt)
+        .map((p) => p._id),
+    ]);
     const rows = [];
     for (const calendar of await visibleCalendars(ctx, args.groupId, userId, year)) {
       const doors = (await doorsOf(ctx, calendar._id)).filter((d) => calendar.days.includes(d.day));
@@ -274,24 +317,21 @@ export const weekCard = query({
 async function setRecipientRows(
   ctx: MutationCtx,
   calendar: Doc<'adventCalendars'>,
-  ids: Id<'users'>[],
+  ids: RecipientKey[],
 ) {
-  const rows = await ctx.db
-    .query('adventRecipients')
-    .withIndex('by_calendar', (q) => q.eq('calendarId', calendar._id))
-    .collect();
+  const rows = await recipientRowsOf(ctx, calendar._id);
   for (const row of rows) {
-    if (!ids.includes(row.userId)) await ctx.db.delete('adventRecipients', row._id);
+    if (!ids.includes(keyOf(row))) await ctx.db.delete('adventRecipients', row._id);
   }
-  const had = new Set(rows.map((r) => r.userId));
+  const had = new Set<string>(rows.map(keyOf));
   for (const id of ids) {
-    if (!had.has(id)) {
-      await ctx.db.insert('adventRecipients', {
-        groupId: calendar.groupId,
-        calendarId: calendar._id,
-        userId: id,
-      });
-    }
+    if (had.has(id)) continue;
+    const userId = ctx.db.normalizeId('users', id);
+    await ctx.db.insert('adventRecipients', {
+      groupId: calendar.groupId,
+      calendarId: calendar._id,
+      ...(userId !== null ? { userId } : { familyMemberId: id as Id<'familyMembers'> }),
+    });
   }
 }
 
@@ -300,7 +340,7 @@ export const createCalendar = mutation({
   args: {
     groupId: v.id('groups'),
     year: v.number(),
-    recipientIds: v.array(v.id('users')),
+    recipientIds: v.array(recipientKey),
     days: v.array(v.string()),
     name: v.optional(v.string()),
   },
@@ -338,7 +378,7 @@ export const renameCalendar = mutation({
 
 /** Sets who a calendar is for. Making yourself one of them is refused. */
 export const setRecipients = mutation({
-  args: { calendarId: v.id('adventCalendars'), recipientIds: v.array(v.id('users')) },
+  args: { calendarId: v.id('adventCalendars'), recipientIds: v.array(recipientKey) },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
     refuseSelf(userId, args.recipientIds);
@@ -475,6 +515,47 @@ export async function forgetAdventRecipient(ctx: MutationCtx, userId: Id<'users'
     if ((await recipientIds(ctx, row.calendarId)).length === 0) {
       await deleteCalendar(ctx, row.calendarId);
     }
+  }
+}
+
+/**
+ * A family member without the app who is removed from the family is taken off its calendars,
+ * and a calendar left without recipients is deleted.
+ */
+export async function forgetAdventFamilyMember(ctx: MutationCtx, id: Id<'familyMembers'>) {
+  const rows = await ctx.db
+    .query('adventRecipients')
+    .withIndex('by_family_member', (q) => q.eq('familyMemberId', id))
+    .collect();
+  for (const row of rows) {
+    if (row.userId !== undefined) continue;
+    await ctx.db.delete('adventRecipients', row._id);
+    if ((await recipientIds(ctx, row.calendarId)).length === 0) {
+      await deleteCalendar(ctx, row.calendarId);
+    }
+  }
+}
+
+/**
+ * A family member without the app joined with their invite: their calendars now carry their
+ * user id, which hides them from them (ADR 0003). If a calendar already had them by user id
+ * too, the second row goes.
+ */
+export async function claimAdventRecipient(
+  ctx: MutationCtx,
+  id: Id<'familyMembers'>,
+  userId: Id<'users'>,
+) {
+  const rows = await ctx.db
+    .query('adventRecipients')
+    .withIndex('by_family_member', (q) => q.eq('familyMemberId', id))
+    .collect();
+  for (const row of rows) {
+    const twin = (await recipientRowsOf(ctx, row.calendarId)).find(
+      (r) => r._id !== row._id && r.userId === userId,
+    );
+    if (twin !== undefined) await ctx.db.delete('adventRecipients', twin._id);
+    await ctx.db.patch('adventRecipients', row._id, { userId });
   }
 }
 

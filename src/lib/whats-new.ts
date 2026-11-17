@@ -42,6 +42,7 @@ export const WHATS_NEW: readonly WhatsNewEntry[] = [
     icon: '🗓️',
     href: { pathname: '/gifts', params: { tab: 'calendar' } },
   },
+  { n: 18, key: 'familyWithoutApp', date: '2026-11-17', icon: '👪', href: '/family' },
 ];
 
 export const LATEST_WHATS_NEW = WHATS_NEW.reduce((max, e) => Math.max(max, e.n), 0);

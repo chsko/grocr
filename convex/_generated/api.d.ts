@@ -14,6 +14,7 @@ import type * as appleTokens from "../appleTokens.js";
 import type * as auth from "../auth.js";
 import type * as classify from "../classify.js";
 import type * as devSignIn from "../devSignIn.js";
+import type * as family from "../family.js";
 import type * as gifts from "../gifts.js";
 import type * as grocery from "../grocery.js";
 import type * as groups from "../groups.js";
@@ -59,6 +60,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   classify: typeof classify;
   devSignIn: typeof devSignIn;
+  family: typeof family;
   gifts: typeof gifts;
   grocery: typeof grocery;
   groups: typeof groups;

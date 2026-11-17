@@ -23,6 +23,7 @@ describe('invites', () => {
     expect(await ola.as.mutation(api.invites.preview, { code: typed })).toEqual({
       status: 'ok',
       familyName: 'Family',
+      personName: null,
       inviterName: 'Kari',
       memberCount: 1,
       recipeCount: 0,

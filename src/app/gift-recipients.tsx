@@ -27,6 +27,10 @@ type Recipient = {
   linkedName: string | null;
   archived: boolean;
   giftGroupId: Id<'giftGroups'> | null;
+  /** In the fixed Familien group (#95): a member, or a family member without the app. */
+  inFamily: boolean;
+  withoutApp: boolean;
+  canMoveToFamily: boolean;
 };
 
 /**
@@ -72,9 +76,13 @@ export default function GiftRecipientsScreen() {
 
   if (data === undefined) return <Loading />;
   const sorted = [...data.recipients].sort((a, b) => a.name.localeCompare(b.name, i18n.language));
-  const active = sorted.filter((r) => !r.archived);
+  // Familien is fixed (#95): its people come from the Family tab, not from gift groups.
+  const familyPeople = sorted.filter((r) => !r.archived && r.inFamily);
+  const active = sorted.filter((r) => !r.archived && !r.inFamily);
   const archived = sorted.filter((r) => r.archived);
-  const unlinked = data.members.filter((m) => !m.linked);
+  // Members to suggest: not linked yet, or with a plain look-alike that may be them from
+  // before they joined (they then have the automatic Familien one, #95).
+  const unlinked = data.members.filter((m) => !m.linked || m.match !== null);
   const giftGroups = data.groups;
   const groupNameOf = (id: Id<'giftGroups'> | null) =>
     giftGroups.find((g) => g._id === id)?.name ?? null;
@@ -101,9 +109,11 @@ export default function GiftRecipientsScreen() {
           <Text variant="item">{r.name}</Text>
           <Text variant="small" color={colors.muted}>
             {[
-              r.linkedName
-                ? t('gifts.people_screen.linked', { name: r.linkedName })
-                : t('gifts.people_screen.notLinked'),
+              r.withoutApp
+                ? t('gifts.withoutAppLong')
+                : r.linkedName
+                  ? t('gifts.people_screen.linked', { name: r.linkedName })
+                  : t('gifts.people_screen.notLinked'),
               // Active people already stand under their group's heading.
               r.archived ? groupNameOf(r.giftGroupId) : null,
             ]
@@ -143,6 +153,9 @@ export default function GiftRecipientsScreen() {
   // A search keeps groups whose name matches (with everyone in them) and people whose name does.
   const searching = search.trim() !== '';
   const looseShown = loose.filter((r) => matchesSearch(search, r.name));
+  const familyShown = matchesSearch(search, t('gifts.familyGroup'))
+    ? familyPeople
+    : familyPeople.filter((r) => matchesSearch(search, r.name));
   const groupsShown = giftGroups
     .map((g) => {
       const people = active.filter((r) => r.giftGroupId === g._id);
@@ -227,7 +240,37 @@ export default function GiftRecipientsScreen() {
               maxLength={60}
             />
           ) : null}
+          {familyShown.length > 0 ? (
+            <View style={{ gap: 8 }}>
+              <View style={styles.groupHead}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('gifts.familyGroup')}
+                  accessibilityState={{ expanded: isOpen('family') }}
+                  onPress={() => toggle('family')}
+                  style={({ pressed }) => [styles.groupToggle, pressed && { opacity: 0.7 }]}>
+                  <Disclosure open={isOpen('family')} color={colors.ink} />
+                  <Text variant="item" accessibilityRole="header" style={styles.groupName}>
+                    {t('gifts.familyGroup')}
+                  </Text>
+                  <Text variant="small" color={colors.muted}>
+                    {t('gifts.peopleCount', { count: familyShown.length })}
+                  </Text>
+                </Pressable>
+              </View>
+              {!isOpen('family') ? null : (
+                <View style={styles.members}>
+                  {rows(familyShown)}
+                  <Text variant="small" color={colors.muted}>
+                    {t('gifts.familyGroupHint')}
+                  </Text>
+                </View>
+              )}
+            </View>
+          ) : null}
+
           {searching &&
+          familyShown.length === 0 &&
           looseShown.length === 0 &&
           groupsShown.length === 0 &&
           archivedShown.length === 0 ? (
@@ -358,7 +401,7 @@ export default function GiftRecipientsScreen() {
           {current && open?.mode === 'menu' ? (
             <ManageSheet
               recipient={current}
-              canLink={unlinked.length > 0}
+              canLink={data.members.length > 0 && !current.inFamily}
               onLink={() => setOpen({ id: current._id, mode: 'link' })}
               onRename={() => setOpen({ id: current._id, mode: 'rename' })}
               groupName={groupNameOf(current.giftGroupId)}
@@ -374,7 +417,7 @@ export default function GiftRecipientsScreen() {
               <Text color={colors.muted}>
                 {t('gifts.people_screen.linkBody', { name: current.name })}
               </Text>
-              {unlinked.map((m) => (
+              {data.members.map((m) => (
                 <Button
                   key={m.userId}
                   kind="secondary"
@@ -602,11 +645,30 @@ function ManageSheet({
   onGroup: () => void;
   onClose: () => void;
 }) {
+  const colors = useColors();
   const { t } = useTranslation();
   const linkRecipient = useMutation(api.gifts.linkRecipient);
   const setArchived = useMutation(api.gifts.setRecipientArchived);
   const removeRecipient = useMutation(api.gifts.removeRecipient);
+  const moveToFamily = useMutation(api.gifts.moveRecipientToFamily);
   const recipientId = recipient._id;
+
+  function toFamily() {
+    Alert.alert(
+      t('gifts.moveToFamilyTitle', { name: recipient.name }),
+      t('gifts.moveToFamilyBody', { name: recipient.name }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('gifts.moveToFamily'),
+          onPress: () => {
+            onClose();
+            void attempt(t, () => moveToFamily({ recipientId }));
+          },
+        },
+      ],
+    );
+  }
 
   function unlink() {
     Alert.alert(
@@ -647,7 +709,13 @@ function ManageSheet({
   return (
     <Sheet onClose={onClose}>
       <Text variant="heading">{recipient.name}</Text>
-      {recipient.linkedName !== null ? (
+      {recipient.inFamily ? (
+        <Text color={colors.muted}>{t('gifts.inFamilyNote', { name: recipient.name })}</Text>
+      ) : null}
+      {recipient.canMoveToFamily && !recipient.archived ? (
+        <Button kind="secondary" title={t('gifts.moveToFamily')} onPress={toFamily} />
+      ) : null}
+      {recipient.inFamily ? null : recipient.linkedName !== null ? (
         <Button
           kind="secondary"
           title={t('gifts.people_screen.unlink', { name: recipient.linkedName })}
@@ -656,11 +724,13 @@ function ManageSheet({
       ) : canLink ? (
         <Button kind="secondary" title={t('gifts.people_screen.link')} onPress={onLink} />
       ) : null}
-      <Button
-        kind="secondary"
-        title={t('gifts.groupOf', { name: groupName ?? t('gifts.noGroupChoice') })}
-        onPress={onGroup}
-      />
+      {recipient.inFamily ? null : (
+        <Button
+          kind="secondary"
+          title={t('gifts.groupOf', { name: groupName ?? t('gifts.noGroupChoice') })}
+          onPress={onGroup}
+        />
+      )}
       <Button kind="secondary" title={t('gifts.people_screen.rename')} onPress={onRename} />
       <Button
         kind="secondary"
@@ -672,7 +742,9 @@ function ManageSheet({
           void attempt(t, () => setArchived({ recipientId, archived: !recipient.archived }));
         }}
       />
-      <Button kind="danger" title={t('gifts.people_screen.delete')} onPress={remove} />
+      {recipient.inFamily ? null : (
+        <Button kind="danger" title={t('gifts.people_screen.delete')} onPress={remove} />
+      )}
     </Sheet>
   );
 }

@@ -29,7 +29,9 @@ import { addDays, weekday } from '@/lib/week';
 // Advent calendars (#88): the Kalender tab in Julegaver and the card on Week. Calendars for
 // the signed-in member never come back from the server, so nothing here can show them.
 
-type Person = { userId: Id<'users'>; name: string };
+/** A calendar recipient: a member, or a family member without the app (#95). */
+type Person = { id: RecipientKey; name: string; withoutApp: boolean };
+type RecipientKey = Id<'users'> | Id<'familyMembers'>;
 type Door = {
   day: string;
   number: number;
@@ -509,7 +511,7 @@ function CalendarSheet({
   const createCalendar = useMutation(api.advent.createCalendar);
   const setDays = useMutation(api.advent.setDays);
   const setRecipients = useMutation(api.advent.setRecipients);
-  const [who, setWho] = useState<Id<'users'>[]>(calendar?.recipients.map((r) => r.userId) ?? []);
+  const [who, setWho] = useState<RecipientKey[]>(calendar?.recipients.map((r) => r.id) ?? []);
   const [name, setName] = useState('');
   const [days, setDayList] = useState<string[]>(calendar?.days ?? templateDays(year, 'december'));
   const [busy, setBusy] = useState(false);
@@ -519,7 +521,7 @@ function CalendarSheet({
   // Members who left the family can stay recipients, so they are listed too.
   const people = [
     ...members,
-    ...(calendar?.recipients ?? []).filter((r) => !members.some((m) => m.userId === r.userId)),
+    ...(calendar?.recipients ?? []).filter((r) => !members.some((m) => m.id === r.id)),
   ];
 
   function toggleDay(day: string) {
@@ -587,17 +589,15 @@ function CalendarSheet({
             </Text>
             <View style={styles.chips}>
               {people.map((m) => {
-                const on = who.includes(m.userId);
+                const on = who.includes(m.id);
                 return (
                   <Chip
-                    key={m.userId}
+                    key={m.id}
                     title={m.name}
                     selected={on}
                     accessibilityState={{ selected: on }}
                     onPress={() =>
-                      setWho((now) =>
-                        on ? now.filter((id) => id !== m.userId) : [...now, m.userId],
-                      )
+                      setWho((now) => (on ? now.filter((id) => id !== m.id) : [...now, m.id]))
                     }
                   />
                 );
@@ -614,7 +614,7 @@ function CalendarSheet({
             placeholder={
               namesOf(
                 t,
-                people.filter((p) => who.includes(p.userId)).map((p) => p.name),
+                people.filter((p) => who.includes(p.id)).map((p) => p.name),
               ) || t('advent.namePlaceholder')
             }
             value={name}

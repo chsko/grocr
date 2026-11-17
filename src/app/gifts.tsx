@@ -81,21 +81,37 @@ export default function GiftsScreen() {
   // A search keeps the people whose own name or group name matches.
   const searching = search.trim() !== '';
   const groupNames = new Map(xmas.groups.map((g) => [g._id, g.name]));
+  const familyName = t('gifts.familyGroup');
   const found = groups.filter((r) =>
-    matchesSearch(search, r.name, r.giftGroupId ? groupNames.get(r.giftGroupId) : null),
+    matchesSearch(
+      search,
+      r.name,
+      r.inFamily ? familyName : r.giftGroupId ? groupNames.get(r.giftGroupId) : null,
+    ),
   );
-  // Gift groups as headings, in name order, with everyone not in a group last.
+  // The fixed Familien group first (#95), then gift groups as headings in name order, with
+  // everyone not in a group last.
   const sections: {
     key: string;
     title: string | null;
     done: boolean;
     people: typeof groups;
   }[] = [];
+  const inFamily = found.filter((r) => r.inFamily);
+  if (inFamily.length > 0) {
+    sections.push({
+      key: 'family',
+      title: familyName,
+      done: xmas.family?.done ?? false,
+      people: inFamily,
+    });
+  }
+  const others = found.filter((r) => !r.inFamily);
   for (const g of xmas.groups) {
-    const people = found.filter((r) => r.giftGroupId === g._id);
+    const people = others.filter((r) => r.giftGroupId === g._id);
     if (people.length > 0) sections.push({ key: g._id, title: g.name, done: g.done, people });
   }
-  const loose = found.filter((r) => !xmas.groups.some((g) => g._id === r.giftGroupId));
+  const loose = others.filter((r) => !xmas.groups.some((g) => g._id === r.giftGroupId));
   if (loose.length > 0) {
     sections.push({
       key: 'none',
@@ -309,7 +325,15 @@ export default function GiftsScreen() {
               {section.people.map((group) => (
                 <View key={group._id} style={[styles.group, desktop && styles.card]}>
                   <View style={styles.head}>
-                    <Text variant="item">{group.name}</Text>
+                    <Text variant="item">
+                      {group.name}
+                      {group.withoutApp ? (
+                        <Text variant="small" color={colors.muted}>
+                          {'  '}
+                          {t('gifts.withoutApp')}
+                        </Text>
+                      ) : null}
+                    </Text>
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={t('gifts.budgetTitle', { name: group.name })}

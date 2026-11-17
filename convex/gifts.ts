@@ -23,6 +23,7 @@ import {
   MAX_JOINT,
   MIN_GIFT_YEAR,
 } from './lib/gifts';
+import { personFromRecipient } from './family';
 import { normalizeRecipeUrl } from './lib/recipeLink';
 import { todayIn } from './lib/week';
 
@@ -200,6 +201,29 @@ async function familyMembers(ctx: Ctx, groupId: Id<'groups'>) {
   );
 }
 
+/**
+ * Who is in the fixed Familien group (#95): recipients of current members, and of family
+ * members without the app. A member who left, or a removed family member, is a plain person.
+ */
+async function familyCircle(ctx: Ctx, groupId: Id<'groups'>) {
+  const memberships = await ctx.db
+    .query('memberships')
+    .withIndex('by_group', (q) => q.eq('groupId', groupId))
+    .collect();
+  const members = new Set(memberships.map((m) => m.userId));
+  const people = await ctx.db
+    .query('familyMembers')
+    .withIndex('by_group', (q) => q.eq('groupId', groupId))
+    .collect();
+  const withoutApp = new Set(people.filter((p) => p.userId === undefined).map((p) => p._id));
+  return (recipient: Doc<'giftRecipients'>) => ({
+    inFamily:
+      (recipient.memberUserId !== undefined && members.has(recipient.memberUserId)) ||
+      (recipient.familyMemberId !== undefined && withoutApp.has(recipient.familyMemberId)),
+    withoutApp: recipient.familyMemberId !== undefined && withoutApp.has(recipient.familyMemberId),
+  });
+}
+
 async function userName(ctx: Ctx, userId: Id<'users'> | undefined) {
   if (userId === undefined) return null;
   return (await ctx.db.get('users', userId))?.name ?? null;
@@ -301,6 +325,7 @@ export const christmas = query({
     // Recipients with nothing in this Christmas, so the app can add a gift to an earlier one.
     const others = [];
     const visible = await visibleRecipients(ctx, args.groupId, userId);
+    const circle = await familyCircle(ctx, args.groupId);
     const visibleIds = new Set(visible.map((r) => r._id));
     const all = await occasionGifts(ctx, args.groupId, year, visibleIds);
     const bank = await occasionGifts(ctx, args.groupId, null, visibleIds);
@@ -322,6 +347,7 @@ export const christmas = query({
         _id: recipient._id,
         name: recipient.name,
         giftGroupId: recipient.giftGroupId ?? null,
+        ...circle(recipient),
         linkedName: await userName(ctx, recipient.memberUserId),
         ...sums,
         budget: own,
@@ -352,9 +378,15 @@ export const christmas = query({
         done: members.every((r) => r.counts.bought + r.counts.wrapped > 0),
       });
     }
+    const family = recipients.filter((r) => r.inFamily);
     return {
       year,
       currentYear: thisYear,
+      // The fixed Familien group, first in the list; null when no one in it is shown.
+      family:
+        family.length === 0
+          ? null
+          : { done: family.every((r) => r.counts.bought + r.counts.wrapped > 0) },
       groups,
       recipients,
       others,
@@ -460,10 +492,14 @@ export const recipients = query({
   handler: async (ctx, { groupId }) => {
     const { userId } = await requireMembership(ctx, groupId);
     const visible = await visibleRecipients(ctx, groupId, userId);
+    const circle = await familyCircle(ctx, groupId);
     const rows = await Promise.all(
       visible.map(async (r) => ({
         _id: r._id,
         name: r.name,
+        ...circle(r),
+        // A plain person (no link, not family) can be moved into the family.
+        canMoveToFamily: r.memberUserId === undefined && r.familyMemberId === undefined,
         linkedUserId: r.memberUserId ?? null,
         linkedName: await userName(ctx, r.memberUserId),
         archived: r.archivedAt !== undefined,
@@ -484,7 +520,12 @@ export const recipients = query({
             r.memberUserId === undefined &&
             [full, first].includes(r.name.trim().toLocaleLowerCase()),
         );
-        return { ...m, linked: isLinked, match: !isLinked && same ? same._id : null };
+        // Also for a linked member: a plain look-alike may be them from before they joined.
+        return {
+          ...m,
+          linked: isLinked,
+          match: same && same.familyMemberId === undefined ? same._id : null,
+        };
       });
     const group = (await ctx.db.get('groups', groupId))!;
     const groups = (await familyGiftGroups(ctx, groupId)).map((g) => ({
@@ -500,24 +541,91 @@ export const recipients = query({
   },
 });
 
-/** Checks a member can be linked: not the caller, in the family, not linked elsewhere. */
+/** Checks a member can be linked: not the caller, and in the family. */
 async function checkLink(
   ctx: MutationCtx,
   groupId: Id<'groups'>,
   callerId: Id<'users'>,
   userId: Id<'users'>,
-  except?: Id<'giftRecipients'>,
 ) {
-  // Linking yourself would hide the recipient from you, and "already linked" would tell you
+  // Linking yourself would hide the recipient from you, and an answer about it would tell you
   // someone else made one for you. So it is refused before anything is looked up.
   if (userId === callerId) throw new ConvexError({ code: 'CANNOT_LINK_SELF' });
   if ((await getMembership(ctx, groupId, userId)) === null) throw accessError('NOT_FOUND');
-  const existing = await ctx.db
-    .query('giftRecipients')
-    .withIndex('by_group_member', (q) => q.eq('groupId', groupId).eq('memberUserId', userId))
-    .first();
-  if (existing !== null && existing._id !== except) {
-    throw new ConvexError({ code: 'ALREADY_LINKED' });
+}
+
+/**
+ * A member is one gift recipient. Any other recipient linked to them (such as the one every
+ * member gets for Familien, #95) is merged into `targetId`: its gifts, ideas and budgets move
+ * over and it is deleted. Never refused, so nothing about gifts hidden from the caller shows.
+ */
+async function mergeLinked(
+  ctx: MutationCtx,
+  groupId: Id<'groups'>,
+  userId: Id<'users'>,
+  targetId: Id<'giftRecipients'>,
+) {
+  const others = (
+    await ctx.db
+      .query('giftRecipients')
+      .withIndex('by_group_member', (q) => q.eq('groupId', groupId).eq('memberUserId', userId))
+      .collect()
+  ).filter((r) => r._id !== targetId);
+  if (others.length === 0) return;
+  const target = (await ctx.db.get('giftRecipients', targetId))!;
+  // A member's one recipient is active, so they stay in Familien.
+  if (target.archivedAt !== undefined) {
+    await ctx.db.patch('giftRecipients', targetId, { archivedAt: undefined });
+  }
+  for (const other of others) {
+    for (const gift of await allFamilyGifts(ctx, groupId)) {
+      if (!isFor(gift, other._id)) continue;
+      const ids = [...new Set(forIds(gift).map((id) => (id === other._id ? targetId : id)))];
+      await ctx.db.patch('gifts', gift._id, {
+        recipientId: ids[0],
+        alsoForIds: ids.length > 1 ? ids.slice(1) : undefined,
+      });
+    }
+    const budgets = await ctx.db
+      .query('giftBudgets')
+      .withIndex('by_recipient_occasion', (q) => q.eq('recipientId', other._id))
+      .collect();
+    for (const budget of budgets) {
+      const theirs = await ctx.db
+        .query('giftBudgets')
+        .withIndex('by_recipient_occasion', (q) =>
+          q
+            .eq('recipientId', targetId)
+            .eq('occasionKind', budget.occasionKind)
+            .eq('occasionYear', budget.occasionYear),
+        )
+        .unique();
+      if (theirs === null) {
+        await ctx.db.patch('giftBudgets', budget._id, { recipientId: targetId });
+      } else {
+        await ctx.db.patch('giftBudgets', theirs._id, {
+          amount: round(theirs.amount + budget.amount),
+        });
+        await ctx.db.delete('giftBudgets', budget._id);
+      }
+    }
+    if (other.familyMemberId !== undefined && target.familyMemberId === undefined) {
+      await ctx.db.patch('giftRecipients', targetId, { familyMemberId: other.familyMemberId });
+    }
+    await ctx.db.delete('giftRecipients', other._id);
+  }
+}
+
+/** A gift can't be bought by someone it is for, joint gifts included. */
+async function clearOwnBuyer(
+  ctx: MutationCtx,
+  recipient: Doc<'giftRecipients'>,
+  userId: Id<'users'>,
+) {
+  for (const gift of await allFamilyGifts(ctx, recipient.groupId)) {
+    if (isFor(gift, recipient._id) && gift.buyerUserId === userId) {
+      await ctx.db.patch('gifts', gift._id, { buyerUserId: undefined });
+    }
   }
 }
 
@@ -540,13 +648,15 @@ export const addRecipient = mutation({
         throw accessError('NOT_FOUND');
       }
     }
-    return await ctx.db.insert('giftRecipients', {
+    const recipientId = await ctx.db.insert('giftRecipients', {
       groupId: args.groupId,
       name,
       memberUserId: args.memberUserId,
       giftGroupId: args.giftGroupId,
       createdAt: Date.now(),
     });
+    if (args.memberUserId) await mergeLinked(ctx, args.groupId, args.memberUserId, recipientId);
+    return recipientId;
   },
 });
 
@@ -555,6 +665,9 @@ export const linkRecipient = mutation({
   args: { recipientId: v.id('giftRecipients'), memberUserId: v.union(v.id('users'), v.null()) },
   handler: async (ctx, args) => {
     const { recipient, userId } = await loadRecipient(ctx, args.recipientId);
+    const circle = (await familyCircle(ctx, recipient.groupId))(recipient);
+    // A family member without the app is linked by joining with their invite, nothing else.
+    if (circle.withoutApp) throw new ConvexError({ code: 'IN_FAMILY' });
     if (args.memberUserId === null) {
       if (recipient.memberUserId !== undefined) {
         await ctx.db.patch('giftRecipients', recipient._id, { memberUserId: undefined });
@@ -562,14 +675,13 @@ export const linkRecipient = mutation({
       return;
     }
     if (recipient.memberUserId === args.memberUserId) return;
-    await checkLink(ctx, recipient.groupId, userId, args.memberUserId, recipient._id);
+    // Moving a current member's recipient to someone else would leave them with none, and show
+    // them their gifts; a wrong link is undone by unlinking first.
+    if (circle.inFamily) throw new ConvexError({ code: 'IN_FAMILY' });
+    await checkLink(ctx, recipient.groupId, userId, args.memberUserId);
     await ctx.db.patch('giftRecipients', recipient._id, { memberUserId: args.memberUserId });
-    // A gift can't be bought by someone it is for, joint gifts included.
-    for (const gift of await allFamilyGifts(ctx, recipient.groupId)) {
-      if (isFor(gift, recipient._id) && gift.buyerUserId === args.memberUserId) {
-        await ctx.db.patch('gifts', gift._id, { buyerUserId: undefined });
-      }
-    }
+    await mergeLinked(ctx, recipient.groupId, args.memberUserId, recipient._id);
+    await clearOwnBuyer(ctx, recipient, args.memberUserId);
   },
 });
 
@@ -727,6 +839,13 @@ export const renameRecipient = mutation({
     const { recipient } = await loadRecipient(ctx, args.recipientId);
     const name = checkName(args.name);
     if (name !== recipient.name) await ctx.db.patch('giftRecipients', recipient._id, { name });
+    // A family member without the app has one name, on the Family tab too.
+    if (recipient.familyMemberId !== undefined) {
+      const person = await ctx.db.get('familyMembers', recipient.familyMemberId);
+      if (person !== null && person.userId === undefined && person.name !== name) {
+        await ctx.db.patch('familyMembers', person._id, { name });
+      }
+    }
   },
 });
 
@@ -747,6 +866,10 @@ export const removeRecipient = mutation({
   args: { recipientId: v.id('giftRecipients') },
   handler: async (ctx, args) => {
     const { recipient } = await loadRecipient(ctx, args.recipientId);
+    // Someone in the family keeps their place in Familien; they leave it from the Family tab.
+    if ((await familyCircle(ctx, recipient.groupId))(recipient).inFamily) {
+      throw new ConvexError({ code: 'IN_FAMILY' });
+    }
     await deleteRecipient(ctx, recipient._id);
   },
 });
@@ -878,6 +1001,22 @@ export const removeGiftGroup = mutation({
       }
     }
     await ctx.db.delete('giftGroups', giftGroup._id);
+  },
+});
+
+/**
+ * Makes a plain gift recipient a family member without the app (#95): they move into the
+ * Familien group with their gifts, ideas and history. Refused for a recipient linked to a
+ * member (who already is, or was, in the family with an account) or already family.
+ */
+export const moveRecipientToFamily = mutation({
+  args: { recipientId: v.id('giftRecipients') },
+  handler: async (ctx, args) => {
+    const { recipient } = await loadRecipient(ctx, args.recipientId);
+    if (recipient.memberUserId !== undefined || recipient.familyMemberId !== undefined) {
+      throw new ConvexError({ code: 'CANNOT_MOVE_TO_FAMILY' });
+    }
+    return await personFromRecipient(ctx, recipient);
   },
 });
 

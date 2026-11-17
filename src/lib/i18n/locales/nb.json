@@ -41,7 +41,10 @@
     "RECIPIENT_IS_YOU": "Du kan ikke lage en julekalender til deg selv. Det gjør de andre i familien, så det forblir en overraskelse.",
     "INVALID_CALENDAR_RECIPIENTS": "En julekalender kan være til mellom 1 og 10 personer i familien.",
     "DAYS_HAVE_DOORS": "Noen har nettopp fylt en luke på en dag du fjernet. Se på kalenderen og prøv igjen.",
-    "TOO_MANY_CALENDARS": "En familie kan ha høyst 30 julekalendere i året."
+    "TOO_MANY_CALENDARS": "En familie kan ha høyst 30 julekalendere i året.",
+    "IN_FAMILY": "Personen er i familien. Endre det fra Familie-fanen.",
+    "TOO_MANY_PEOPLE": "Familien har nok medlemmer uten app.",
+    "CANNOT_MOVE_TO_FAMILY": "Den personen kan ikke flyttes til familien."
   },
   "signIn": {
     "headline": "Velg ukens middager.",
@@ -89,7 +92,8 @@
     "recipes_one": "{{count}} oppskrift",
     "recipes_other": "{{count}} oppskrifter",
     "joinButton": "Bli med i {{name}}",
-    "footer": "Invitasjonskoder virker én gang og utløper etter 48 timer. Be om en ny hvis din har gått ut."
+    "footer": "Invitasjonskoder virker én gang og utløper etter 48 timer. Be om en ny hvis din har gått ut.",
+    "asPerson": "Du blir med som {{name}}."
   },
   "week": {
     "thisWeek": "Denne uka",
@@ -315,7 +319,7 @@
   },
   "family": {
     "title": "Familie",
-    "members": "Medlemmer · {{count}}",
+    "members": "Familien · {{count}}",
     "invite": "Inviter",
     "owner": "Eier",
     "member": "Medlem",
@@ -350,7 +354,21 @@
     "items": "Varer",
     "staples": "Faste varer",
     "whatsNew": "Hva er nytt",
-    "gifts": "Julegaver"
+    "gifts": "Julegaver",
+    "add": "Legg til",
+    "withoutApp": "Uten app",
+    "personInvited_one": "Invitert · koden utløper om {{count}} time",
+    "personInvited_other": "Invitert · koden utløper om {{count}} timer",
+    "everyoneHint": "Alle i familien kan få julegaver og julekalender. «Inviter» gir en kode til akkurat den personen.",
+    "addTitle": "Legg til i familien",
+    "addIntro": "For barn og andre i husstanden uten telefon. De får julegaver og julekalender, og kan få appen senere.",
+    "personName": "Navn",
+    "addWithoutApp": "Legg til uten app",
+    "inviteWithPhone": "Har egen telefon? Inviter med kode",
+    "personNote": "Alle voksne i familien ser gavene og julekalenderne til {{name}}. Når {{name}} får appen med sin egen invitasjon, skjules de for {{name}} med en gang.",
+    "invitePerson": "Inviter {{name}} til appen",
+    "onlyOwnerInvites": "Eieren av familien kan invitere og fjerne.",
+    "removePersonBody": "Gavene til {{name}} blir liggende under Personer i Julegaver. {{name}} fjernes fra julekalendere."
   },
   "invite": {
     "title": "Inviter til {{family}}",
@@ -362,7 +380,14 @@
     "shareMessage": "Bli med i {{family}} på Grocr for å planlegge middager og dele handlelisten. Invitasjonskoden din: {{code}}\nhttps://grocr.io/join/{{code}}",
     "factExpiry": "Virker én gang og utløper om 48 timer.",
     "factMembers": "Du ser hvem som ble med under Familie, og kan fjerne dem.",
-    "factEdit": "Nye medlemmer kan redigere oppskrifter, ukemenyen og handlelister."
+    "factEdit": "Nye medlemmer kan redigere oppskrifter, ukemenyen og handlelister.",
+    "personTitle": "Inviter {{name}} til appen",
+    "personIntro": "Gi koden til {{name}}. Logg inn i Grocr, trykk «Jeg har en invitasjon» og skriv den inn. Da blir kontoen {{name}} i familien.",
+    "personCodeLabel": "Koden til {{name}}",
+    "personShareMessage": "Bli med i {{family}} på Grocr som {{name}}. Invitasjonskoden din: {{code}}\nhttps://grocr.io/join/{{code}}",
+    "personFactExpiry": "Virker bare for {{name}}, én gang, og utløper om 48 timer.",
+    "personFactHidden": "Julegaver og julekalendere til {{name}} skjules fra {{name}} blir med.",
+    "personGone": "Denne personen er ikke lenger uten app i familien."
   },
   "dates": {
     "weekNumber": "Uke {{week}}",
@@ -564,6 +589,10 @@
       "adventCalendar": {
         "title": "Julekalender",
         "body": "Planlegg julekalendere for barna under Julegaver > Kalender: 1.–24. desember, adventssøndagene eller egne dager. Kalenderen er skjult for dem den er til, og Uke minner deg på morgendagens luke."
+      },
+      "familyWithoutApp": {
+        "title": "Barn uten telefon i familien",
+        "body": "Legg til barn og andre uten telefon under Familie. De står i Familien-gruppa i Julegaver, kan få julekalender, og kan få appen senere med en invitasjon til akkurat dem. Det som er planlagt til dem skjules for dem med en gang."
       }
     }
   },
@@ -724,7 +753,15 @@
     "filterBy": "Vis bare {{status}}",
     "newPersonButton": "Ny person",
     "newGroupButton": "Ny gruppe",
-    "noFilterMatch": "Ingen gaver med denne statusen. Trykk på tallet igjen for å vise alle."
+    "noFilterMatch": "Ingen gaver med denne statusen. Trykk på tallet igjen for å vise alle.",
+    "familyGroup": "Familien",
+    "withoutApp": "uten app",
+    "withoutAppLong": "Uten app",
+    "familyGroupHint": "Familien kommer fra Familie-fanen. Nye i familien kommer med av seg selv.",
+    "moveToFamily": "Flytt til familien",
+    "moveToFamilyTitle": "Flytte {{name}} til familien?",
+    "moveToFamilyBody": "{{name}} blir et familiemedlem uten app, og står under Familien med gaver og historikk. Senere kan {{name}} få appen med sin egen invitasjon.",
+    "inFamilyNote": "{{name}} er i familien. Fjern fra Familie-fanen."
   },
   "web": {
     "noFamilyTitle": "Bli med i en familie i appen først",
@@ -734,7 +771,7 @@
     "tab": "Kalender",
     "intro": "Planlegg julekalendere for barna, eller for hvem som helst i familien. En kalender skjules for dem den er til.",
     "noneThisYear": "Ingen julekalendere dette året.",
-    "noMembers": "Inviter resten av familien først, så kan du lage en julekalender til dem.",
+    "noMembers": "Legg til resten av familien under Familie først, også barn uten telefon, så kan du lage en julekalender til dem.",
     "new": "Ny kalender",
     "names": "{{first}} og {{last}}",
     "forWhom_one": "Til {{names}} · {{count}} dag",
@@ -768,8 +805,8 @@
     "newTitle": "Ny julekalender",
     "daysTitle": "Dager i {{name}}",
     "recipientsTitle": "Hvem er {{name}} til?",
-    "toLabel": "Til",
-    "toHint": "Kalenderen skjules for dem du velger.",
+    "toLabel": "Til (fra familien)",
+    "toHint": "Kalenderen skjules for dem du velger, også når et barn får appen senere.",
     "startFrom": "Start fra",
     "template": {
       "december": "1.–24. desember",

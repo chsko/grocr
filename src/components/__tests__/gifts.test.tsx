@@ -144,6 +144,34 @@ describe('one gift list', () => {
     expect(screen.getAllByText('1 person')).toHaveLength(2);
   });
 
+  test('the family stands first under Familien, those without the app marked', async () => {
+    const xmas = mockQueries['gifts.christmas'] as {
+      groups: unknown[];
+      family: unknown;
+      recipients: Record<string, unknown>[];
+    };
+    xmas.groups = [{ _id: 'gg1', name: 'Svigers', done: false }];
+    xmas.family = { done: true };
+    xmas.recipients[0].giftGroupId = 'gg1';
+    // Ola was put in Svigers once, but family comes first.
+    Object.assign(xmas.recipients[1], { inFamily: true, giftGroupId: 'gg1' });
+    xmas.recipients.push({
+      ...xmas.recipients[1],
+      _id: 'r3',
+      name: 'Emma',
+      linkedName: null,
+      inFamily: true,
+      withoutApp: true,
+      giftGroupId: null,
+    });
+    await render(<GiftsScreen />);
+    const headings = screen.getAllByRole('header').map((h) => h.props.children);
+    expect(headings.filter((h) => h !== 'Jul 2026')).toEqual(['Familien', 'Svigers']);
+    expect(screen.getByText('2 personer')).toBeTruthy();
+    expect(screen.getByLabelText('Kjøpt til alle i Familien')).toBeTruthy();
+    expect(screen.getByText('uten app')).toBeTruthy();
+  });
+
   test('a group folds shut and open again from its heading', async () => {
     const xmas = mockQueries['gifts.christmas'] as {
       groups: unknown[];
@@ -353,6 +381,42 @@ describe('recipients', () => {
     expect(mockCalls).toEqual([['gifts.linkRecipient', { recipientId: 'r1', memberUserId: 'u3' }]]);
   });
 
+  test('Familien is fixed: its people have no group or delete in their menu', async () => {
+    const data = mockQueries['gifts.recipients'] as { recipients: Record<string, unknown>[] };
+    data.recipients.push({
+      _id: 'r5',
+      name: 'Emma',
+      linkedUserId: null,
+      linkedName: null,
+      archived: false,
+      giftGroupId: null,
+      inFamily: true,
+      withoutApp: true,
+      canMoveToFamily: false,
+    });
+    await render(<GiftRecipientsScreen />);
+    expect(screen.getByRole('button', { name: 'Familien' })).toBeTruthy();
+    expect(screen.getByText('Uten app')).toBeTruthy();
+    await fireEvent.press(screen.getByText('Emma'));
+    expect(screen.getByText('Emma er i familien. Fjern fra Familie-fanen.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Slett' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Gruppe/ })).toBeNull();
+  });
+
+  test('a plain person moves to the family after asking', async () => {
+    const data = mockQueries['gifts.recipients'] as { recipients: Record<string, unknown>[] };
+    data.recipients[0].canMoveToFamily = true;
+    const alert = jest.spyOn(Alert, 'alert');
+    await render(<GiftRecipientsScreen />);
+    await fireEvent.press(screen.getByText('Bestemor'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Flytt til familien' }));
+    const [title, , buttons] = alert.mock.calls.at(-1)!;
+    expect(title).toBe('Flytte Bestemor til familien?');
+    await buttons!.at(-1)!.onPress!();
+    expect(mockCalls).toEqual([['gifts.moveRecipientToFamily', { recipientId: 'r1' }]]);
+    alert.mockRestore();
+  });
+
   test('archived people are listed apart and can come back', async () => {
     await render(<GiftRecipientsScreen />);
     expect(screen.getByText('Arkivert')).toBeTruthy();
@@ -520,12 +584,12 @@ describe('recipients', () => {
     expect(screen.getAllByText('Ikke koblet til familien')).toHaveLength(2);
   });
 
-  test('links a recipient to a member who is not linked yet', async () => {
+  test('links a recipient to any member; their other one is merged into it', async () => {
     await render(<GiftRecipientsScreen />);
     await fireEvent.press(screen.getByText('Bestemor'));
     await fireEvent.press(screen.getByRole('button', { name: 'Koble til noen i familien' }));
-    // Ola is linked to someone else already, so only Emma is offered.
-    expect(screen.queryByRole('button', { name: 'Ola' })).toBeNull();
+    // Ola is linked already, but may have a look-alike from before he joined (#95).
+    expect(screen.getByRole('button', { name: 'Ola' })).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: 'Emma Hansen' }));
     expect(mockCalls).toEqual([['gifts.linkRecipient', { recipientId: 'r1', memberUserId: 'u3' }]]);
   });

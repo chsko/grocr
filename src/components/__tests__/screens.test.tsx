@@ -70,7 +70,9 @@ const mockAddStaple = jest.fn((_args: unknown) => Promise.resolve('ing-new'));
 const mockMarkSeen = jest.fn((_args: unknown) => Promise.resolve(null));
 const mockMoveOpen = jest.fn((_args: unknown) => Promise.resolve(2));
 const mockSetAtHomeAmount = jest.fn((_args: unknown) => Promise.resolve(['i0']));
+const mockAddPerson = jest.fn((_args: unknown) => Promise.resolve('p2'));
 const mockMutations: Record<string, unknown> = {
+  'family.addPerson': mockAddPerson,
   'grocery.markSeen': mockMarkSeen,
   'grocery.moveOpen': mockMoveOpen,
   'grocery.setAtHomeAmount': mockSetAtHomeAmount,
@@ -255,6 +257,56 @@ describe('family', () => {
     await fireEvent.press(screen.getByText('Lagre'));
     expect(mockRename).toHaveBeenCalledWith({ groupId: 'g1', name: 'Familien Hansen' });
     expect(screen.queryByLabelText('Familienavn')).toBeNull();
+  });
+});
+
+describe('family members without the app', () => {
+  beforeEach(() => {
+    mockUseQuery.mockImplementation((name: string) =>
+      name === 'groups.members'
+        ? [
+            {
+              membershipId: 'm1',
+              name: 'Kari',
+              role: 'owner',
+              joinedAt: 0,
+              isMe: true,
+            },
+          ]
+        : name === 'family.people'
+          ? [{ _id: 'p1', name: 'Emma', createdAt: 0 }]
+          : name === 'invites.forPeople'
+            ? []
+            : undefined,
+    );
+  });
+  afterEach(() => mockUseQuery.mockReset());
+
+  test('stand in one list with the members, marked without the app, with Invite for the owner', async () => {
+    await i18n.changeLanguage('nb');
+    await render(
+      <SessionContext.Provider value={me}>
+        <FamilyScreen />
+      </SessionContext.Provider>,
+    );
+    expect(screen.getByText('Familien · 2')).toBeTruthy();
+    expect(screen.getByText('Emma')).toBeTruthy();
+    expect(screen.getByText('Uten app')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Inviter' })).toBeTruthy();
+  });
+
+  test('a member adds one by name, and sees no Invite', async () => {
+    await i18n.changeLanguage('nb');
+    await render(
+      <SessionContext.Provider value={{ ...me, family: { ...me.family!, role: 'member' } }}>
+        <FamilyScreen />
+      </SessionContext.Provider>,
+    );
+    expect(screen.queryByRole('button', { name: 'Inviter' })).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Legg til' }));
+    await fireEvent.changeText(screen.getByLabelText('Navn'), 'Jonas');
+    await fireEvent.press(screen.getByText('Legg til uten app'));
+    expect(mockAddPerson).toHaveBeenCalledWith({ groupId: 'g1', name: 'Jonas' });
   });
 });
 

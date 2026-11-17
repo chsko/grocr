@@ -1,5 +1,7 @@
 # Hide Advent calendars from their recipients
 
+Updated by ADR 0004 (2026-11-17): recipients can now also be family members without the app.
+
 Advent calendars (#88) are planned by the adults for other members of the family. Like gifts
 (ADR 0002), a calendar must stay a surprise, so a calendar is hidden from every member it is
 for: the calendar, its doors, its totals and its line on the Week card. A hidden calendar looks

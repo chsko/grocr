@@ -15,6 +15,7 @@ import { attempt } from '@/lib/errors';
 type Preview = {
   familyName: string;
   inviterName: string;
+  personName?: string | null;
   memberCount: number;
   recipeCount: number;
 };
@@ -107,6 +108,11 @@ export default function JoinScreen() {
               </Text>
             </View>
           </View>
+          {preview.personName ? (
+            <Text color={colors.muted} style={{ fontSize: 15 }}>
+              {t('join.asPerson', { name: preview.personName })}
+            </Text>
+          ) : null}
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <Text variant="label" style={styles.pill}>
               {t('join.members', { count: preview.memberCount })}

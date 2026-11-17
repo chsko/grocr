@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next';
 import { useMutation, useQuery } from 'convex/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -144,7 +145,7 @@ export default function ItemsScreen() {
 }
 
 /** "In 2 recipes · also mlek, h-melk" */
-function details(t: ReturnType<typeof useTranslation>['t'], item: Item) {
+function details(t: TFunction, item: Item) {
   const parts = [
     item.recipeCount > 0 ? t('items.inRecipes', { count: item.recipeCount }) : t('items.noRecipes'),
   ];

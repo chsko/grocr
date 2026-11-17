@@ -41,7 +41,10 @@
     "RECIPIENT_IS_YOU": "You can't make an Advent calendar for yourself. The others in the family do that, so it stays a surprise.",
     "INVALID_CALENDAR_RECIPIENTS": "An Advent calendar can be for 1 to 10 people in the family.",
     "DAYS_HAVE_DOORS": "Someone has just filled a door on a day you removed. Look at the calendar and try again.",
-    "TOO_MANY_CALENDARS": "A family can have at most 30 Advent calendars a year."
+    "TOO_MANY_CALENDARS": "A family can have at most 30 Advent calendars a year.",
+    "IN_FAMILY": "This person is in the family. Change that from the Family tab.",
+    "TOO_MANY_PEOPLE": "The family has enough members without the app.",
+    "CANNOT_MOVE_TO_FAMILY": "That person can't be moved to the family."
   },
   "signIn": {
     "headline": "Pick the week's dinners.",
@@ -89,7 +92,8 @@
     "recipes_one": "{{count}} recipe",
     "recipes_other": "{{count}} recipes",
     "joinButton": "Join {{name}}",
-    "footer": "Invite codes work once and expire after 48 hours. Ask for a new one if yours has run out."
+    "footer": "Invite codes work once and expire after 48 hours. Ask for a new one if yours has run out.",
+    "asPerson": "You join as {{name}}."
   },
   "week": {
     "thisWeek": "This week",
@@ -315,7 +319,7 @@
   },
   "family": {
     "title": "Family",
-    "members": "Members · {{count}}",
+    "members": "Family · {{count}}",
     "invite": "Invite",
     "owner": "Owner",
     "member": "Member",
@@ -350,7 +354,21 @@
     "items": "Items",
     "staples": "Staples",
     "whatsNew": "What's new",
-    "gifts": "Christmas gifts"
+    "gifts": "Christmas gifts",
+    "add": "Add",
+    "withoutApp": "No app",
+    "personInvited_one": "Invited · code expires in {{count}} hour",
+    "personInvited_other": "Invited · code expires in {{count}} hours",
+    "everyoneHint": "Everyone in the family can get Christmas gifts and an Advent calendar. “Invite” makes a code for just that person.",
+    "addTitle": "Add to the family",
+    "addIntro": "For children and others in the household without a phone. They get Christmas gifts and Advent calendars, and can get the app later.",
+    "personName": "Name",
+    "addWithoutApp": "Add without the app",
+    "inviteWithPhone": "Has a phone? Invite with a code",
+    "personNote": "Every adult in the family sees the gifts and Advent calendars for {{name}}. When {{name}} gets the app with their own invite, they are hidden from {{name}} at once.",
+    "invitePerson": "Invite {{name}} to the app",
+    "onlyOwnerInvites": "The family's owner can invite and remove.",
+    "removePersonBody": "The gifts for {{name}} stay under People in Christmas gifts. {{name}} is taken off Advent calendars."
   },
   "invite": {
     "title": "Invite to {{family}}",
@@ -362,7 +380,14 @@
     "shareMessage": "Join {{family}} on Grocr to plan dinners and share the grocery list. Your invite code: {{code}}\nhttps://grocr.io/join/{{code}}",
     "factExpiry": "Works once and expires in 48 hours.",
     "factMembers": "You'll see who joined on the Family tab and can remove them.",
-    "factEdit": "New members can edit recipes, the week menu and grocery lists."
+    "factEdit": "New members can edit recipes, the week menu and grocery lists.",
+    "personTitle": "Invite {{name}} to the app",
+    "personIntro": "Give the code to {{name}}. Sign in to Grocr, tap “I have an invite” and type it in. That account then becomes {{name}} in the family.",
+    "personCodeLabel": "Code for {{name}}",
+    "personShareMessage": "Join {{family}} on Grocr as {{name}}. Your invite code: {{code}}\nhttps://grocr.io/join/{{code}}",
+    "personFactExpiry": "Works only for {{name}}, once, and expires in 48 hours.",
+    "personFactHidden": "Christmas gifts and Advent calendars for {{name}} are hidden from {{name}} once they join.",
+    "personGone": "This person is no longer in the family without the app."
   },
   "dates": {
     "weekNumber": "Week {{week}}",
@@ -564,6 +589,10 @@
       "adventCalendar": {
         "title": "Advent calendar",
         "body": "Plan Advent calendars for the children under Christmas gifts > Calendar: 1–24 December, the Advent Sundays or your own days. A calendar is hidden from the people it is for, and Week reminds you of tomorrow's door."
+      },
+      "familyWithoutApp": {
+        "title": "Children without a phone in the family",
+        "body": "Add children and others without a phone under Family. They are in the Family group in Christmas gifts, can get an Advent calendar, and can get the app later with an invite for just them. What is planned for them is hidden from them at once."
       }
     }
   },
@@ -724,7 +753,15 @@
     "filterBy": "Show only {{status}}",
     "newPersonButton": "New person",
     "newGroupButton": "New group",
-    "noFilterMatch": "No gifts with this status. Tap the count again to show them all."
+    "noFilterMatch": "No gifts with this status. Tap the count again to show them all.",
+    "familyGroup": "Family",
+    "withoutApp": "no app",
+    "withoutAppLong": "No app",
+    "familyGroupHint": "Family comes from the Family tab. New people in the family appear here by themselves.",
+    "moveToFamily": "Move to the family",
+    "moveToFamilyTitle": "Move {{name}} to the family?",
+    "moveToFamilyBody": "{{name}} becomes a family member without the app, under Family with their gifts and history. Later {{name}} can get the app with their own invite.",
+    "inFamilyNote": "{{name}} is in the family. Remove them from the Family tab."
   },
   "web": {
     "noFamilyTitle": "Join a family in the app first",
@@ -734,7 +771,7 @@
     "tab": "Calendar",
     "intro": "Plan Advent calendars for the children, or for anyone in the family. A calendar is hidden from the people it is for.",
     "noneThisYear": "No Advent calendars this year.",
-    "noMembers": "Invite the rest of the family first, then you can make an Advent calendar for them.",
+    "noMembers": "Add the rest of the family under Family first, children without a phone too, then you can make an Advent calendar for them.",
     "new": "New calendar",
     "names": "{{first}} and {{last}}",
     "forWhom_one": "For {{names}} · {{count}} day",
@@ -768,8 +805,8 @@
     "newTitle": "New Advent calendar",
     "daysTitle": "Days in {{name}}",
     "recipientsTitle": "Who is {{name}} for?",
-    "toLabel": "For",
-    "toHint": "The calendar is hidden from the people you pick.",
+    "toLabel": "For (from the family)",
+    "toHint": "The calendar is hidden from the people you pick, also when a child gets the app later.",
     "startFrom": "Start from",
     "template": {
       "december": "1–24 December",

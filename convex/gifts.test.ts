@@ -135,16 +135,23 @@ describe('hiding from the linked member', () => {
     ).rejects.toThrow(/CANNOT_LINK_SELF/);
   });
 
-  test('a member is linked to at most one recipient, and only members can be linked', async () => {
-    const { ada, bob, eve, groupId, granny } = await planned();
-    await expect(
-      ada.as.mutation(api.gifts.linkRecipient, { recipientId: granny, memberUserId: bob.userId }),
-    ).rejects.toThrow(/ALREADY_LINKED/);
-    await expect(
-      ada.as.mutation(api.gifts.addRecipient, { groupId, name: 'B', memberUserId: bob.userId }),
-    ).rejects.toThrow(/ALREADY_LINKED/);
+  test('a member is one recipient: linking another merges theirs into it; only members link', async () => {
+    const { ada, bob, eve, groupId, granny, bobR } = await planned();
+    await ada.as.mutation(api.gifts.linkRecipient, {
+      recipientId: granny,
+      memberUserId: bob.userId,
+    });
+    const xmas = await ada.as.query(api.gifts.christmas, { groupId });
+    expect(xmas.recipients.map((r) => [r._id, r.gifts.map((g) => g.title)])).toEqual([
+      [granny, ['Watch', 'Scarf']],
+    ]);
+    expect(xmas.recipients.some((r) => r._id === bobR)).toBe(false);
     await expect(
       ada.as.mutation(api.gifts.linkRecipient, { recipientId: granny, memberUserId: eve.userId }),
+    ).rejects.toThrow(/IN_FAMILY/);
+    const uncle = await ada.as.mutation(api.gifts.addRecipient, { groupId, name: 'Uncle' });
+    await expect(
+      ada.as.mutation(api.gifts.linkRecipient, { recipientId: uncle, memberUserId: eve.userId }),
     ).rejects.toThrow(/NOT_FOUND/);
   });
 
@@ -809,26 +816,38 @@ describe('groups of people', () => {
     expect(uncle).toBeDefined();
   });
 
-  test('the done mark counts only the people the viewer may see', async () => {
-    const { ada, bob, groupId, bobR, granny, scarf } = await planned();
-    const family = await ada.as.mutation(api.gifts.addGiftGroup, { groupId, name: 'In-laws' });
-    await ada.as.mutation(api.gifts.setRecipientGroup, {
-      recipientId: granny,
-      giftGroupId: family,
+  test('the Familien done mark counts only the people the viewer may see', async () => {
+    const { ada, bob, kid, groupId } = await planned();
+    const kidR = await ada.as.mutation(api.gifts.addRecipient, {
+      groupId,
+      name: 'Kid',
+      memberUserId: kid.userId,
     });
-    await ada.as.mutation(api.gifts.setRecipientGroup, { recipientId: bobR, giftGroupId: family });
-    await ada.as.mutation(api.gifts.setGiftStatus, { giftId: scarf, status: 'bought' });
+    const lego = await ada.as.mutation(api.gifts.addGift, {
+      recipientId: kidR,
+      title: 'Lego',
+      year: 2026,
+    });
+    await ada.as.mutation(api.gifts.setGiftStatus, { giftId: lego, status: 'bought' });
     // Bob's own watch is still an idea, but Bob must not be able to tell.
-    expect((await ada.as.query(api.gifts.christmas, { groupId })).groups[0].done).toBe(false);
-    expect((await bob.as.query(api.gifts.christmas, { groupId })).groups[0].done).toBe(true);
+    expect((await ada.as.query(api.gifts.christmas, { groupId })).family).toEqual({ done: false });
+    expect((await bob.as.query(api.gifts.christmas, { groupId })).family).toEqual({ done: true });
   });
 
-  test('a group with no one the viewer can see in this Christmas is left out of the list', async () => {
+  test('members are in Familien, not in a gift group, and hidden from themselves', async () => {
     const { ada, bob, groupId, bobR } = await planned();
     const just = await ada.as.mutation(api.gifts.addGiftGroup, { groupId, name: 'Just Bob' });
     await ada.as.mutation(api.gifts.setRecipientGroup, { recipientId: bobR, giftGroupId: just });
-    expect((await bob.as.query(api.gifts.christmas, { groupId })).groups).toEqual([]);
-    expect((await ada.as.query(api.gifts.christmas, { groupId })).groups).toHaveLength(1);
+    const bobs = await bob.as.query(api.gifts.christmas, { groupId });
+    expect(bobs.groups).toEqual([]);
+    expect(bobs.family).toBeNull();
+    // Old apps still find the group; the new one shows Bob under Familien.
+    const adas = await ada.as.query(api.gifts.christmas, { groupId });
+    expect(adas.groups.map((g) => g.name)).toEqual(['Just Bob']);
+    expect(adas.recipients.find((r) => r._id === bobR)).toMatchObject({
+      inFamily: true,
+      withoutApp: false,
+    });
   });
 
   test('groups are named, renamed and deleted; deleting keeps the people', async () => {

@@ -26,6 +26,26 @@ A week whose last day is before today.
 **Future week**:
 A week whose first day is after today.
 
+## Family
+
+**Family**:
+The household: the people who share dinners and the grocery list, with or without the app.
+Grandparents, in-laws and friends are gift recipients, not family.
+_Avoid_: Group (that is the code's word), household (in UI copy)
+
+**Member**:
+Someone in the family with the app: they signed in and joined with an invite.
+
+**Family member without the app** (uten app):
+Someone in the family with just a name, such as a small child. Any member can add or rename one;
+only the owner can remove one. They can get gifts and Advent calendars, and get the app later.
+_Avoid_: Child (adults can be without the app too), offline member, dependant
+
+**Person invite**:
+An invite made for one family member without the app. Whoever joins with it becomes them, and
+everything planned for them is hidden from them from then on.
+_Avoid_: Claim code
+
 ## Gifts
 
 **Gift recipient**:
@@ -49,6 +69,10 @@ _Avoid_: Wish list (that is what the recipient wants, written by them)
 
 **Gift budget**:
 The amount the family plans to spend on one gift recipient for one gift occasion.
+
+**Familien**:
+The fixed gift group at the top of the gift list: every family member except the viewer. It
+can't be renamed or deleted, and people come and go with the family.
 
 **Gift group**:
 A named group of gift recipients ("In-laws", "Kids"), shown as a heading in the gift list. A
@@ -78,7 +102,7 @@ What the adults plan to put behind each door for one or more family members, for
 _Avoid_: Calendar (alone, it means the date picker), julekalender in English text
 
 **Calendar recipient**:
-A family member an Advent calendar is for. Always a member of the family in the app, never a gift recipient, and never the person making the calendar.
+Someone in the family an Advent calendar is for: a member, or a family member without the app. Never a gift recipient outside the family, and never the person making the calendar.
 _Avoid_: Child (adults can get one too), owner
 
 **Calendar day**:

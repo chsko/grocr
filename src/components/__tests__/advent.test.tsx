@@ -90,15 +90,15 @@ beforeEach(async () => {
     currentYear: 2026,
     today: '2026-12-04',
     members: [
-      { userId: 'u2', name: 'Ola' },
-      { userId: 'u3', name: 'Emma' },
-      { userId: 'u4', name: 'Jonas' },
+      { id: 'u2', name: 'Ola', withoutApp: false },
+      { id: 'u3', name: 'Emma', withoutApp: false },
+      { id: 'u4', name: 'Jonas', withoutApp: false },
     ],
     calendars: [
       {
         _id: 'c1',
         name: null,
-        recipients: [{ userId: 'u3', name: 'Emma' }],
+        recipients: [{ id: 'u3', name: 'Emma', withoutApp: false }],
         days: december,
         doors: [
           {
@@ -124,8 +124,8 @@ beforeEach(async () => {
         _id: 'c2',
         name: 'Søndagskalender',
         recipients: [
-          { userId: 'u3', name: 'Emma' },
-          { userId: 'u4', name: 'Jonas' },
+          { id: 'u3', name: 'Emma', withoutApp: false },
+          { id: 'u4', name: 'Jonas', withoutApp: false },
         ],
         days: ['2026-11-29', '2026-12-06', '2026-12-13', '2026-12-20'],
         doors: [],

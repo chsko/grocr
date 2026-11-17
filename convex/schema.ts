@@ -75,8 +75,23 @@ export default defineSchema({
     .index('by_group', ['groupId'])
     .index('by_group_user', ['groupId', 'userId']),
 
+  // Household members without the app (#95), such as small children: just a name. Members with
+  // the app are their memberships. An invite made for one of them (`invites.familyMemberId`)
+  // claims the row: `userId` is set, and from then on they are a member like any other.
+  familyMembers: defineTable({
+    groupId: v.id('groups'),
+    name: v.string(),
+    // Set once someone joined with the invite made for them.
+    userId: v.optional(v.id('users')),
+    createdAt: v.number(),
+  })
+    .index('by_group', ['groupId'])
+    .index('by_user', ['userId']),
+
   invites: defineTable({
     groupId: v.id('groups'),
+    // An invite for one family member without the app: joining with it makes you them.
+    familyMemberId: v.optional(v.id('familyMembers')),
     tokenHash: v.string(),
     shortCode: v.string(),
     createdBy: v.id('users'),
@@ -240,6 +255,9 @@ export default defineSchema({
     groupId: v.id('groups'),
     name: v.string(),
     memberUserId: v.optional(v.id('users')),
+    // The family member without the app this person is (#95). Members with the app are found
+    // by `memberUserId`. Either way they are in the fixed Familien group while in the family.
+    familyMemberId: v.optional(v.id('familyMembers')),
     // The one gift group this person is in, if any.
     giftGroupId: v.optional(v.id('giftGroups')),
     archivedAt: v.optional(v.number()),
@@ -247,7 +265,8 @@ export default defineSchema({
   })
     .index('by_group', ['groupId'])
     .index('by_group_member', ['groupId', 'memberUserId'])
-    .index('by_member', ['memberUserId']),
+    .index('by_member', ['memberUserId'])
+    .index('by_family_member', ['familyMemberId']),
 
   // A gift for one occasion (Christmas of a year), or an idea in the recipient's idea bank when
   // the occasion fields are missing. Both occasion fields are set together or not at all.
@@ -299,16 +318,19 @@ export default defineSchema({
     .index('by_group_year', ['groupId', 'year'])
     .index('by_creator', ['createdBy']),
 
-  // Who an Advent calendar is for: family members (users), one row each, so a deleted
-  // account can be found in every family, also ones left earlier.
+  // Who an Advent calendar is for, one row each: a member (`userId`) or a family member without
+  // the app (`familyMemberId`, #95). When that member joins with their invite, `userId` is set
+  // too, which hides the calendar from them. A deleted account is found in every family.
   adventRecipients: defineTable({
     groupId: v.id('groups'),
     calendarId: v.id('adventCalendars'),
-    userId: v.id('users'),
+    userId: v.optional(v.id('users')),
+    familyMemberId: v.optional(v.id('familyMembers')),
   })
     .index('by_calendar', ['calendarId'])
     .index('by_group_user', ['groupId', 'userId'])
-    .index('by_user', ['userId']),
+    .index('by_user', ['userId'])
+    .index('by_family_member', ['familyMemberId']),
 
   // What is behind one door: at most one per calendar and day.
   adventDoors: defineTable({

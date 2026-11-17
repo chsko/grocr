@@ -3,6 +3,7 @@ import { ConvexError, v } from 'convex/values';
 import type { Doc, Id } from './_generated/dataModel';
 import { mutation, query, type MutationCtx } from './_generated/server';
 import { deleteFamilyAdvent } from './advent';
+import { deleteFamilyPeople, ensureMemberRecipient } from './family';
 import { deleteFamilyGifts } from './gifts';
 import {
   accessError,
@@ -50,6 +51,7 @@ export const create = mutation({
       createdAt: now,
     });
     await ctx.db.insert('memberships', { groupId, userId, role: 'owner', joinedAt: now });
+    await ensureMemberRecipient(ctx, groupId, userId);
     return groupId;
   },
 });
@@ -317,5 +319,6 @@ async function deleteGroup(ctx: MutationCtx, groupId: Id<'groups'>) {
   }
   await deleteFamilyGifts(ctx, groupId);
   await deleteFamilyAdvent(ctx, groupId);
+  await deleteFamilyPeople(ctx, groupId);
   await ctx.db.delete('groups', groupId);
 }
