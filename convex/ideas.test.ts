@@ -116,3 +116,66 @@ describe('planning an idea (#106)', () => {
     ).rejects.toThrow(/NOT_FOUND/);
   });
 });
+
+describe('ideas are not recipes yet (#109)', () => {
+  test('Suggest a week leaves ideas out', async () => {
+    const { kari, groupId } = await family();
+    await kari.as.mutation(api.recipes.save, {
+      groupId,
+      title: 'Tacos',
+      servings: 4,
+      steps: [],
+      ingredients: [],
+    });
+    await kari.as.mutation(api.recipes.createIdea, { groupId, title: 'Lasagne' });
+    const { candidates } = await kari.as.query(api.mealPlan.suggestions, {
+      groupId,
+      startDate: MONDAY,
+      seed: 1,
+    });
+    expect(candidates.map((c) => c.title)).toEqual(['Tacos']);
+  });
+
+  test('planning suggestions skips an idea', async () => {
+    const { t, kari, groupId } = await family();
+    const ideaId = await kari.as.mutation(api.recipes.createIdea, { groupId, title: 'Lasagne' });
+    const planned = await kari.as.mutation(api.mealPlan.planSuggested, {
+      groupId,
+      dinners: [{ date: WEDNESDAY, recipeId: ideaId }],
+    });
+    expect(planned).toBe(0);
+    expect(await t.run((ctx) => ctx.db.query('mealPlanEntries').collect())).toEqual([]);
+  });
+
+  test('an idea cannot be rated', async () => {
+    const { kari, groupId } = await family();
+    const ideaId = await kari.as.mutation(api.recipes.createIdea, { groupId, title: 'Lasagne' });
+    await expect(
+      kari.as.mutation(api.recipes.rate, { recipeId: ideaId, stars: 4 }),
+    ).rejects.toThrow(/IDEA_NOT_RATABLE/);
+  });
+});
+
+describe('a new idea from Recipes (#110)', () => {
+  test('creates an idea without planning it, and reuses one with the same title', async () => {
+    const { t, kari, groupId } = await family();
+    const first = await kari.as.mutation(api.recipes.createIdea, { groupId, title: 'Lasagne' });
+    const again = await kari.as.mutation(api.recipes.createIdea, { groupId, title: 'lasagne' });
+    expect(again).toBe(first);
+    expect(await t.run((ctx) => ctx.db.query('mealPlanEntries').collect())).toEqual([]);
+    const list = await kari.as.query(api.recipes.list, { groupId });
+    expect(list).toEqual([expect.objectContaining({ title: 'Lasagne', isIdea: true })]);
+  });
+
+  test('needs a title and a member of the family', async () => {
+    const { t, kari, groupId } = await family();
+    await expect(kari.as.mutation(api.recipes.createIdea, { groupId, title: ' ' })).rejects.toThrow(
+      /TITLE_REQUIRED/,
+    );
+    const eve = await signedInUser(t, 'Eve');
+    await groupWithMembers(t, [eve.userId]);
+    await expect(
+      eve.as.mutation(api.recipes.createIdea, { groupId, title: 'Lasagne' }),
+    ).rejects.toThrow(/NOT_FOUND/);
+  });
+});

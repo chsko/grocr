@@ -209,7 +209,7 @@ export const suggestions = query({
         .query('recipes')
         .withIndex('by_group', (q) => q.eq('groupId', groupId))
         .collect()
-    ).filter((r) => r.archivedAt === undefined);
+    ).filter((r) => r.archivedAt === undefined && r.isIdea !== true);
     const ratingOf = await familyRatings(ctx, groupId, userId);
     const facts = await Promise.all(
       recipes.map(async (r) => {
@@ -284,7 +284,8 @@ export const planSuggested = mutation({
       if (recipe === null || recipe.groupId !== groupId)
         throw new ConvexError({ code: 'NOT_FOUND' });
       // Suggestions are for today on; an archived recipe is no longer offered.
-      if (date < today || recipe.archivedAt !== undefined) continue;
+      // Ideas are never suggested (#109).
+      if (date < today || recipe.archivedAt !== undefined || recipe.isIdea === true) continue;
       const taken = await ctx.db
         .query('mealPlanEntries')
         .withIndex('by_group_date', (q) => q.eq('groupId', groupId).eq('date', date))

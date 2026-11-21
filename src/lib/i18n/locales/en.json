@@ -44,7 +44,8 @@
     "TOO_MANY_CALENDARS": "A family can have at most 30 Advent calendars a year.",
     "IN_FAMILY": "This person is in the family. Change that from the Family tab.",
     "TOO_MANY_PEOPLE": "The family has enough members without the app.",
-    "CANNOT_MOVE_TO_FAMILY": "That person can't be moved to the family."
+    "CANNOT_MOVE_TO_FAMILY": "That person can't be moved to the family.",
+    "IDEA_NOT_RATABLE": "An idea gets stars once it is a recipe."
   },
   "signIn": {
     "headline": "Pick the week's dinners.",

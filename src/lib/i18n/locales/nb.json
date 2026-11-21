@@ -44,7 +44,8 @@
     "TOO_MANY_CALENDARS": "En familie kan ha høyst 30 julekalendere i året.",
     "IN_FAMILY": "Personen er i familien. Endre det fra Familie-fanen.",
     "TOO_MANY_PEOPLE": "Familien har nok medlemmer uten app.",
-    "CANNOT_MOVE_TO_FAMILY": "Den personen kan ikke flyttes til familien."
+    "CANNOT_MOVE_TO_FAMILY": "Den personen kan ikke flyttes til familien.",
+    "IDEA_NOT_RATABLE": "En idé kan få stjerner når den er blitt en oppskrift."
   },
   "signIn": {
     "headline": "Velg ukens middager.",

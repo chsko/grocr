@@ -130,6 +130,8 @@ export const rate = mutation({
   args: { recipeId: v.id('recipes'), stars: v.union(v.number(), v.null()) },
   handler: async (ctx, { recipeId, stars }) => {
     const { doc, userId } = await loadForMember(ctx, 'recipes', recipeId);
+    // An idea gets stars once it is a recipe (#109).
+    if (doc.isIdea === true) throw new ConvexError({ code: 'IDEA_NOT_RATABLE' });
     if (stars !== null && !isStars(stars)) throw new ConvexError({ code: 'INVALID_RATING' });
     const existing = await ctx.db
       .query('recipeRatings')
@@ -312,6 +314,15 @@ export async function findOrCreateIdea(
   if (guessIcon(title) === DEFAULT_ICON) await scheduleIconGuess(ctx, groupId, recipeId, title);
   return (await ctx.db.get('recipes', recipeId))!;
 }
+
+/** Adds a dinner idea without planning it (#110); an idea with the same title is reused. */
+export const createIdea = mutation({
+  args: { groupId: v.id('groups'), title: v.string() },
+  handler: async (ctx, { groupId, title }) => {
+    const { userId } = await requireMembership(ctx, groupId);
+    return (await findOrCreateIdea(ctx, groupId, userId, title))._id;
+  },
+});
 
 /** Archives or restores a recipe. Planned dinners and their grocery rows are left alone. */
 export const setArchived = mutation({
