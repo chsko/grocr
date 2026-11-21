@@ -2,7 +2,7 @@ import { useMutation, useQuery } from 'convex/react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Keyboard, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Check, Close, Search } from '@/components/icons';
@@ -154,6 +154,8 @@ export default function PickDinnerScreen() {
               accessibilityRole="button"
               accessibilityState={{ selected: isSelected }}
               onPress={() => {
+                // The Plan footer sits at the bottom, under the search keyboard: put it away.
+                Keyboard.dismiss();
                 setPicked(r._id);
                 setServingsState(null);
               }}
