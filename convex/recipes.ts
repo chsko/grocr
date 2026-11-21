@@ -108,9 +108,18 @@ export const get = query({
         ? null
         : roundRating(ratings.reduce((sum, r) => sum + r.stars, 0) / ratings.length);
 
+    const planned = await ctx.db
+      .query('mealPlanEntries')
+      .withIndex('by_recipe_date', (q) => q.eq('recipeId', doc._id).gte('date', today))
+      .take(14);
+    const creator = doc.createdBy ? await ctx.db.get('users', doc.createdBy) : null;
+
     return {
       ...doc,
       shownIcon: recipeIcon(doc),
+      /** The days it is planned from today on (the idea page's "Planned", #107). */
+      plannedDates: planned.filter((e) => e.groupId === doc.groupId).map((e) => e.date),
+      createdByName: creator?.name ?? null,
       isIdea: doc.isIdea === true,
       ingredients,
       ...(await planDates(ctx, doc._id, today)),
@@ -266,16 +275,66 @@ export const save = mutation({
 
     await ctx.db.patch('recipes', existing._id, fields);
     if (askJev) await scheduleIconGuess(ctx, args.groupId, existing._id, title);
-    const group = (await ctx.db.get('groups', args.groupId))!;
-    const today = todayIn(group.timezone);
-    const upcoming = await ctx.db
-      .query('mealPlanEntries')
-      .withIndex('by_recipe_date', (q) => q.eq('recipeId', existing._id).gte('date', today))
-      .collect();
-    for (const entry of upcoming) {
-      if (entry.groupId === args.groupId) await syncEntry(ctx, entry, userId);
-    }
+    await resyncUpcoming(ctx, existing, userId);
     return existing._id;
+  },
+});
+
+/** Re-syncs the grocery rows of the recipe's dinners from today on, after its ingredients changed. */
+async function resyncUpcoming(ctx: MutationCtx, recipe: Doc<'recipes'>, userId: Id<'users'>) {
+  const group = (await ctx.db.get('groups', recipe.groupId))!;
+  const today = todayIn(group.timezone);
+  const upcoming = await ctx.db
+    .query('mealPlanEntries')
+    .withIndex('by_recipe_date', (q) => q.eq('recipeId', recipe._id).gte('date', today))
+    .collect();
+  for (const entry of upcoming) {
+    if (entry.groupId === recipe.groupId) await syncEntry(ctx, entry, userId);
+  }
+}
+
+/**
+ * Adds one ingredient to a recipe or dinner idea (the idea page's "Add item", #107), and puts it
+ * on the grocery lists of the dinners planned from today on.
+ */
+export const addIngredient = mutation({
+  args: {
+    recipeId: v.id('recipes'),
+    name: v.string(),
+    qty: v.optional(v.number()),
+    unit: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { doc, userId } = await loadForMember(ctx, 'recipes', args.recipeId);
+    if (doc.ingredients.length >= MAX_INGREDIENTS) throw new ConvexError({ code: 'TOO_LONG' });
+    const ingredient = await resolveIngredient(ctx, doc.groupId, { name: args.name });
+    const qty =
+      args.qty !== undefined && Number.isFinite(args.qty) && args.qty > 0 ? args.qty : undefined;
+    const unit = args.unit !== undefined && isUnit(args.unit) ? args.unit : undefined;
+    await ctx.db.patch('recipes', doc._id, {
+      ingredients: [...doc.ingredients, { ingredientId: ingredient._id, qty, unit }],
+      updatedAt: Date.now(),
+    });
+    await resyncUpcoming(ctx, (await ctx.db.get('recipes', doc._id))!, userId);
+  },
+});
+
+/**
+ * Takes one ingredient line off a recipe or idea (#107). `ingredientId` must still be on line
+ * `index`, so a list that changed meanwhile never loses the wrong line.
+ */
+export const removeIngredient = mutation({
+  args: { recipeId: v.id('recipes'), index: v.number(), ingredientId: v.id('ingredients') },
+  handler: async (ctx, { recipeId, index, ingredientId }) => {
+    const { doc, userId } = await loadForMember(ctx, 'recipes', recipeId);
+    if (doc.ingredients[index]?.ingredientId !== ingredientId) {
+      throw new ConvexError({ code: 'NOT_FOUND' });
+    }
+    await ctx.db.patch('recipes', doc._id, {
+      ingredients: doc.ingredients.filter((_, i) => i !== index),
+      updatedAt: Date.now(),
+    });
+    await resyncUpcoming(ctx, (await ctx.db.get('recipes', doc._id))!, userId);
   },
 });
 

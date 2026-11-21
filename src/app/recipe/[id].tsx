@@ -7,6 +7,7 @@ import { Alert, Linking, Pressable, ScrollView, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import { External } from '@/components/icons';
+import { IdeaPage } from '@/components/idea-page';
 import { Button, IconTile, Loading, StarPicker, Text } from '@/components/ui';
 import { Fonts } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
@@ -41,6 +42,20 @@ export default function RecipeScreen() {
 
   if (recipe === undefined) return <Loading />;
   const archived = recipe.archivedAt !== undefined;
+  // A dinner idea has its own page (#107) until it is made a recipe.
+  if (recipe.isIdea && !archived) {
+    return (
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
+        style={{ backgroundColor: colors.background }}
+        contentContainerStyle={styles.content}>
+        <Stack.Screen options={{ title: '' }} />
+        <IdeaPage idea={recipe} />
+      </ScrollView>
+    );
+  }
 
   return (
     <ScrollView

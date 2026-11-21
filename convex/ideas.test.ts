@@ -179,3 +179,95 @@ describe('a new idea from Recipes (#110)', () => {
     ).rejects.toThrow(/NOT_FOUND/);
   });
 });
+
+describe('items on an idea (#107)', () => {
+  async function plannedIdea() {
+    const f = await family();
+    const ideaId = await f.kari.as.mutation(api.mealPlan.planIdea, {
+      groupId: f.groupId,
+      date: WEDNESDAY,
+      title: 'Lasagne',
+      servings: 8,
+    });
+    return { ...f, ideaId };
+  }
+
+  async function openRows(t: Awaited<ReturnType<typeof family>>['t']) {
+    const items = await t.run((ctx) => ctx.db.query('groceryItems').collect());
+    return items
+      .filter((i) => !i.removed)
+      .map((i) => [i.name, i.qty, i.unit, i.source.kind])
+      .sort();
+  }
+
+  test('an added item goes on the grocery list, scaled by the servings', async () => {
+    const { t, kari, ideaId } = await plannedIdea();
+    await kari.as.mutation(api.recipes.addIngredient, {
+      recipeId: ideaId,
+      name: 'spinat',
+      qty: 200,
+      unit: 'g',
+    });
+    await kari.as.mutation(api.recipes.addIngredient, { recipeId: ideaId, name: 'Ricotta' });
+    expect(await openRows(t)).toEqual([
+      ['Ricotta', undefined, undefined, 'meal'],
+      ['Spinat', 400, 'g', 'meal'],
+    ]);
+    const idea = await kari.as.query(api.recipes.get, { recipeId: ideaId });
+    expect(idea.ingredients.map((l) => l.name)).toEqual(['Spinat', 'Ricotta']);
+    expect(idea.plannedDates).toEqual([WEDNESDAY]);
+    expect(idea.createdByName).toBe('Kari');
+  });
+
+  test('a removed item leaves the list', async () => {
+    const { t, kari, ideaId } = await plannedIdea();
+    await kari.as.mutation(api.recipes.addIngredient, { recipeId: ideaId, name: 'Spinat' });
+    await kari.as.mutation(api.recipes.addIngredient, { recipeId: ideaId, name: 'Ricotta' });
+    const idea = await kari.as.query(api.recipes.get, { recipeId: ideaId });
+    await kari.as.mutation(api.recipes.removeIngredient, {
+      recipeId: ideaId,
+      index: 0,
+      ingredientId: idea.ingredients[0].ingredientId,
+    });
+    expect(await openRows(t)).toEqual([['Ricotta', undefined, undefined, 'meal']]);
+  });
+
+  test('removing a line that has moved is refused', async () => {
+    const { kari, ideaId } = await plannedIdea();
+    await kari.as.mutation(api.recipes.addIngredient, { recipeId: ideaId, name: 'Spinat' });
+    await kari.as.mutation(api.recipes.addIngredient, { recipeId: ideaId, name: 'Ricotta' });
+    const idea = await kari.as.query(api.recipes.get, { recipeId: ideaId });
+    await expect(
+      kari.as.mutation(api.recipes.removeIngredient, {
+        recipeId: ideaId,
+        index: 0,
+        ingredientId: idea.ingredients[1].ingredientId,
+      }),
+    ).rejects.toThrow(/NOT_FOUND/);
+  });
+
+  test('an empty name adds nothing', async () => {
+    const { kari, ideaId } = await plannedIdea();
+    await expect(
+      kari.as.mutation(api.recipes.addIngredient, { recipeId: ideaId, name: '  ' }),
+    ).rejects.toThrow(/NAME_REQUIRED/);
+  });
+
+  test('another family cannot add or remove items', async () => {
+    const { t, kari, ideaId } = await plannedIdea();
+    await kari.as.mutation(api.recipes.addIngredient, { recipeId: ideaId, name: 'Spinat' });
+    const idea = await kari.as.query(api.recipes.get, { recipeId: ideaId });
+    const eve = await signedInUser(t, 'Eve');
+    await groupWithMembers(t, [eve.userId]);
+    await expect(
+      eve.as.mutation(api.recipes.addIngredient, { recipeId: ideaId, name: 'Salt' }),
+    ).rejects.toThrow(/NOT_FOUND/);
+    await expect(
+      eve.as.mutation(api.recipes.removeIngredient, {
+        recipeId: ideaId,
+        index: 0,
+        ingredientId: idea.ingredients[0].ingredientId,
+      }),
+    ).rejects.toThrow(/NOT_FOUND/);
+  });
+});

@@ -4,6 +4,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import RecipesScreen from '@/app/(tabs)/recipes';
 import WeekScreen from '@/app/(tabs)/week';
 import PickDinnerScreen from '@/app/pick-dinner';
+import RecipeScreen from '@/app/recipe/[id]';
 import { SECTIONS } from '@/convex/lib/catalog';
 import i18n from '@/lib/i18n';
 import { SessionContext, type Me } from '@/lib/session';
@@ -16,7 +17,7 @@ const WEDNESDAY = addDays(startOfWeek(todayIn('Europe/Oslo'), 1), 9);
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   router: { back: jest.fn(), push: jest.fn(), navigate: jest.fn() },
-  useLocalSearchParams: () => ({ date: mockDate }),
+  useLocalSearchParams: () => ({ date: mockDate, id: 'r2' }),
   useRoute: () => ({ key: 'week' }),
   useNavigation: () => ({
     isFocused: () => true,
@@ -31,6 +32,8 @@ let mockDate = '';
 const mockQueries: Record<string, unknown> = {};
 const mockPlanIdea = jest.fn((_args: unknown) => Promise.resolve('r9'));
 const mockSet = jest.fn((_args: unknown) => Promise.resolve('e9'));
+const mockAddIngredient = jest.fn((_args: unknown) => Promise.resolve(null));
+const mockRemoveIngredient = jest.fn((_args: unknown) => Promise.resolve(null));
 jest.mock('convex/react', () => ({
   useQuery: (name: string, args: unknown) =>
     typeof mockQueries[name] === 'function'
@@ -41,7 +44,11 @@ jest.mock('convex/react', () => ({
       ? mockPlanIdea
       : name === 'mealPlan.set'
         ? mockSet
-        : Object.assign(jest.fn(), { withOptimisticUpdate: () => jest.fn() }),
+        : name === 'recipes.addIngredient'
+          ? mockAddIngredient
+          : name === 'recipes.removeIngredient'
+            ? mockRemoveIngredient
+            : Object.assign(jest.fn(), { withOptimisticUpdate: () => jest.fn() }),
 }));
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(() => Promise.resolve()),
@@ -185,5 +192,47 @@ describe('recipes', () => {
     await render(<RecipesScreen />);
     expect(screen.queryByText(/^Ideas/)).toBeNull();
     expect(screen.queryByText(/^Recipes ·/)).toBeNull();
+  });
+});
+
+describe('idea page (#107)', () => {
+  const idea = {
+    ...recipe('r2', 'Lasagne', true, 1),
+    shownIcon: '🍝',
+    servings: 4,
+    steps: [],
+    archivedAt: undefined,
+    createdByName: 'Kari Hansen',
+    plannedDates: [WEDNESDAY],
+    ingredients: [{ ingredientId: 'i1', name: 'Spinach', qty: 200, unit: 'g', section: 'produce' }],
+    ratings: [],
+    timesCooked: 0,
+  };
+
+  test('shows the nudge, the items and the planned day, and adds a typed item', async () => {
+    mockQueries['recipes.get'] = idea;
+    await render(<RecipeScreen />);
+    expect(screen.getByText('Have you made it?')).toBeTruthy();
+    expect(screen.getByText('Make it a recipe')).toBeTruthy();
+    expect(screen.getByText('added by Kari')).toBeTruthy();
+    expect(screen.getByText('Items · for 4 servings')).toBeTruthy();
+    expect(screen.getByText('Spinach')).toBeTruthy();
+    expect(screen.queryByText('Your rating')).toBeNull();
+
+    await fireEvent.changeText(screen.getByLabelText('Add item'), '2 l milk');
+    await act(() => fireEvent(screen.getByLabelText('Add item'), 'submitEditing'));
+    expect(mockAddIngredient).toHaveBeenCalledWith({
+      recipeId: 'r2',
+      name: 'milk',
+      qty: 2,
+      unit: 'l',
+    });
+
+    await act(() => fireEvent.press(screen.getByLabelText('Remove Spinach')));
+    expect(mockRemoveIngredient).toHaveBeenCalledWith({
+      recipeId: 'r2',
+      index: 0,
+      ingredientId: 'i1',
+    });
   });
 });

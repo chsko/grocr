@@ -846,6 +846,19 @@
     "items_other": "{{count}} items",
     "section": "Ideas · {{count}}",
     "recipesSection": "Recipes · {{count}}",
-    "noMatch": "No recipe is called that."
+    "noMatch": "No recipe is called that.",
+    "addedBy": "added by {{name}}",
+    "madeIt": "Have you made it?",
+    "madeItBody": "Make it a recipe, and its items come along as ingredients.",
+    "makeRecipe": "Make it a recipe",
+    "itemsFor_one": "Items · for {{count}} serving",
+    "itemsFor_other": "Items · for {{count}} servings",
+    "addItem": "Add item",
+    "addItemPlaceholder": "E.g. 200 g spinach",
+    "removeItem": "Remove {{name}}",
+    "planned": "Planned",
+    "notPlanned": "Not planned yet.",
+    "remove": "Remove the idea",
+    "removeHint": "Planned days and their grocery lines stay."
   }
 }

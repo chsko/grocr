@@ -846,6 +846,19 @@
     "items_other": "{{count}} varer",
     "section": "Idéer · {{count}}",
     "recipesSection": "Oppskrifter · {{count}}",
-    "noMatch": "Ingen oppskrifter heter det."
+    "noMatch": "Ingen oppskrifter heter det.",
+    "addedBy": "lagt til av {{name}}",
+    "madeIt": "Har dere laget den?",
+    "madeItBody": "Gjør den til oppskrift, så blir varene med som ingredienser.",
+    "makeRecipe": "Gjør til oppskrift",
+    "itemsFor_one": "Varer · til {{count}} porsjon",
+    "itemsFor_other": "Varer · til {{count}} porsjoner",
+    "addItem": "Legg til",
+    "addItemPlaceholder": "F.eks. 200 g spinat",
+    "removeItem": "Fjern {{name}}",
+    "planned": "Planlagt",
+    "notPlanned": "Ikke planlagt ennå.",
+    "remove": "Fjern idéen",
+    "removeHint": "Planlagte dager og varene deres blir stående."
   }
 }
