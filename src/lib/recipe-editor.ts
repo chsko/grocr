@@ -63,13 +63,20 @@ export function removeSection<R extends Placed>(
   };
 }
 
-/** Rows in saving order, each with its section's name (undefined when it has none). */
+/**
+ * Rows in saving order, each with its section's name (undefined when it has none). A section
+ * left without a name joins the section above, as if it were removed.
+ */
 export function sectionLines<R extends Placed>(
   rows: R[],
   sections: EditorSection[],
 ): (R & { recipeSection?: string })[] {
+  let above: string | undefined = undefined;
   return [null, ...sections.map((s) => s.key)].flatMap((key) => {
-    const name = cleanSectionName(sections.find((s) => s.key === key)?.name);
+    if (key !== null) {
+      above = cleanSectionName(sections.find((s) => s.key === key)?.name) ?? above;
+    }
+    const name = above;
     return rowsIn(rows, key).map((r) => ({ ...r, recipeSection: name }));
   });
 }

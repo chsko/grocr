@@ -15,10 +15,10 @@ export function cleanSectionName(name: string | undefined): string | undefined {
     // Control, zero-width and bidi characters.
     .replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁠-⁩﻿]/g, '')
     .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, MAX_SECTION_NAME)
     .trim();
-  return clean === '' ? undefined : clean;
+  // Count characters, not UTF-16 units, so an emoji is never cut in half.
+  const capped = Array.from(clean).slice(0, MAX_SECTION_NAME).join('').trim();
+  return capped === '' ? undefined : capped;
 }
 
 type Sectioned = { recipeSection?: string };
@@ -70,9 +70,13 @@ export function keepStoredSections<T extends { ingredientId: string }>(
   sent: T[],
   stored: { ingredientId: string; recipeSection?: string }[],
 ): (T & Sectioned)[] {
-  const had = new Map<string, string | undefined>();
+  // By occurrence: the same item can be in two sections, such as butter for the sauce and for
+  // the top, and each line keeps its own.
+  const had = new Map<string, (string | undefined)[]>();
   for (const line of stored) {
-    if (!had.has(line.ingredientId)) had.set(line.ingredientId, line.recipeSection);
+    const queue = had.get(line.ingredientId) ?? [];
+    queue.push(line.recipeSection);
+    had.set(line.ingredientId, queue);
   }
-  return sent.map((line) => ({ ...line, recipeSection: had.get(line.ingredientId) }));
+  return sent.map((line) => ({ ...line, recipeSection: had.get(line.ingredientId)?.shift() }));
 }

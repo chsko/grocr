@@ -80,10 +80,13 @@ async function wantedRows(ctx: QueryCtx, recipe: Doc<'recipes'>, servings: numbe
     if (prev === undefined) {
       wanted.set(key, { ingredient, qty, unit });
     } else if (qty !== undefined) {
-      // Same ingredient twice in one recipe: add up in the first line's unit.
-      const sum = toBase(prev.qty ?? 0, prev.unit) + toBase(qty, unit);
-      prev.qty = roundQty(fromBase(sum, prev.unit ?? unit), prev.unit ?? unit);
-      prev.unit = prev.unit ?? unit;
+      // Same ingredient twice in one recipe (maybe in two recipe sections): add up in the unit
+      // of the bigger amount, so the order of the lines (which sections change) doesn't matter.
+      const prevBase = toBase(prev.qty ?? 0, prev.unit);
+      const base = toBase(qty, unit);
+      const sumUnit = prev.unit === undefined || base > prevBase ? unit : prev.unit;
+      prev.qty = roundQty(fromBase(prevBase + base, sumUnit), sumUnit);
+      prev.unit = sumUnit;
     }
   }
   return wanted;

@@ -19,6 +19,12 @@ describe('cleanSectionName', () => {
     expect(cleanSectionName(undefined)).toBeUndefined();
   });
 
+  test('the cap counts characters, so an emoji is never cut in half', () => {
+    const name = cleanSectionName(`${'x'.repeat(39)}🍝🍝`)!;
+    expect(Array.from(name)).toHaveLength(MAX_SECTION_NAME);
+    expect(name.endsWith('🍝')).toBe(true);
+  });
+
   test('hidden control characters are dropped', () => {
     expect(cleanSectionName('Saus\u0000​')).toBe('Saus');
   });
@@ -89,6 +95,23 @@ describe('keepStoredSections', () => {
       { ingredientId: 'b', recipeSection: undefined },
       { ingredientId: 'a', recipeSection: 'Saus' },
       { ingredientId: 'c', recipeSection: undefined },
+    ]);
+  });
+
+  test('the same item in two sections keeps both, line by line', () => {
+    const stored = [
+      { ingredientId: 'butter', recipeSection: 'Roux' },
+      { ingredientId: 'butter', recipeSection: 'Top' },
+    ];
+    const sent = [
+      { ingredientId: 'butter' },
+      { ingredientId: 'butter' },
+      { ingredientId: 'butter' },
+    ];
+    expect(keepStoredSections(sent, stored).map((l) => l.recipeSection)).toEqual([
+      'Roux',
+      'Top',
+      undefined,
     ]);
   });
 });

@@ -141,10 +141,10 @@ export default function RecipeEditScreen() {
     setRows((current) => [...current, row]);
   }
 
-  /** A new, empty section card with its name field focused; returns its key. */
-  function newSection() {
+  /** A new, empty section card, its name field focused unless a sheet is closing; returns its key. */
+  function newSection(focus = true) {
     const key = newKey();
-    focusOnMount.current = `section-${key}`;
+    if (focus) focusOnMount.current = `section-${key}`;
     setSections((current) => addSection(current, key));
     return key;
   }
@@ -493,7 +493,8 @@ export default function RecipeEditScreen() {
                   title={t('recipeEdit.addSection')}
                   dashed
                   onPress={() => {
-                    const key = newSection();
+                    // The sheet is still fading out, so the keyboard waits for a tap on the name.
+                    const key = newSection(false);
                     setRows((current) => moveRow(current, menuRow.key, key));
                     setMenuFor(null);
                   }}

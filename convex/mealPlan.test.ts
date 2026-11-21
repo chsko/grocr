@@ -393,6 +393,8 @@ describe('recipe sections (#101)', () => {
         { name: 'Milk', qty: 5, unit: 'dl', recipeSection: withSections ? 'Roux' : undefined },
         { name: 'Butter', qty: 20, unit: 'g', recipeSection: withSections ? 'Top' : undefined },
         { name: 'Pasta sheets', qty: 9, unit: 'pcs' },
+        // Unsectioned, so it moves first when sections are on: the sum stays in dl.
+        { name: 'Milk', qty: 20, unit: 'ml' },
       ],
     });
     const plain = await kari.as.mutation(api.recipes.save, lasagne(false));
@@ -405,6 +407,13 @@ describe('recipe sections (#101)', () => {
     const sectioned = await kari.as.mutation(api.recipes.save, lasagne(true));
     await kari.as.mutation(api.mealPlan.set, { groupId, date: TUESDAY, recipeId: sectioned });
     expect(await rows(t)).toEqual(without);
+    expect(without).toContainEqual({
+      name: 'Milk',
+      qty: 5.2,
+      unit: 'dl',
+      checked: false,
+      kind: 'meal',
+    });
     expect(without).toContainEqual({
       name: 'Butter',
       qty: 50,

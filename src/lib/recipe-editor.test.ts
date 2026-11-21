@@ -88,7 +88,7 @@ describe('removeSection', () => {
 });
 
 describe('sectionLines', () => {
-  test('orders rows for saving and names each one’s section; blank names mean none', () => {
+  test('orders rows for saving; a section without a name joins the one above', () => {
     const named = [...sections, { key: 3, name: '   ' }];
     const withBlank = [...rows, { key: 14, section: 3, name: 'Ost' }];
     expect(sectionLines(withBlank, named).map((l) => [l.name, l.recipeSection])).toEqual([
@@ -96,7 +96,11 @@ describe('sectionLines', () => {
       ['Kjøttdeig', 'Kjøttsaus'],
       ['Løk', 'Kjøttsaus'],
       ['Melk', 'Hvit saus'],
-      ['Ost', undefined],
+      ['Ost', 'Hvit saus'],
     ]);
+    const firstBlank = [{ key: 5, name: '' }];
+    expect(
+      sectionLines([{ key: 1, section: 5, name: 'Salt' }], firstBlank).map((l) => l.recipeSection),
+    ).toEqual([undefined]);
   });
 });
