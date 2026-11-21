@@ -1,4 +1,4 @@
-import { useQuery } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,7 @@ import {
   IconButton,
   IconTile,
   IdeaPill,
+  QuietField,
   RatingBadge,
   TabScreen,
   Text,
@@ -17,6 +18,7 @@ import {
 import { Fonts, Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import { makeStyles, useColors } from '@/lib/appearance';
+import { attempt } from '@/lib/errors';
 import { dayShort } from '@/lib/format';
 import { relativeDay } from '@/lib/relative';
 import { useFamily } from '@/lib/session';
@@ -30,6 +32,8 @@ export default function RecipesScreen() {
   const family = useFamily();
   const [archived, setArchived] = useState(false);
   const [search, setSearch] = useState('');
+  const [newIdea, setNewIdea] = useState('');
+  const createIdea = useMutation(api.recipes.createIdea);
   const recipes = useQuery(api.recipes.list, { groupId: family.groupId, archived });
   const archivedCount =
     useQuery(api.recipes.list, { groupId: family.groupId, archived: true })?.length ?? 0;
@@ -42,6 +46,14 @@ export default function RecipesScreen() {
   // Dinner ideas (#106) get their own section above the recipes.
   const shownIdeas = shown.filter((r) => r.isIdea);
   const shownRecipes = shown.filter((r) => !r.isIdea);
+
+  async function addIdea() {
+    if (!newIdea.trim()) return;
+    const id = await attempt(t, () => createIdea({ groupId: family.groupId, title: newIdea }));
+    if (id === undefined) return;
+    setNewIdea('');
+    router.push({ pathname: '/recipe/[id]', params: { id } });
+  }
 
   const header = (
     <View style={styles.header}>
@@ -125,13 +137,25 @@ export default function RecipesScreen() {
           <Button onPress={() => router.push('/recipe/edit')} title={t('recipes.addFirst')} />
         </View>
       ) : null}
-      {shownIdeas.length > 0 && !archived ? (
+      {(shownIdeas.length > 0 || recipes?.length) && !archived && !needle ? (
         <Text variant="section" color={colors.muted} style={styles.section}>
           {t('ideas.section', { count: shownIdeas.length })}
         </Text>
       ) : null}
       {shownIdeas.map(renderRow)}
-      {shownIdeas.length > 0 && shownRecipes.length > 0 && !archived ? (
+      {/* A new idea without a day (#110), typed in place like "+ New gift". */}
+      {recipes?.length && !archived && !needle ? (
+        <QuietField
+          accessibilityLabel={t('ideas.new')}
+          value={newIdea}
+          onChangeText={setNewIdea}
+          maxLength={120}
+          placeholder={t('ideas.new')}
+          returnKeyType="done"
+          onSubmitEditing={() => void addIdea()}
+        />
+      ) : null}
+      {(shownIdeas.length > 0 || !needle) && shownRecipes.length > 0 && !archived ? (
         <Text variant="section" color={colors.muted} style={styles.section}>
           {t('ideas.recipesSection', { count: shownRecipes.length })}
         </Text>

@@ -44,6 +44,7 @@ export const WHATS_NEW: readonly WhatsNewEntry[] = [
   },
   { n: 18, key: 'familyWithoutApp', date: '2026-11-17', icon: '👪', href: '/family' },
   { n: 19, key: 'recipeSections', date: '2026-11-21', icon: '🥣', href: '/recipes' },
+  { n: 20, key: 'recipeIdeas', date: '2026-11-21', icon: '💭', href: '/recipes' },
 ];
 
 export const LATEST_WHATS_NEW = WHATS_NEW.reduce((max, e) => Math.max(max, e.n), 0);

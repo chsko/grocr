@@ -606,6 +606,10 @@
       "recipeSections": {
         "title": "Sections in recipes",
         "body": "Split a recipe's ingredients into sections, like Sauce or Dough. Tap + New section while editing, and ⋯ on an ingredient to move it. The grocery list stays the same."
+      },
+      "recipeIdeas": {
+        "title": "Dinner ideas without a recipe",
+        "body": "Know what you want but have no recipe yet? Type it in the dinner picker and plan it as an idea. Add items that go on the grocery list, and make it a recipe once you have cooked it. Ideas are at the top of Recipes."
       }
     }
   },
@@ -860,6 +864,7 @@
     "notPlanned": "Not planned yet.",
     "remove": "Remove the idea",
     "removeHint": "Planned days and their grocery lines stay.",
-    "plannedOn": "Planned {{day}}"
+    "plannedOn": "Planned {{day}}",
+    "new": "New idea"
   }
 }

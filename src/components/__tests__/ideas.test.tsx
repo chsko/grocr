@@ -28,7 +28,6 @@ jest.mock('expo-router', () => ({
   useIsFocused: () => true,
   Stack: { Screen: () => null },
 }));
-let mockDate = '';
 let mockParams: Record<string, string> = {};
 
 const mockQueries: Record<string, unknown> = {};
@@ -37,6 +36,7 @@ const mockSet = jest.fn((_args: unknown) => Promise.resolve('e9'));
 const mockAddIngredient = jest.fn((_args: unknown) => Promise.resolve(null));
 const mockRemoveIngredient = jest.fn((_args: unknown) => Promise.resolve(null));
 const mockSave = jest.fn((_args: unknown) => Promise.resolve('r2'));
+const mockCreateIdea = jest.fn((_args: unknown) => Promise.resolve('r7'));
 jest.mock('convex/react', () => ({
   useQuery: (name: string, args: unknown) =>
     typeof mockQueries[name] === 'function'
@@ -53,7 +53,9 @@ jest.mock('convex/react', () => ({
             ? mockRemoveIngredient
             : name === 'recipes.save'
               ? mockSave
-              : Object.assign(jest.fn(), { withOptimisticUpdate: () => jest.fn() }),
+              : name === 'recipes.createIdea'
+                ? mockCreateIdea
+                : Object.assign(jest.fn(), { withOptimisticUpdate: () => jest.fn() }),
 }));
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(() => Promise.resolve()),
@@ -115,7 +117,6 @@ beforeEach(async () => {
   resetShownWeek();
   for (const key of Object.keys(mockQueries)) delete mockQueries[key];
   mockPlanIdea.mockClear();
-  mockDate = WEDNESDAY;
   mockParams = { date: WEDNESDAY, id: 'r2' };
   await i18n.changeLanguage('en');
 });
@@ -192,12 +193,14 @@ describe('recipes', () => {
     expect(titles).toEqual(['Lasagne', 'Tacos', 'Fish soup']);
   });
 
-  test('shows no headings when there are no ideas', async () => {
+  test('hides the idea section while searching for something no idea matches', async () => {
     mockQueries['recipes.list'] = (args: { archived: boolean }) =>
       args.archived ? [] : [recipe('r1', 'Tacos')];
     await render(<RecipesScreen />);
+    await fireEvent.changeText(screen.getByLabelText('Search recipes'), 'tac');
     expect(screen.queryByText(/^Ideas/)).toBeNull();
-    expect(screen.queryByText(/^Recipes ·/)).toBeNull();
+    expect(screen.queryByLabelText('New idea')).toBeNull();
+    expect(screen.getByText('Tacos')).toBeTruthy();
   });
 });
 
@@ -272,5 +275,19 @@ describe('make it a recipe (#108)', () => {
       pathname: '/recipe/edit',
       params: { id: 'r2', makeRecipe: '1' },
     });
+  });
+});
+
+describe('new idea from Recipes (#110)', () => {
+  test('typing a new idea creates it and opens its page', async () => {
+    mockQueries['recipes.list'] = (args: { archived: boolean }) =>
+      args.archived ? [] : [recipe('r1', 'Tacos')];
+    const { router } = jest.requireMock('expo-router');
+    await render(<RecipesScreen />);
+    expect(screen.getByText('Ideas · 0')).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText('New idea'), 'Thai curry');
+    await act(() => fireEvent(screen.getByLabelText('New idea'), 'submitEditing'));
+    expect(mockCreateIdea).toHaveBeenCalledWith({ groupId: 'g1', title: 'Thai curry' });
+    expect(router.push).toHaveBeenCalledWith({ pathname: '/recipe/[id]', params: { id: 'r7' } });
   });
 });

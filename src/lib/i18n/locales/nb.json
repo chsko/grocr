@@ -606,6 +606,10 @@
       "recipeSections": {
         "title": "Seksjoner i oppskrifter",
         "body": "Del ingrediensene i en oppskrift i seksjoner, som Saus eller Deig. Trykk + Ny seksjon når du redigerer, og ⋯ på en ingrediens for å flytte den. Handlelisten blir som før."
+      },
+      "recipeIdeas": {
+        "title": "Middagsidéer uten oppskrift",
+        "body": "Vet dere hva dere vil ha, men har ingen oppskrift ennå? Skriv navnet i middagsvelgeren og planlegg det som idé. Legg til varer som havner på handlelisten, og gjør den til oppskrift når dere har laget den. Idéene ligger øverst i Oppskrifter."
       }
     }
   },
@@ -860,6 +864,7 @@
     "notPlanned": "Ikke planlagt ennå.",
     "remove": "Fjern idéen",
     "removeHint": "Planlagte dager og varene deres blir stående.",
-    "plannedOn": "Planlagt {{day}}"
+    "plannedOn": "Planlagt {{day}}",
+    "new": "Ny idé"
   }
 }

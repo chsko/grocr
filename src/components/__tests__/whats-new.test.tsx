@@ -79,6 +79,7 @@ describe("what's new sheet", () => {
     expect(screen.getByText('Advent calendar')).toBeTruthy();
     expect(screen.getByText('Children without a phone in the family')).toBeTruthy();
     expect(screen.getByText('Sections in recipes')).toBeTruthy();
+    expect(screen.getByText('Dinner ideas without a recipe')).toBeTruthy();
     expect(screen.queryByText('Some of it at home')).toBeNull();
   });
 
