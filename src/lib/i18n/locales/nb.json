@@ -859,6 +859,7 @@
     "planned": "Planlagt",
     "notPlanned": "Ikke planlagt ennå.",
     "remove": "Fjern idéen",
-    "removeHint": "Planlagte dager og varene deres blir stående."
+    "removeHint": "Planlagte dager og varene deres blir stående.",
+    "plannedOn": "Planlagt {{day}}"
   }
 }

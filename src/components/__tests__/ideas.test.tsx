@@ -5,6 +5,7 @@ import RecipesScreen from '@/app/(tabs)/recipes';
 import WeekScreen from '@/app/(tabs)/week';
 import PickDinnerScreen from '@/app/pick-dinner';
 import RecipeScreen from '@/app/recipe/[id]';
+import RecipeEditScreen from '@/app/recipe/edit';
 import { SECTIONS } from '@/convex/lib/catalog';
 import i18n from '@/lib/i18n';
 import { SessionContext, type Me } from '@/lib/session';
@@ -17,7 +18,7 @@ const WEDNESDAY = addDays(startOfWeek(todayIn('Europe/Oslo'), 1), 9);
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   router: { back: jest.fn(), push: jest.fn(), navigate: jest.fn() },
-  useLocalSearchParams: () => ({ date: mockDate, id: 'r2' }),
+  useLocalSearchParams: () => mockParams,
   useRoute: () => ({ key: 'week' }),
   useNavigation: () => ({
     isFocused: () => true,
@@ -28,12 +29,14 @@ jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
 }));
 let mockDate = '';
+let mockParams: Record<string, string> = {};
 
 const mockQueries: Record<string, unknown> = {};
 const mockPlanIdea = jest.fn((_args: unknown) => Promise.resolve('r9'));
 const mockSet = jest.fn((_args: unknown) => Promise.resolve('e9'));
 const mockAddIngredient = jest.fn((_args: unknown) => Promise.resolve(null));
 const mockRemoveIngredient = jest.fn((_args: unknown) => Promise.resolve(null));
+const mockSave = jest.fn((_args: unknown) => Promise.resolve('r2'));
 jest.mock('convex/react', () => ({
   useQuery: (name: string, args: unknown) =>
     typeof mockQueries[name] === 'function'
@@ -48,7 +51,9 @@ jest.mock('convex/react', () => ({
           ? mockAddIngredient
           : name === 'recipes.removeIngredient'
             ? mockRemoveIngredient
-            : Object.assign(jest.fn(), { withOptimisticUpdate: () => jest.fn() }),
+            : name === 'recipes.save'
+              ? mockSave
+              : Object.assign(jest.fn(), { withOptimisticUpdate: () => jest.fn() }),
 }));
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(() => Promise.resolve()),
@@ -111,6 +116,7 @@ beforeEach(async () => {
   for (const key of Object.keys(mockQueries)) delete mockQueries[key];
   mockPlanIdea.mockClear();
   mockDate = WEDNESDAY;
+  mockParams = { date: WEDNESDAY, id: 'r2' };
   await i18n.changeLanguage('en');
 });
 
@@ -233,6 +239,38 @@ describe('idea page (#107)', () => {
       recipeId: 'r2',
       index: 0,
       ingredientId: 'i1',
+    });
+  });
+});
+
+describe('make it a recipe (#108)', () => {
+  test('the editor saves the idea as a recipe with its items as ingredients', async () => {
+    mockParams = { id: 'r2', makeRecipe: '1' };
+    mockQueries['recipes.get'] = {
+      ...recipe('r2', 'Lasagne', true, 1),
+      icon: undefined,
+      shownIcon: '🍝',
+      steps: [],
+      sourceUrl: undefined,
+      ingredients: [
+        { ingredientId: 'i1', name: 'Spinach', qty: 200, unit: 'g', section: 'produce' },
+      ],
+    };
+    mockQueries['ingredients.suggest'] = [];
+    await render(<RecipeEditScreen />);
+    expect(screen.getByDisplayValue('Lasagne')).toBeTruthy();
+    expect(screen.getByDisplayValue('Spinach')).toBeTruthy();
+  });
+
+  test('a recipe row on Recipes offers to make an idea a recipe', async () => {
+    mockQueries['recipes.list'] = (args: { archived: boolean }) =>
+      args.archived ? [] : [recipe('r2', 'Lasagne', true, 1)];
+    const { router } = jest.requireMock('expo-router');
+    await render(<RecipesScreen />);
+    await fireEvent.press(screen.getByText('Make it a recipe'));
+    expect(router.push).toHaveBeenCalledWith({
+      pathname: '/recipe/edit',
+      params: { id: 'r2', makeRecipe: '1' },
     });
   });
 });

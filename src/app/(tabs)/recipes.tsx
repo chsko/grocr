@@ -82,7 +82,12 @@ export default function RecipesScreen() {
             {r.isIdea ? <IdeaPill /> : <RatingBadge average={r.rating.average} />}
             <Text variant="small" color={colors.muted} style={{ flexShrink: 1 }}>
               {r.isIdea
-                ? t('ideas.items', { count: r.ingredientCount })
+                ? [
+                    planned ? t('ideas.plannedOn', { day: planned }) : null,
+                    t('ideas.items', { count: r.ingredientCount }),
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')
                 : [
                     t('recipes.servings', { count: r.servings }),
                     r.lastCooked
@@ -92,7 +97,18 @@ export default function RecipesScreen() {
             </Text>
           </View>
         </View>
-        {planned ? (
+        {r.isIdea ? (
+          <Pressable
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={() =>
+              router.push({ pathname: '/recipe/edit', params: { id: r._id, makeRecipe: '1' } })
+            }>
+            <Text variant="small" color={colors.tomato} style={{ fontFamily: Fonts.semibold }}>
+              {t('ideas.makeRecipe')}
+            </Text>
+          </Pressable>
+        ) : planned ? (
           <Text variant="small" color={colors.tomatoDeep} style={styles.badge}>
             {planned}
           </Text>

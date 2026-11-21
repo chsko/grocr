@@ -63,7 +63,9 @@ export default function RecipeEditScreen() {
   const { t, i18n } = useTranslation();
   const family = useFamily();
   const sectionName = useSectionName();
-  const { id } = useLocalSearchParams<{ id?: Id<'recipes'> }>();
+  const { id, makeRecipe } = useLocalSearchParams<{ id?: Id<'recipes'>; makeRecipe?: string }>();
+  // Making a dinner idea a recipe (#108): its items arrive as the ingredients.
+  const making = makeRecipe === '1' && id !== undefined;
   const existing = useQuery(api.recipes.get, id ? { recipeId: id } : 'skip');
   const saveRecipe = useMutation(api.recipes.save);
 
@@ -174,6 +176,7 @@ export default function RecipeEditScreen() {
         steps,
         sourceUrl: link,
         withSections: true,
+        ...(making ? { makeRecipe: true } : {}),
         ingredients: sectionLines(rows, sections)
           .filter((r) => r.ingredientId || r.name.trim())
           .map((r) => ({
@@ -284,7 +287,11 @@ export default function RecipeEditScreen() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <Stack.Screen
         options={{
-          title: id ? t('recipeEdit.editTitle') : t('recipeEdit.newTitle'),
+          title: making
+            ? t('ideas.makeRecipe')
+            : id
+              ? t('recipeEdit.editTitle')
+              : t('recipeEdit.newTitle'),
           headerLeft: () => (
             <Button kind="ghost" title={t('common.cancel')} onPress={() => router.back()} />
           ),

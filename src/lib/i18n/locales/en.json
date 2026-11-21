@@ -859,6 +859,7 @@
     "planned": "Planned",
     "notPlanned": "Not planned yet.",
     "remove": "Remove the idea",
-    "removeHint": "Planned days and their grocery lines stay."
+    "removeHint": "Planned days and their grocery lines stay.",
+    "plannedOn": "Planned {{day}}"
   }
 }

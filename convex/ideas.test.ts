@@ -271,3 +271,50 @@ describe('items on an idea (#107)', () => {
     ).rejects.toThrow(/NOT_FOUND/);
   });
 });
+
+describe('making an idea a recipe (#108)', () => {
+  test('the same document becomes a recipe and its planned days follow', async () => {
+    const { t, kari, groupId } = await family();
+    const ideaId = await kari.as.mutation(api.mealPlan.planIdea, {
+      groupId,
+      date: WEDNESDAY,
+      title: 'Lasagne',
+    });
+    await kari.as.mutation(api.recipes.addIngredient, { recipeId: ideaId, name: 'Spinat' });
+    const saved = await kari.as.mutation(api.recipes.save, {
+      groupId,
+      recipeId: ideaId,
+      makeRecipe: true,
+      title: 'Lasagne med spinat',
+      servings: 4,
+      steps: ['Lag sausen.'],
+      ingredients: [{ name: 'Spinat' }, { name: 'Lasagneplater' }],
+    });
+    expect(saved).toBe(ideaId);
+
+    const recipe = await kari.as.query(api.recipes.get, { recipeId: ideaId });
+    expect(recipe.isIdea).toBe(false);
+    const week = await kari.as.query(api.mealPlan.week, { groupId, startDate: MONDAY });
+    expect(week.dinners).toEqual([
+      expect.objectContaining({ title: 'Lasagne med spinat', isIdea: false, recipeId: ideaId }),
+    ]);
+    const rows = await t.run((ctx) => ctx.db.query('groceryItems').collect());
+    expect(rows.map((r) => r.name).sort()).toEqual(['Lasagneplater', 'Spinat']);
+    // Now it can get stars.
+    await kari.as.mutation(api.recipes.rate, { recipeId: ideaId, stars: 5 });
+  });
+
+  test('saving an idea without makeRecipe keeps it an idea', async () => {
+    const { kari, groupId } = await family();
+    const ideaId = await kari.as.mutation(api.recipes.createIdea, { groupId, title: 'Lasagne' });
+    await kari.as.mutation(api.recipes.save, {
+      groupId,
+      recipeId: ideaId,
+      title: 'Lasagne',
+      servings: 4,
+      steps: [],
+      ingredients: [],
+    });
+    expect((await kari.as.query(api.recipes.get, { recipeId: ideaId })).isIdea).toBe(true);
+  });
+});

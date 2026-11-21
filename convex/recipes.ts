@@ -194,6 +194,8 @@ export const save = mutation({
      * they have, so editing in an older build doesn't wipe them.
      */
     withSections: v.optional(v.boolean()),
+    /** Turns a dinner idea into a recipe (#108); missing leaves an idea an idea. */
+    makeRecipe: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const { userId } = await requireMembership(ctx, args.groupId);
@@ -256,6 +258,7 @@ export const save = mutation({
       sourceUrl,
       ingredients: sectioned,
       updatedAt: Date.now(),
+      ...(args.makeRecipe === true ? { isIdea: undefined } : {}),
     };
 
     // jev is asked once per title, whatever it answered (or if it failed).
