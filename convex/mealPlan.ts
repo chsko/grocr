@@ -8,6 +8,7 @@ import { detachEntry, findList, syncEntry } from './lib/groceryRows';
 import { familyRatings } from './lib/ratings';
 import { recipeIcon } from './lib/recipeIcons';
 import { rankRecipes } from './lib/suggest';
+import { findOrCreateIdea } from './recipes';
 import { addDays, isLocalDate, todayIn } from './lib/week';
 
 /** At most this many ranked recipes go back to the app for one week's suggestions. */
@@ -54,6 +55,8 @@ export const week = query({
           title: recipe?.title ?? e.freeText ?? '',
           icon: recipe ? recipeIcon(recipe) : null,
           isNote: e.recipeId === undefined,
+          isIdea: recipe?.isIdea === true,
+          ingredientCount: recipe?.ingredients.length ?? 0,
           servings: e.servings,
         };
       }),
@@ -104,15 +107,7 @@ export const set = mutation({
       entryServings = validServings(servings ?? 4);
     }
 
-    const existing = await ctx.db
-      .query('mealPlanEntries')
-      .withIndex('by_group_date', (q) => q.eq('groupId', groupId).eq('date', date))
-      .collect();
-    for (const entry of existing) {
-      await detachEntry(ctx, entry);
-      await ctx.db.delete('mealPlanEntries', entry._id);
-    }
-
+    await clearDay(ctx, groupId, date);
     return await insertDinner(ctx, {
       groupId,
       date,
@@ -123,6 +118,46 @@ export const set = mutation({
     });
   },
 });
+
+/**
+ * Plans a dinner idea (#105) for a date: the family's idea with this title, or a new one.
+ * Replaces whatever was planned that day. Returns the idea's id.
+ */
+export const planIdea = mutation({
+  args: {
+    groupId: v.id('groups'),
+    date: v.string(),
+    title: v.string(),
+    servings: v.optional(v.number()),
+  },
+  handler: async (ctx, { groupId, date, title, servings }) => {
+    const { userId } = await requireMembership(ctx, groupId);
+    validDate(date);
+    const idea = await findOrCreateIdea(ctx, groupId, userId, title);
+    const entryServings = validServings(servings ?? idea.servings);
+    await clearDay(ctx, groupId, date);
+    await insertDinner(ctx, {
+      groupId,
+      date,
+      recipeId: idea._id,
+      servings: entryServings,
+      addedBy: userId,
+    });
+    return idea._id;
+  },
+});
+
+/** Removes whatever is planned on a date, taking its open grocery lines with it. */
+async function clearDay(ctx: MutationCtx, groupId: Id<'groups'>, date: string) {
+  const existing = await ctx.db
+    .query('mealPlanEntries')
+    .withIndex('by_group_date', (q) => q.eq('groupId', groupId).eq('date', date))
+    .collect();
+  for (const entry of existing) {
+    await detachEntry(ctx, entry);
+    await ctx.db.delete('mealPlanEntries', entry._id);
+  }
+}
 
 /** Adds a dinner and puts its ingredients on that week's grocery list. */
 async function insertDinner(

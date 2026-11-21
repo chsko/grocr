@@ -833,5 +833,18 @@
     "tomorrowDoor": "I morgen, luke {{number}}: {{what}}",
     "notWrapped": "ikke pakket",
     "nextDoor": "Neste luke {{number}}, {{date}}: {{what}}"
+  },
+  "ideas": {
+    "pill": "Idé",
+    "heading": "Idéer",
+    "planAs": "Planlegg «{{title}}» som idé",
+    "planAsHint": "Legg til varer nå eller senere. Kan bli oppskrift.",
+    "planButton": "Planlegg idéen",
+    "noItems": "Ingen varer ennå. Legg dem til på idéen.",
+    "items_one": "{{count}} vare",
+    "items_other": "{{count}} varer",
+    "section": "Idéer · {{count}}",
+    "recipesSection": "Oppskrifter · {{count}}",
+    "noMatch": "Ingen oppskrifter heter det."
   }
 }

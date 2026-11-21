@@ -9,7 +9,7 @@ import { AdventWeekCard } from '@/components/advent-calendar';
 import { ProgressBar } from '@/components/gift-parts';
 import { Highlight } from '@/components/highlight';
 import { Basket, ChevronRight, Gift, Plus, Sparkle } from '@/components/icons';
-import { Button, IconTile, TabScreen, Text } from '@/components/ui';
+import { Button, IconTile, IdeaPill, TabScreen, Text } from '@/components/ui';
 import { WeekHeader } from '@/components/week-header';
 import { Fonts } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
@@ -102,13 +102,18 @@ export default function WeekScreen() {
               {dinner ? (
                 <>
                   <View style={{ flex: 1, gap: 1 }}>
-                    <Text variant="item" numberOfLines={1}>
-                      {dinner.title}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text variant="item" numberOfLines={1} style={{ flexShrink: 1 }}>
+                        {dinner.title}
+                      </Text>
+                      {dinner.isIdea ? <IdeaPill /> : null}
+                    </View>
                     <Text variant="small" color={colors.muted}>
                       {dinner.isNote
                         ? t('week.note')
-                        : t('week.serves', { count: dinner.servings })}
+                        : dinner.isIdea
+                          ? `${t('ideas.items', { count: dinner.ingredientCount })} · ${t('week.serves', { count: dinner.servings })}`
+                          : t('week.serves', { count: dinner.servings })}
                     </Text>
                   </View>
                   {dinner.isNote ? null : (
@@ -116,6 +121,7 @@ export default function WeekScreen() {
                       icon={dinner.icon ?? DEFAULT_ICON}
                       color={colors.tiles[index % colors.tiles.length]}
                       size={30}
+                      idea={dinner.isIdea}
                     />
                   )}
                 </>

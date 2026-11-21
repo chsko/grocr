@@ -391,18 +391,25 @@ export function IconTile({
   icon,
   color,
   size = 46,
+  idea,
 }: {
   icon: string;
   color: string;
   size?: number;
+  /** A dinner idea (#105): a dashed outline instead of a fill, as it is not a recipe yet. */
+  idea?: boolean;
 }) {
+  const colors = useColors();
   return (
     <View
       style={{
         width: size,
         height: size,
         borderRadius: Math.round(size / 4),
-        backgroundColor: color,
+        backgroundColor: idea ? 'transparent' : color,
+        borderWidth: idea ? 1.5 : 0,
+        borderStyle: 'dashed',
+        borderColor: colors.checkbox,
         alignItems: 'center',
         justifyContent: 'center',
       }}>
@@ -410,6 +417,28 @@ export function IconTile({
         {icon}
       </RNText>
     </View>
+  );
+}
+
+/** The small "Idé" pill next to a dinner idea's title (#105). */
+export function IdeaPill() {
+  const colors = useColors();
+  const { t } = useTranslation();
+  return (
+    <RNText
+      style={{
+        fontFamily: Fonts.bold,
+        fontSize: 11,
+        letterSpacing: 0.3,
+        color: colors.saffronInk,
+        backgroundColor: colors.saffronPill,
+        borderRadius: Radius.pill,
+        overflow: 'hidden',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+      }}>
+      {t('ideas.pill').toLocaleUpperCase()}
+    </RNText>
   );
 }
 

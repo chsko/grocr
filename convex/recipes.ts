@@ -1,11 +1,11 @@
 import { ConvexError, v } from 'convex/values';
 
 import type { Doc, Id } from './_generated/dataModel';
-import { mutation, query, type QueryCtx } from './_generated/server';
+import { mutation, query, type MutationCtx, type QueryCtx } from './_generated/server';
 import { scheduleIconGuess } from './classify';
 import { resolveIngredient } from './ingredients';
 import { loadForMember, requireMembership } from './lib/access';
-import { cleanName } from './lib/catalog';
+import { cleanName, normalizeName } from './lib/catalog';
 import { familyRatings, isStars, memberIds, roundRating } from './lib/ratings';
 import { syncEntry } from './lib/groceryRows';
 import { DEFAULT_ICON, guessIcon, isRecipeIcon, recipeIcon } from './lib/recipeIcons';
@@ -54,6 +54,7 @@ export const list = query({
         icon: recipeIcon(r),
         servings: r.servings,
         ingredientCount: r.ingredients.length,
+        isIdea: r.isIdea === true,
         rating: ratingOf(r._id),
         ...(await planDates(ctx, r._id, today)),
       })),
@@ -110,6 +111,7 @@ export const get = query({
     return {
       ...doc,
       shownIcon: recipeIcon(doc),
+      isIdea: doc.isIdea === true,
       ingredients,
       ...(await planDates(ctx, doc._id, today)),
       timesCooked: cooked.length,
@@ -274,6 +276,42 @@ export const save = mutation({
     return existing._id;
   },
 });
+
+/**
+ * The family's dinner idea with this title (ignoring case and spacing), or a new one (#105).
+ * Recipes and archived ideas are never reused, so an idea never takes over a real recipe.
+ */
+export async function findOrCreateIdea(
+  ctx: MutationCtx,
+  groupId: Id<'groups'>,
+  userId: Id<'users'>,
+  rawTitle: string,
+) {
+  const title = cleanName(rawTitle).slice(0, 120);
+  if (title === '') throw new ConvexError({ code: 'TITLE_REQUIRED' });
+  const key = normalizeName(title);
+  const recipes = await ctx.db
+    .query('recipes')
+    .withIndex('by_group', (q) => q.eq('groupId', groupId))
+    .collect();
+  const same = recipes.find(
+    (r) => r.isIdea === true && r.archivedAt === undefined && normalizeName(r.title) === key,
+  );
+  if (same) return same;
+  const recipeId = await ctx.db.insert('recipes', {
+    groupId,
+    title,
+    servings: 4,
+    steps: [],
+    tags: [],
+    ingredients: [],
+    isIdea: true,
+    createdBy: userId,
+    updatedAt: Date.now(),
+  });
+  if (guessIcon(title) === DEFAULT_ICON) await scheduleIconGuess(ctx, groupId, recipeId, title);
+  return (await ctx.db.get('recipes', recipeId))!;
+}
 
 /** Archives or restores a recipe. Planned dinners and their grocery rows are left alone. */
 export const setArchived = mutation({

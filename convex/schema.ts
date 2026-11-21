@@ -153,6 +153,8 @@ export default defineSchema({
     createdBy: v.optional(v.id('users')),
     updatedAt: v.number(),
     archivedAt: v.optional(v.number()),
+    /** A dinner idea (#105): a recipe draft with a title and maybe ingredients; missing = recipe. */
+    isIdea: v.optional(v.boolean()),
     ingredients: v.array(
       v.object({
         ingredientId: v.id('ingredients'),

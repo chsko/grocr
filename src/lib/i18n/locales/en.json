@@ -833,5 +833,18 @@
     "tomorrowDoor": "Tomorrow, door {{number}}: {{what}}",
     "notWrapped": "not wrapped",
     "nextDoor": "Next door {{number}}, {{date}}: {{what}}"
+  },
+  "ideas": {
+    "pill": "Idea",
+    "heading": "Ideas",
+    "planAs": "Plan «{{title}}» as an idea",
+    "planAsHint": "Add items now or later. It can become a recipe.",
+    "planButton": "Plan the idea",
+    "noItems": "No items yet. Add them on the idea.",
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} items",
+    "section": "Ideas · {{count}}",
+    "recipesSection": "Recipes · {{count}}",
+    "noMatch": "No recipe is called that."
   }
 }

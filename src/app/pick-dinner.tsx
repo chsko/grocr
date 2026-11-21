@@ -12,11 +12,14 @@ import {
   Field,
   IconButton,
   IconTile,
+  IdeaPill,
   RatingBadge,
   Stepper,
   Text,
 } from '@/components/ui';
 import { Radius } from '@/constants/theme';
+import { normalizeName } from '@/convex/lib/catalog';
+import { guessIcon } from '@/convex/lib/recipeIcons';
 import { api } from '@/convex/_generated/api';
 import type { Id } from '@/convex/_generated/dataModel';
 import { makeStyles, useColors } from '@/lib/appearance';
@@ -45,6 +48,7 @@ export default function PickDinnerScreen() {
   const setDinner = useMutation(api.mealPlan.set);
   const setServings = useMutation(api.mealPlan.setServings);
   const removeDinner = useMutation(api.mealPlan.remove);
+  const planIdeaMutation = useMutation(api.mealPlan.planIdea);
 
   const existing = week?.dinners.find((d) => d.date === date);
   const [search, setSearch] = useState('');
@@ -53,12 +57,16 @@ export default function PickDinnerScreen() {
   const [writing, setWriting] = useState(false);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
+  // The "Plan «X» as an idea" offer is picked (#106); X is what the search field says.
+  const [ideaPicked, setIdeaPicked] = useState(false);
 
-  const selectedId = picked ?? existing?.recipeId ?? null;
+  const ideaTitle = search.trim();
+  const planningIdea = ideaPicked && ideaTitle !== '';
+  const selectedId = planningIdea ? null : (picked ?? existing?.recipeId ?? null);
   const selected = recipes?.find((r) => r._id === selectedId);
   const currentServings =
     servings ??
-    (picked === null && existing && !existing.isNote
+    (picked === null && !planningIdea && existing && !existing.isNote
       ? existing.servings
       : (selected?.servings ?? 4));
 
@@ -72,6 +80,13 @@ export default function PickDinnerScreen() {
         (b.lastCooked ?? '').localeCompare(a.lastCooked ?? '') || a.title.localeCompare(b.title),
     );
   }, [recipes, search]);
+  const shownIdeas = shown.filter((r) => r.isIdea);
+  const shownRecipes = shown.filter((r) => !r.isIdea);
+  // Offer a new idea while nothing the family has is called exactly what was typed.
+  const offerIdea =
+    ideaTitle !== '' &&
+    recipes !== undefined &&
+    !recipes.some((r) => normalizeName(r.title) === normalizeName(ideaTitle));
 
   async function save(run: () => Promise<unknown>) {
     setBusy(true);
@@ -91,8 +106,57 @@ export default function PickDinnerScreen() {
     );
   }
 
+  function planIdea() {
+    void save(() =>
+      planIdeaMutation({
+        groupId: family.groupId,
+        date,
+        title: ideaTitle,
+        servings: currentServings,
+      }),
+    );
+  }
+
   function planNote(text: string) {
     void save(() => setDinner({ groupId: family.groupId, date, freeText: text }));
+  }
+
+  function renderRecipe(r: NonNullable<typeof recipes>[number]) {
+    const isSelected = r._id === selectedId;
+    return (
+      <Pressable
+        key={r._id}
+        accessibilityRole="button"
+        accessibilityState={{ selected: isSelected }}
+        onPress={() => {
+          // The Plan footer sits at the bottom, under the search keyboard: put it away.
+          Keyboard.dismiss();
+          setPicked(r._id);
+          setIdeaPicked(false);
+          setServingsState(null);
+        }}
+        style={[styles.recipe, isSelected && styles.recipeSelected]}>
+        <IconTile icon={r.icon} color={colors.tiles[0]} size={38} idea={r.isIdea} />
+        <View style={{ flex: 1 }}>
+          <Text variant="item">{r.title}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            {r.isIdea ? <IdeaPill /> : null}
+            <RatingBadge
+              average={r.rating.average}
+              color={isSelected ? colors.tomatoDeep : undefined}
+            />
+            <Text variant="small" color={isSelected ? colors.tomatoDeep : colors.muted}>
+              {r.lastCooked
+                ? t('recipes.cooked', {
+                    when: relativeDay(t, r.lastCooked, todayIn(family.timezone)),
+                  })
+                : t('recipes.neverCooked')}
+            </Text>
+          </View>
+        </View>
+        {isSelected ? <Check color={colors.tomato} /> : null}
+      </Pressable>
+    );
   }
 
   return (
@@ -146,41 +210,42 @@ export default function PickDinnerScreen() {
         {recipes && recipes.length === 0 ? (
           <Text color={colors.muted}>{t('pick.noRecipes')}</Text>
         ) : null}
-        {shown.map((r) => {
-          const isSelected = r._id === selectedId;
-          return (
-            <Pressable
-              key={r._id}
-              accessibilityRole="button"
-              accessibilityState={{ selected: isSelected }}
-              onPress={() => {
-                // The Plan footer sits at the bottom, under the search keyboard: put it away.
-                Keyboard.dismiss();
-                setPicked(r._id);
-                setServingsState(null);
-              }}
-              style={[styles.recipe, isSelected && styles.recipeSelected]}>
-              <IconTile icon={r.icon} color={colors.tiles[0]} size={38} />
-              <View style={{ flex: 1 }}>
-                <Text variant="item">{r.title}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <RatingBadge
-                    average={r.rating.average}
-                    color={isSelected ? colors.tomatoDeep : undefined}
-                  />
-                  <Text variant="small" color={isSelected ? colors.tomatoDeep : colors.muted}>
-                    {r.lastCooked
-                      ? t('recipes.cooked', {
-                          when: relativeDay(t, r.lastCooked, todayIn(family.timezone)),
-                        })
-                      : t('recipes.neverCooked')}
-                  </Text>
-                </View>
-              </View>
-              {isSelected ? <Check color={colors.tomato} /> : null}
-            </Pressable>
-          );
-        })}
+        {search && shown.length === 0 ? (
+          <Text variant="small" color={colors.muted}>
+            {t('ideas.noMatch')}
+          </Text>
+        ) : null}
+        {shownRecipes.map(renderRecipe)}
+        {offerIdea ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ selected: planningIdea }}
+            onPress={() => {
+              setIdeaPicked(true);
+              setPicked(null);
+              setServingsState(null);
+            }}
+            style={[styles.offer, planningIdea && styles.recipeSelected]}>
+            <IconTile icon={guessIcon(ideaTitle)} color={colors.tiles[0]} size={38} idea />
+            <View style={{ flex: 1 }}>
+              <Text variant="item" color={colors.tomato}>
+                {t('ideas.planAs', { title: ideaTitle })}
+              </Text>
+              <Text variant="small" color={colors.muted}>
+                {t('ideas.planAsHint')}
+              </Text>
+            </View>
+            {planningIdea ? <Check color={colors.tomato} /> : null}
+          </Pressable>
+        ) : null}
+        {shownIdeas.length > 0 ? (
+          <>
+            <Text variant="section" color={colors.muted} style={{ marginTop: 18, marginBottom: 4 }}>
+              {t('ideas.heading')}
+            </Text>
+            {shownIdeas.map(renderRecipe)}
+          </>
+        ) : null}
 
         <Text variant="section" color={colors.muted} style={{ marginTop: 18, marginBottom: 8 }}>
           {t('pick.orNote')}
@@ -217,7 +282,7 @@ export default function PickDinnerScreen() {
         ) : null}
       </ScrollView>
 
-      {selected ? (
+      {selected || planningIdea ? (
         <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
           <View style={styles.servingsRow}>
             <Text variant="item" style={{ fontSize: 16 }}>
@@ -226,12 +291,14 @@ export default function PickDinnerScreen() {
             <Stepper value={currentServings} onChange={setServingsState} />
           </View>
           <Button
-            title={t('pick.plan', { title: selected.title })}
+            title={selected ? t('pick.plan', { title: selected.title }) : t('ideas.planButton')}
             loading={busy}
-            onPress={planRecipe}
+            onPress={selected ? planRecipe : planIdea}
           />
           <Text variant="small" color={colors.muted} style={{ textAlign: 'center' }}>
-            {t('pick.footer', { count: selected.ingredientCount, week: weekTitle(t, startDate) })}
+            {selected && (selected.ingredientCount > 0 || !selected.isIdea)
+              ? t('pick.footer', { count: selected.ingredientCount, week: weekTitle(t, startDate) })
+              : t('ideas.noItems')}
           </Text>
         </View>
       ) : null}
@@ -272,6 +339,18 @@ const useStyles = makeStyles((colors) => ({
     borderRadius: 12,
   },
   recipeSelected: { backgroundColor: colors.saffronSoft },
+  offer: {
+    minHeight: 64,
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: Radius.button,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: colors.tomato,
+  },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   footer: {
     paddingHorizontal: 20,

@@ -5,7 +5,15 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, TextInput, View } from 'react-native';
 
 import { Plus, Search } from '@/components/icons';
-import { Button, IconButton, IconTile, RatingBadge, TabScreen, Text } from '@/components/ui';
+import {
+  Button,
+  IconButton,
+  IconTile,
+  IdeaPill,
+  RatingBadge,
+  TabScreen,
+  Text,
+} from '@/components/ui';
 import { Fonts, Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
 import { makeStyles, useColors } from '@/lib/appearance';
@@ -31,6 +39,9 @@ export default function RecipesScreen() {
   const horizon = addDays(startOfWeek(today, family.weekStartsOn as Weekday), 13);
   const needle = search.trim().toLocaleLowerCase();
   const shown = (recipes ?? []).filter((r) => r.title.toLocaleLowerCase().includes(needle));
+  // Dinner ideas (#106) get their own section above the recipes.
+  const shownIdeas = shown.filter((r) => r.isIdea);
+  const shownRecipes = shown.filter((r) => !r.isIdea);
 
   const header = (
     <View style={styles.header}>
@@ -56,6 +67,40 @@ export default function RecipesScreen() {
     </View>
   );
 
+  function renderRow(r: NonNullable<typeof recipes>[number], index: number) {
+    const planned = r.nextPlanned && r.nextPlanned <= horizon ? dayShort(t, r.nextPlanned) : null;
+    return (
+      <Pressable
+        key={r._id}
+        onPress={() => router.push({ pathname: '/recipe/[id]', params: { id: r._id } })}
+        accessibilityRole="link"
+        style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}>
+        <IconTile icon={r.icon} color={colors.tiles[index % colors.tiles.length]} idea={r.isIdea} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text variant="item">{r.title}</Text>
+          <View style={styles.meta}>
+            {r.isIdea ? <IdeaPill /> : <RatingBadge average={r.rating.average} />}
+            <Text variant="small" color={colors.muted} style={{ flexShrink: 1 }}>
+              {r.isIdea
+                ? t('ideas.items', { count: r.ingredientCount })
+                : [
+                    t('recipes.servings', { count: r.servings }),
+                    r.lastCooked
+                      ? t('recipes.cooked', { when: relativeDay(t, r.lastCooked, today) })
+                      : t('recipes.neverCooked'),
+                  ].join(' · ')}
+            </Text>
+          </View>
+        </View>
+        {planned ? (
+          <Text variant="small" color={colors.tomatoDeep} style={styles.badge}>
+            {planned}
+          </Text>
+        ) : null}
+      </Pressable>
+    );
+  }
+
   return (
     <TabScreen header={header}>
       {recipes && recipes.length === 0 && !archived ? (
@@ -64,38 +109,18 @@ export default function RecipesScreen() {
           <Button onPress={() => router.push('/recipe/edit')} title={t('recipes.addFirst')} />
         </View>
       ) : null}
-      {shown.map((r, index) => {
-        const planned =
-          r.nextPlanned && r.nextPlanned <= horizon ? dayShort(t, r.nextPlanned) : null;
-        return (
-          <Pressable
-            key={r._id}
-            onPress={() => router.push({ pathname: '/recipe/[id]', params: { id: r._id } })}
-            accessibilityRole="link"
-            style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}>
-            <IconTile icon={r.icon} color={colors.tiles[index % colors.tiles.length]} />
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text variant="item">{r.title}</Text>
-              <View style={styles.meta}>
-                <RatingBadge average={r.rating.average} />
-                <Text variant="small" color={colors.muted} style={{ flexShrink: 1 }}>
-                  {[
-                    t('recipes.servings', { count: r.servings }),
-                    r.lastCooked
-                      ? t('recipes.cooked', { when: relativeDay(t, r.lastCooked, today) })
-                      : t('recipes.neverCooked'),
-                  ].join(' · ')}
-                </Text>
-              </View>
-            </View>
-            {planned ? (
-              <Text variant="small" color={colors.tomatoDeep} style={styles.badge}>
-                {planned}
-              </Text>
-            ) : null}
-          </Pressable>
-        );
-      })}
+      {shownIdeas.length > 0 && !archived ? (
+        <Text variant="section" color={colors.muted} style={styles.section}>
+          {t('ideas.section', { count: shownIdeas.length })}
+        </Text>
+      ) : null}
+      {shownIdeas.map(renderRow)}
+      {shownIdeas.length > 0 && shownRecipes.length > 0 && !archived ? (
+        <Text variant="section" color={colors.muted} style={styles.section}>
+          {t('ideas.recipesSection', { count: shownRecipes.length })}
+        </Text>
+      ) : null}
+      {shownRecipes.map(renderRow)}
       {archived || archivedCount > 0 ? (
         <Button
           kind="ghost"
@@ -113,6 +138,7 @@ export default function RecipesScreen() {
 }
 
 const useStyles = makeStyles((colors) => ({
+  section: { marginTop: 14, marginBottom: 2 },
   header: { paddingHorizontal: 20, paddingTop: 24, gap: 14, paddingBottom: 8 },
   // minHeight keeps the row as tall when the New button is hidden (archived view), and matches
   // the Groceries title row.
