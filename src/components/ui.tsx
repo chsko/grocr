@@ -436,6 +436,8 @@ export function IdeaPill() {
         overflow: 'hidden',
         paddingHorizontal: 8,
         paddingVertical: 2,
+        // Next to a long title the title shrinks, never the pill.
+        flexShrink: 0,
       }}>
       {t('ideas.pill').toLocaleUpperCase()}
     </RNText>
