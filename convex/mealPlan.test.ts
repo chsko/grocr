@@ -378,3 +378,39 @@ describe('planning a dinner', () => {
     ).rejects.toThrow(/NOT_FOUND/);
   });
 });
+
+describe('recipe sections (#101)', () => {
+  test('sections leave the grocery list exactly as without them', async () => {
+    const { t, kari, groupId } = await family();
+    const lasagne = (withSections: boolean) => ({
+      groupId,
+      title: withSections ? 'Lasagne' : 'Lasagne plain',
+      servings: 4,
+      steps: [],
+      withSections,
+      ingredients: [
+        { name: 'Butter', qty: 30, unit: 'g', recipeSection: withSections ? 'Roux' : undefined },
+        { name: 'Milk', qty: 5, unit: 'dl', recipeSection: withSections ? 'Roux' : undefined },
+        { name: 'Butter', qty: 20, unit: 'g', recipeSection: withSections ? 'Top' : undefined },
+        { name: 'Pasta sheets', qty: 9, unit: 'pcs' },
+      ],
+    });
+    const plain = await kari.as.mutation(api.recipes.save, lasagne(false));
+    await kari.as.mutation(api.mealPlan.set, { groupId, date: TUESDAY, recipeId: plain });
+    const without = await rows(t);
+    await kari.as.mutation(api.mealPlan.remove, {
+      entryId: (await t.run((ctx) => ctx.db.query('mealPlanEntries').first()))!._id,
+    });
+
+    const sectioned = await kari.as.mutation(api.recipes.save, lasagne(true));
+    await kari.as.mutation(api.mealPlan.set, { groupId, date: TUESDAY, recipeId: sectioned });
+    expect(await rows(t)).toEqual(without);
+    expect(without).toContainEqual({
+      name: 'Butter',
+      qty: 50,
+      unit: 'g',
+      checked: false,
+      kind: 'meal',
+    });
+  });
+});

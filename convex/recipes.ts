@@ -10,6 +10,7 @@ import { familyRatings, isStars, memberIds, roundRating } from './lib/ratings';
 import { syncEntry } from './lib/groceryRows';
 import { DEFAULT_ICON, guessIcon, isRecipeIcon, recipeIcon } from './lib/recipeIcons';
 import { normalizeRecipeUrl } from './lib/recipeLink';
+import { keepStoredSections, orderBySection } from './lib/recipeSections';
 import { isUnit } from './lib/units';
 import { todayIn } from './lib/week';
 
@@ -156,6 +157,7 @@ const ingredientInput = v.object({
   qty: v.optional(v.number()),
   unit: v.optional(v.string()),
   note: v.optional(v.string()),
+  recipeSection: v.optional(v.string()),
 });
 
 /**
@@ -174,6 +176,11 @@ export const save = mutation({
     /** A link to the recipe on the web (GRO-71); missing keeps the current one, '' removes it. */
     sourceUrl: v.optional(v.string()),
     ingredients: v.array(ingredientInput),
+    /**
+     * Sent by builds that know recipe sections (#101). Without it the lines keep the sections
+     * they have, so editing in an older build doesn't wipe them.
+     */
+    withSections: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const { userId } = await requireMembership(ctx, args.groupId);
@@ -201,8 +208,19 @@ export const save = mutation({
         line.qty !== undefined && Number.isFinite(line.qty) && line.qty > 0 ? line.qty : undefined;
       const unit = line.unit !== undefined && isUnit(line.unit) ? line.unit : undefined;
       const note = line.note?.trim().slice(0, 80) || undefined;
-      ingredients.push({ ingredientId: ingredient._id, qty, unit, note });
+      ingredients.push({
+        ingredientId: ingredient._id,
+        qty,
+        unit,
+        note,
+        recipeSection: line.recipeSection,
+      });
     }
+    const sectioned = orderBySection(
+      args.withSections === true
+        ? ingredients
+        : keepStoredSections(ingredients, existing?.ingredients ?? []),
+    );
     let sourceUrl = existing?.sourceUrl;
     if (args.sourceUrl !== undefined) {
       const url = normalizeRecipeUrl(args.sourceUrl);
@@ -223,7 +241,7 @@ export const save = mutation({
       servings: args.servings,
       steps,
       sourceUrl,
-      ingredients,
+      ingredients: sectioned,
       updatedAt: Date.now(),
     };
 

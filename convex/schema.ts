@@ -159,6 +159,8 @@ export default defineSchema({
         qty: v.optional(v.number()),
         unit: v.optional(v.string()),
         note: v.optional(v.string()),
+        /** The recipe section the line is in, such as "Saus" (#101); see lib/recipeSections. */
+        recipeSection: v.optional(v.string()),
       }),
     ),
   })

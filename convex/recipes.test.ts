@@ -183,4 +183,89 @@ describe('recipes', () => {
       eve.as.mutation(api.ingredients.setSection, { ingredientId: onionId, section: 'dairy' }),
     ).rejects.toThrow(/NOT_FOUND/);
   });
+
+  test('sections (#101): saved grouped and cleaned, and kept when an older build saves', async () => {
+    const { kari, groupId } = await family();
+    const recipeId = await kari.as.mutation(api.recipes.save, {
+      groupId,
+      title: 'Lasagne',
+      servings: 4,
+      steps: [],
+      withSections: true,
+      ingredients: [
+        { name: 'Minced beef', qty: 400, unit: 'g', recipeSection: ' Meat  sauce ' },
+        { name: 'Milk', qty: 5, unit: 'dl', recipeSection: 'White sauce' },
+        { name: 'Pasta sheets', qty: 9, unit: 'pcs' },
+        { name: 'Onion', qty: 1, unit: 'pcs', recipeSection: 'MEAT SAUCE' },
+        { name: 'Cheese', recipeSection: '   ' },
+      ],
+    });
+    const sections = async () =>
+      (await kari.as.query(api.recipes.get, { recipeId })).ingredients.map((i) => [
+        i.name,
+        i.recipeSection,
+      ]);
+    const grouped = [
+      ['Pasta sheets', undefined],
+      ['Cheese', undefined],
+      ['Minced beef', 'Meat sauce'],
+      ['Onion', 'Meat sauce'],
+      ['Milk', 'White sauce'],
+    ];
+    expect(await sections()).toEqual(grouped);
+
+    // An older app build sends lines without sections and no withSections flag.
+    const stored = await kari.as.query(api.recipes.get, { recipeId });
+    await kari.as.mutation(api.recipes.save, {
+      groupId,
+      recipeId,
+      title: 'Lasagne',
+      servings: 4,
+      steps: [],
+      ingredients: stored.ingredients.map((i) => ({
+        ingredientId: i.ingredientId,
+        name: i.name,
+        qty: i.qty,
+        unit: i.unit,
+      })),
+    });
+    expect(await sections()).toEqual(grouped);
+
+    // A new build can clear them.
+    await kari.as.mutation(api.recipes.save, {
+      groupId,
+      recipeId,
+      title: 'Lasagne',
+      servings: 4,
+      steps: [],
+      withSections: true,
+      ingredients: stored.ingredients.map((i) => ({ ingredientId: i.ingredientId, name: i.name })),
+    });
+    expect((await sections()).every(([, section]) => section === undefined)).toBe(true);
+  });
+
+  test('sections (#101): merging catalog items keeps the line in its section', async () => {
+    const { kari, groupId } = await family();
+    const recipeId = await kari.as.mutation(api.recipes.save, {
+      groupId,
+      title: 'Pie',
+      servings: 4,
+      steps: [],
+      withSections: true,
+      ingredients: [
+        { name: 'Flour', recipeSection: 'Dough' },
+        { name: 'Wheat flour', recipeSection: 'Filling' },
+      ],
+    });
+    const before = await kari.as.query(api.recipes.get, { recipeId });
+    await kari.as.mutation(api.ingredients.merge, {
+      fromId: before.ingredients[1].ingredientId,
+      intoId: before.ingredients[0].ingredientId,
+    });
+    const after = await kari.as.query(api.recipes.get, { recipeId });
+    expect(after.ingredients.map((i) => [i.name, i.recipeSection])).toEqual([
+      ['Flour', 'Dough'],
+      ['Flour', 'Filling'],
+    ]);
+  });
 });

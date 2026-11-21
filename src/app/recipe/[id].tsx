@@ -19,6 +19,7 @@ import { relativeDay } from '@/lib/relative';
 import { useFamily } from '@/lib/session';
 import { todayIn } from '@/lib/week';
 import { recipeSite } from '@/convex/lib/recipeLink';
+import { groupBySection } from '@/convex/lib/recipeSections';
 import { isUnit } from '@/convex/lib/units';
 
 /**
@@ -112,19 +113,31 @@ export default function RecipeScreen() {
       <Text variant="section" color={colors.muted} style={styles.section}>
         {t('recipeEdit.ingredients')}
       </Text>
-      {recipe.ingredients.map((line, index) => (
-        <View key={index} style={styles.ingredient}>
-          <Text variant="item" style={{ width: 90, fontFamily: Fonts.semibold }}>
-            {formatAmounts(t, i18n.language, [
-              { qty: line.qty, unit: line.unit && isUnit(line.unit) ? line.unit : undefined },
-            ])}
-          </Text>
-          <Text style={{ flex: 1 }}>
-            {line.name}
-            {line.note ? <Text color={colors.muted}>{`, ${line.note}`}</Text> : null}
-          </Text>
-        </View>
-      ))}
+      {groupBySection(recipe.ingredients).map((group, groupIndex) =>
+        group.name === null ? (
+          <View key={`loose-${groupIndex}`}>
+            {group.lines.map((line, index) => (
+              <IngredientLine key={index} line={line} />
+            ))}
+          </View>
+        ) : (
+          <View
+            key={`section-${group.name}`}
+            style={[styles.sectionCard, groupIndex > 0 && { marginTop: 10 }]}
+            accessibilityRole="summary">
+            <Text
+              variant="label"
+              color={colors.saffronInk}
+              accessibilityRole="header"
+              style={styles.sectionName}>
+              {group.name}
+            </Text>
+            {group.lines.map((line, index) => (
+              <IngredientLine key={index} line={line} last={index === group.lines.length - 1} />
+            ))}
+          </View>
+        ),
+      )}
 
       {recipe.steps.length > 0 || recipe.sourceUrl ? (
         <Text variant="section" color={colors.muted} style={styles.section}>
@@ -153,6 +166,28 @@ export default function RecipeScreen() {
         </Text>
       )}
     </ScrollView>
+  );
+}
+
+type IngredientRow = RecipeDetail['ingredients'][number];
+
+/** One ingredient: its amount, then its name and note. */
+function IngredientLine({ line, last }: { line: IngredientRow; last?: boolean }) {
+  const colors = useColors();
+  const styles = useStyles();
+  const { t, i18n } = useTranslation();
+  return (
+    <View style={[styles.ingredient, last && { borderBottomWidth: 0 }]}>
+      <Text variant="item" style={{ width: 90, fontFamily: Fonts.semibold }}>
+        {formatAmounts(t, i18n.language, [
+          { qty: line.qty, unit: line.unit && isUnit(line.unit) ? line.unit : undefined },
+        ])}
+      </Text>
+      <Text style={{ flex: 1 }}>
+        {line.name}
+        {line.note ? <Text color={colors.muted}>{`, ${line.note}`}</Text> : null}
+      </Text>
+    </View>
   );
 }
 
@@ -230,6 +265,15 @@ const useStyles = makeStyles((colors) => ({
     borderBottomWidth: 1,
     borderBottomColor: colors.divider,
   },
+  // A recipe section (#101): its lines on a card, named in small saffron capitals.
+  sectionCard: {
+    borderRadius: 16,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 2,
+  },
+  sectionName: { textTransform: 'uppercase', letterSpacing: 0.6, fontSize: 13 },
   link: {
     flexDirection: 'row',
     alignItems: 'center',

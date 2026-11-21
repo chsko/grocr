@@ -224,7 +224,15 @@
     "qtyPlaceholder": "Qty",
     "link": "Recipe link",
     "linkPlaceholder": "https://",
-    "linkHint": "Found the recipe online? Paste the link and you can skip the steps."
+    "linkHint": "Found the recipe online? Paste the link and you can skip the steps.",
+    "addSection": "+ New section",
+    "sectionName": "Section name",
+    "sectionPlaceholder": "Section, e.g. Sauce",
+    "removeSection": "Remove the section {{name}}",
+    "unnamedSection": "Unnamed",
+    "rowMenu": "More for {{name}}",
+    "moveTo": "Move to section",
+    "noSection": "No section"
   },
   "groceries": {
     "title": "Groceries",
@@ -593,6 +601,10 @@
       "familyWithoutApp": {
         "title": "Children without a phone in the family",
         "body": "Add children and others without a phone under Family. They are in the Family group in Christmas gifts, can get an Advent calendar, and can get the app later with an invite for just them. What is planned for them is hidden from them at once."
+      },
+      "recipeSections": {
+        "title": "Sections in recipes",
+        "body": "Split a recipe's ingredients into sections, like Sauce or Dough. Tap + New section while editing, and ⋯ on an ingredient to move it. The grocery list stays the same."
       }
     }
   },

@@ -31,6 +31,10 @@ A week whose first day is after today.
 **Recipe**:
 A dish the family has written down: title, ingredients and usually steps or a link. Can be rated and suggested.
 
+**Recipe section** (seksjon):
+A named group of one recipe's ingredients, such as "Saus" or "Deig". Only changes how the recipe reads; the grocery list ignores it. Ingredients without one come first.
+_Avoid_: Section (alone; in code that is the store's aisle, _avdeling_ in the app), group, part
+
 **Dinner idea** (idé):
 A recipe draft: a dish the family wants to make but has not written down yet. Has a title and maybe some ingredients, nothing more needed. Listed under Recipes, planned on days like a recipe (its ingredients go on the grocery list), never suggested and never rated. "Make it a recipe" turns the same idea into a recipe, so every day it was planned on follows along.
 _Avoid_: Draft (in UI copy), wish, placeholder

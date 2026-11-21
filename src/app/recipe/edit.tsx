@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 
-import { Close } from '@/components/icons';
+import { Close, More } from '@/components/icons';
 import { Button, Chip, Field, IconButton, IconTile, Loading, Stepper, Text } from '@/components/ui';
 import { Fonts, Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
@@ -25,6 +25,16 @@ import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
 import { useSectionName } from '@/lib/sections';
 import { useItemSuggestions } from '@/lib/item-suggestions';
+import {
+  addSection,
+  type EditorSection,
+  fromLines,
+  moveRow,
+  removeSection,
+  rowsIn,
+  sectionLines,
+} from '@/lib/recipe-editor';
+import { MAX_SECTION_NAME } from '@/convex/lib/recipeSections';
 import { useFamily } from '@/lib/session';
 
 type Row = {
@@ -34,14 +44,18 @@ type Row = {
   qty: string;
   unit?: Unit;
   note?: string;
+  /** The recipe section's key (#101), or null above every section. */
+  section: number | null;
 };
 
 let nextKey = 1;
-const emptyRow = (): Row => ({ key: nextKey++, name: '', qty: '' });
+const newKey = () => nextKey++;
+const emptyRow = (section: number | null): Row => ({ key: newKey(), name: '', qty: '', section });
 
 /**
  * Create or edit a recipe with structured ingredients and steps (GRO-29), or a link to the
- * recipe on the web instead of steps (GRO-71). `?id=` edits.
+ * recipe on the web instead of steps (GRO-71). `?id=` edits. Ingredients can be grouped in
+ * recipe sections (#101), each on its own card; ⋯ on a row moves it to another section.
  */
 export default function RecipeEditScreen() {
   const colors = useColors();
@@ -58,7 +72,10 @@ export default function RecipeEditScreen() {
   const [icon, setIcon] = useState<RecipeIcon | null>(null);
   const [pickingIcon, setPickingIcon] = useState(false);
   const [servings, setServings] = useState(4);
-  const [rows, setRows] = useState<Row[]>(() => [emptyRow()]);
+  const [rows, setRows] = useState<Row[]>(() => [emptyRow(null)]);
+  const [sections, setSections] = useState<EditorSection[]>([]);
+  // The row whose ⋯ sheet is open.
+  const [menuFor, setMenuFor] = useState<number | null>(null);
   const [steps, setSteps] = useState<string[]>(['']);
   const [link, setLink] = useState('');
   const [active, setActive] = useState<number | null>(null);
@@ -76,16 +93,19 @@ export default function RecipeEditScreen() {
     setTitle(existing.title);
     setIcon(isRecipeIcon(existing.icon) ? existing.icon : null);
     setServings(existing.servings);
-    setRows(
+    const saved = fromLines(
       existing.ingredients.map((line) => ({
-        key: nextKey++,
         ingredientId: line.ingredientId,
         name: line.name,
         qty: line.qty !== undefined ? formatQty(line.qty, i18n.language) : '',
         unit: line.unit && isUnit(line.unit) ? line.unit : undefined,
         note: line.note,
+        recipeSection: line.recipeSection,
       })),
+      newKey,
     );
+    setSections(saved.sections);
+    setRows(saved.rows.map(({ recipeSection: _, ...row }) => row));
     setSteps(existing.steps.length > 0 ? existing.steps : ['']);
     setLink(existing.sourceUrl ?? '');
   }, [existing, i18n.language]);
@@ -115,21 +135,31 @@ export default function RecipeEditScreen() {
     };
   }
 
-  function addRow() {
-    const row = emptyRow();
+  function addRow(section: number | null) {
+    const row = emptyRow(section);
     focusOnMount.current = `qty-${row.key}`;
     setRows((current) => [...current, row]);
   }
 
+  /** A new, empty section card with its name field focused; returns its key. */
+  function newSection() {
+    const key = newKey();
+    focusOnMount.current = `section-${key}`;
+    setSections((current) => addSection(current, key));
+    return key;
+  }
+
   const isBlank = (row: Row) => !row.qty.trim() && !row.unit && !row.name.trim();
 
-  /** Return in a name goes to the next row's qty, or adds a row after the last one. A blank last
-   * row puts the keyboard away instead, so holding Return never piles up empty rows. */
-  function nameSubmitted(index: number) {
-    const next = rows[index + 1];
+  /** Return in a name goes to the next row's qty in the same section, or adds a row after its
+   * last one. A blank last row puts the keyboard away instead, so holding Return never piles up
+   * empty rows. */
+  function nameSubmitted(row: Row) {
+    const group = rowsIn(rows, row.section);
+    const next = group[group.findIndex((r) => r.key === row.key) + 1];
     if (next) fields.current.get(`qty-${next.key}`)?.focus();
-    else if (isBlank(rows[index])) Keyboard.dismiss();
-    else addRow();
+    else if (isBlank(row)) Keyboard.dismiss();
+    else addRow(row.section);
   }
 
   async function save() {
@@ -143,7 +173,8 @@ export default function RecipeEditScreen() {
         servings,
         steps,
         sourceUrl: link,
-        ingredients: rows
+        withSections: true,
+        ingredients: sectionLines(rows, sections)
           .filter((r) => r.ingredientId || r.name.trim())
           .map((r) => ({
             ingredientId: r.ingredientId,
@@ -151,6 +182,7 @@ export default function RecipeEditScreen() {
             qty: parseQty(r.qty),
             unit: r.unit,
             note: r.note,
+            recipeSection: r.recipeSection,
           })),
       }),
     );
@@ -159,6 +191,92 @@ export default function RecipeEditScreen() {
     if (id) router.back();
     else router.replace({ pathname: '/recipe/[id]', params: { id: recipeId } });
   }
+
+  const isLast = (row: Row) => {
+    const group = rowsIn(rows, row.section);
+    return group[group.length - 1]?.key === row.key;
+  };
+
+  function renderRow(row: Row) {
+    return (
+      <View key={row.key} style={{ zIndex: row.key === active ? 2 : 0 }}>
+        <View style={styles.ingredientRow}>
+          <TextInput
+            ref={fieldRef(`qty-${row.key}`)}
+            value={row.qty}
+            onChangeText={(qty) => update(row.key, { qty })}
+            // iOS's decimal pad has no Return key; this one has, and also allows "1/2".
+            keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'decimal-pad'}
+            // Return skips the unit picker and goes on to the name, even with no qty.
+            returnKeyType="next"
+            submitBehavior="submit"
+            onSubmitEditing={() => fields.current.get(`name-${row.key}`)?.focus()}
+            placeholder={t('recipeEdit.qtyPlaceholder')}
+            placeholderTextColor={colors.checkbox}
+            accessibilityLabel={t('recipeEdit.qty')}
+            style={[styles.cell, styles.qtyCell]}
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('recipeEdit.unit')}
+            onPress={() => setUnitFor(row.key)}
+            style={[styles.cell, styles.unitCell]}>
+            <Text color={row.unit ? colors.ink : colors.checkbox} style={{ fontSize: 16 }}>
+              {row.unit ? t(`units.${row.unit}`) : t('recipeEdit.unit')}
+            </Text>
+          </Pressable>
+          <TextInput
+            ref={fieldRef(`name-${row.key}`)}
+            value={row.name}
+            onChangeText={(name) => update(row.key, { name, ingredientId: undefined })}
+            onFocus={() => setActive(row.key)}
+            returnKeyType={isLast(row) && isBlank(row) ? 'done' : 'next'}
+            submitBehavior="submit"
+            onSubmitEditing={() => nameSubmitted(row)}
+            placeholder={t('recipeEdit.ingredientPlaceholder')}
+            placeholderTextColor={colors.checkbox}
+            accessibilityLabel={t('recipeEdit.ingredient')}
+            style={[styles.cell, styles.nameCell, row.key === active && styles.cellActive]}
+          />
+          <IconButton
+            label={t('recipeEdit.rowMenu', { name: row.name || t('recipeEdit.ingredient') })}
+            style={{ width: 32 }}
+            onPress={() => {
+              Keyboard.dismiss();
+              setMenuFor(row.key);
+            }}>
+            <More size={20} color={colors.muted} />
+          </IconButton>
+        </View>
+        {row.key === active && suggestions.length > 0 ? (
+          <View style={styles.suggestions} accessibilityRole="list">
+            {suggestions.map((s) => (
+              <Pressable
+                key={s._id}
+                accessibilityRole="button"
+                onPress={() => {
+                  update(row.key, { ingredientId: s._id, name: s.name });
+                  setActive(null);
+                }}
+                style={({ pressed }) => [
+                  styles.suggestion,
+                  pressed && { backgroundColor: colors.surface },
+                ]}>
+                <Text variant="item" style={{ fontSize: 16 }}>
+                  {s.name}
+                </Text>
+                <Text variant="small" color={colors.muted} style={{ fontSize: 12 }}>
+                  {sectionName(s.section)}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+      </View>
+    );
+  }
+
+  const menuRow = rows.find((r) => r.key === menuFor);
 
   if (id && existing === undefined) return <Loading />;
 
@@ -231,80 +349,56 @@ export default function RecipeEditScreen() {
           {t('recipeEdit.ingredients')}
         </Text>
         <View style={{ gap: 8 }}>
-          {rows.map((row, index) => (
-            <View key={row.key} style={{ zIndex: row.key === active ? 2 : 0 }}>
-              <View style={styles.ingredientRow}>
-                <TextInput
-                  ref={fieldRef(`qty-${row.key}`)}
-                  value={row.qty}
-                  onChangeText={(qty) => update(row.key, { qty })}
-                  // iOS's decimal pad has no Return key; this one has, and also allows "1/2".
-                  keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'decimal-pad'}
-                  // Return skips the unit picker and goes on to the name, even with no qty.
-                  returnKeyType="next"
-                  submitBehavior="submit"
-                  onSubmitEditing={() => fields.current.get(`name-${row.key}`)?.focus()}
-                  placeholder={t('recipeEdit.qtyPlaceholder')}
-                  placeholderTextColor={colors.checkbox}
-                  accessibilityLabel={t('recipeEdit.qty')}
-                  style={[styles.cell, styles.qtyCell]}
-                />
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t('recipeEdit.unit')}
-                  onPress={() => setUnitFor(row.key)}
-                  style={[styles.cell, styles.unitCell]}>
-                  <Text color={row.unit ? colors.ink : colors.checkbox} style={{ fontSize: 16 }}>
-                    {row.unit ? t(`units.${row.unit}`) : t('recipeEdit.unit')}
-                  </Text>
-                </Pressable>
-                <TextInput
-                  ref={fieldRef(`name-${row.key}`)}
-                  value={row.name}
-                  onChangeText={(name) => update(row.key, { name, ingredientId: undefined })}
-                  onFocus={() => setActive(row.key)}
-                  returnKeyType={index === rows.length - 1 && isBlank(row) ? 'done' : 'next'}
-                  submitBehavior="submit"
-                  onSubmitEditing={() => nameSubmitted(index)}
-                  placeholder={t('recipeEdit.ingredientPlaceholder')}
-                  placeholderTextColor={colors.checkbox}
-                  accessibilityLabel={t('recipeEdit.ingredient')}
-                  style={[styles.cell, styles.nameCell, row.key === active && styles.cellActive]}
-                />
-                <IconButton
-                  label={t('recipeEdit.removeIngredient')}
-                  style={{ width: 32 }}
-                  onPress={() => setRows((current) => current.filter((r) => r.key !== row.key))}>
-                  <Close size={18} color={colors.muted} />
-                </IconButton>
-              </View>
-              {row.key === active && suggestions.length > 0 ? (
-                <View style={styles.suggestions} accessibilityRole="list">
-                  {suggestions.map((s) => (
-                    <Pressable
-                      key={s._id}
-                      accessibilityRole="button"
-                      onPress={() => {
-                        update(row.key, { ingredientId: s._id, name: s.name });
-                        setActive(null);
-                      }}
-                      style={({ pressed }) => [
-                        styles.suggestion,
-                        pressed && { backgroundColor: colors.surface },
-                      ]}>
-                      <Text variant="item" style={{ fontSize: 16 }}>
-                        {s.name}
-                      </Text>
-                      <Text variant="small" color={colors.muted} style={{ fontSize: 12 }}>
-                        {sectionName(s.section)}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              ) : null}
+          {rowsIn(rows, null).map(renderRow)}
+          <Button kind="ghost" title={t('recipeEdit.addIngredient')} onPress={() => addRow(null)} />
+        </View>
+        {sections.map((section) => (
+          <View key={section.key} style={styles.sectionCard}>
+            <View style={styles.sectionNameRow}>
+              <TextInput
+                ref={fieldRef(`section-${section.key}`)}
+                value={section.name}
+                onChangeText={(name) =>
+                  setSections((current) =>
+                    current.map((s) => (s.key === section.key ? { ...s, name } : s)),
+                  )
+                }
+                maxLength={MAX_SECTION_NAME}
+                returnKeyType="next"
+                submitBehavior="submit"
+                onSubmitEditing={() => {
+                  const first = rowsIn(rows, section.key)[0];
+                  if (first) fields.current.get(`qty-${first.key}`)?.focus();
+                  else addRow(section.key);
+                }}
+                placeholder={t('recipeEdit.sectionPlaceholder')}
+                placeholderTextColor={colors.checkbox}
+                accessibilityLabel={t('recipeEdit.sectionName')}
+                style={styles.sectionName}
+              />
+              <IconButton
+                label={t('recipeEdit.removeSection', {
+                  name: section.name || t('recipeEdit.unnamedSection'),
+                })}
+                style={{ width: 32 }}
+                onPress={() => {
+                  const after = removeSection(sections, rows, section.key);
+                  setSections(after.sections);
+                  setRows(after.rows);
+                }}>
+                <Close size={18} color={colors.muted} />
+              </IconButton>
             </View>
-          ))}
-          <Button kind="ghost" title={t('recipeEdit.addIngredient')} onPress={addRow} />
+            {rowsIn(rows, section.key).map(renderRow)}
+            <Button
+              kind="ghost"
+              title={t('recipeEdit.addIngredient')}
+              onPress={() => addRow(section.key)}
+            />
+          </View>
+        ))}
+        <View style={{ flexDirection: 'row' }}>
+          <Chip title={t('recipeEdit.addSection')} dashed onPress={() => newSection()} />
         </View>
 
         <View style={{ gap: 6 }}>
@@ -359,6 +453,64 @@ export default function RecipeEditScreen() {
           />
         </View>
       </ScrollView>
+
+      <Modal
+        visible={menuRow !== undefined}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenuFor(null)}>
+        <Pressable style={styles.backdrop} onPress={() => setMenuFor(null)}>
+          {menuRow ? (
+            <View style={styles.unitSheet}>
+              <Text variant="heading" numberOfLines={1}>
+                {menuRow.name.trim() || t('recipeEdit.ingredient')}
+              </Text>
+              <Text variant="label" color={colors.muted}>
+                {t('recipeEdit.moveTo')}
+              </Text>
+              <View style={styles.unitGrid}>
+                {[
+                  { key: null, name: t('recipeEdit.noSection') },
+                  ...sections.map((s) => ({
+                    key: s.key as number | null,
+                    name: s.name.trim() || t('recipeEdit.unnamedSection'),
+                  })),
+                ].map((option) => (
+                  <Chip
+                    key={option.key ?? 'none'}
+                    title={option.name}
+                    selected={menuRow.section === option.key}
+                    accessibilityState={{ selected: menuRow.section === option.key }}
+                    onPress={() => {
+                      if (menuRow.section !== option.key) {
+                        setRows((current) => moveRow(current, menuRow.key, option.key));
+                      }
+                      setMenuFor(null);
+                    }}
+                  />
+                ))}
+                <Chip
+                  title={t('recipeEdit.addSection')}
+                  dashed
+                  onPress={() => {
+                    const key = newSection();
+                    setRows((current) => moveRow(current, menuRow.key, key));
+                    setMenuFor(null);
+                  }}
+                />
+              </View>
+              <Button
+                kind="danger"
+                title={t('recipeEdit.removeIngredient')}
+                onPress={() => {
+                  setRows((current) => current.filter((r) => r.key !== menuRow.key));
+                  setMenuFor(null);
+                }}
+              />
+            </View>
+          ) : null}
+        </Pressable>
+      </Modal>
 
       <Modal
         visible={pickingIcon}
@@ -445,6 +597,25 @@ const useStyles = makeStyles((colors) => ({
   iconSelected: { backgroundColor: colors.saffronSoft, borderWidth: 2, borderColor: colors.tomato },
   servingsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   ingredientRow: { flexDirection: 'row', gap: 6, alignItems: 'center' },
+  // A recipe section (#101): a bordered card with its name in a saffron field.
+  sectionCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 12,
+    gap: 8,
+  },
+  sectionNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  sectionName: {
+    flex: 1,
+    height: 44,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: colors.saffronTint,
+    fontFamily: Fonts.bold,
+    fontSize: 16,
+    color: colors.ink,
+  },
   cell: {
     height: 44,
     borderRadius: 10,
