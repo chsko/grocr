@@ -26,6 +26,19 @@ A week whose last day is before today.
 **Future week**:
 A week whose first day is after today.
 
+## Dinners
+
+**Recipe**:
+A dish the family has written down: title, ingredients and usually steps or a link. Can be rated and suggested.
+
+**Dinner idea** (idé):
+A recipe draft: a dish the family wants to make but has not written down yet. Has a title and maybe some ingredients, nothing more needed. Listed under Recipes, planned on days like a recipe (its ingredients go on the grocery list), never suggested and never rated. "Make it a recipe" turns the same idea into a recipe, so every day it was planned on follows along.
+_Avoid_: Draft (in UI copy), wish, placeholder
+
+**Dinner note** (notat):
+Plain text on a day, such as "Leftovers" or "Eating out". No ingredients, not kept anywhere else.
+_Avoid_: Idea (an idea can become a recipe, a note cannot)
+
 ## Family
 
 **Family**:
