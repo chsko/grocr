@@ -35,7 +35,8 @@ export default function TourScreen() {
   const leaving = useRef(false);
   const last = page === PAGES.length - 1;
   // Someone joining a family that already has recipes goes straight to planning.
-  const hasRecipes = (recipes?.length ?? 0) > 0;
+  // Dinner ideas (#105) are not recipes yet.
+  const hasRecipes = (recipes ?? []).some((r) => !r.isIdea);
 
   function go(to: number) {
     setPage(to);

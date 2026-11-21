@@ -61,7 +61,13 @@ export default function PickDinnerScreen() {
   const [ideaPicked, setIdeaPicked] = useState(false);
 
   const ideaTitle = search.trim();
-  const planningIdea = ideaPicked && ideaTitle !== '';
+  // Offer a new idea while nothing the family has is called exactly what was typed.
+  const offerIdea =
+    ideaTitle !== '' &&
+    recipes !== undefined &&
+    !recipes.some((r) => normalizeName(r.title) === normalizeName(ideaTitle));
+  // Picked, and still on offer: typing on until a recipe's name matches drops the pick.
+  const planningIdea = ideaPicked && offerIdea;
   const selectedId = planningIdea ? null : (picked ?? existing?.recipeId ?? null);
   const selected = recipes?.find((r) => r._id === selectedId);
   const currentServings =
@@ -82,11 +88,6 @@ export default function PickDinnerScreen() {
   }, [recipes, search]);
   const shownIdeas = shown.filter((r) => r.isIdea);
   const shownRecipes = shown.filter((r) => !r.isIdea);
-  // Offer a new idea while nothing the family has is called exactly what was typed.
-  const offerIdea =
-    ideaTitle !== '' &&
-    recipes !== undefined &&
-    !recipes.some((r) => normalizeName(r.title) === normalizeName(ideaTitle));
 
   async function save(run: () => Promise<unknown>) {
     setBusy(true);
@@ -210,7 +211,7 @@ export default function PickDinnerScreen() {
         {recipes && recipes.length === 0 ? (
           <Text color={colors.muted}>{t('pick.noRecipes')}</Text>
         ) : null}
-        {search && shown.length === 0 ? (
+        {search && shown.length === 0 && recipes && recipes.length > 0 ? (
           <Text variant="small" color={colors.muted}>
             {t('ideas.noMatch')}
           </Text>

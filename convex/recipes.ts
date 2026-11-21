@@ -309,6 +309,8 @@ export const addIngredient = mutation({
   },
   handler: async (ctx, args) => {
     const { doc, userId } = await loadForMember(ctx, 'recipes', args.recipeId);
+    // Removed (archived) meanwhile, e.g. by someone else: leave it and its dinners alone.
+    if (doc.archivedAt !== undefined) throw new ConvexError({ code: 'NOT_FOUND' });
     if (doc.ingredients.length >= MAX_INGREDIENTS) throw new ConvexError({ code: 'TOO_LONG' });
     const ingredient = await resolveIngredient(ctx, doc.groupId, { name: args.name });
     const qty =
@@ -330,7 +332,7 @@ export const removeIngredient = mutation({
   args: { recipeId: v.id('recipes'), index: v.number(), ingredientId: v.id('ingredients') },
   handler: async (ctx, { recipeId, index, ingredientId }) => {
     const { doc, userId } = await loadForMember(ctx, 'recipes', recipeId);
-    if (doc.ingredients[index]?.ingredientId !== ingredientId) {
+    if (doc.archivedAt !== undefined || doc.ingredients[index]?.ingredientId !== ingredientId) {
       throw new ConvexError({ code: 'NOT_FOUND' });
     }
     await ctx.db.patch('recipes', doc._id, {

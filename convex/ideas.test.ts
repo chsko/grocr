@@ -318,3 +318,14 @@ describe('making an idea a recipe (#108)', () => {
     expect((await kari.as.query(api.recipes.get, { recipeId: ideaId })).isIdea).toBe(true);
   });
 });
+
+describe('review fixes', () => {
+  test('a removed (archived) idea takes no new items', async () => {
+    const { kari, groupId } = await family();
+    const ideaId = await kari.as.mutation(api.recipes.createIdea, { groupId, title: 'Lasagne' });
+    await kari.as.mutation(api.recipes.setArchived, { recipeId: ideaId, archived: true });
+    await expect(
+      kari.as.mutation(api.recipes.addIngredient, { recipeId: ideaId, name: 'Spinat' }),
+    ).rejects.toThrow(/NOT_FOUND/);
+  });
+});

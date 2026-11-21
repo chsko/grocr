@@ -117,6 +117,8 @@ beforeEach(async () => {
   resetShownWeek();
   for (const key of Object.keys(mockQueries)) delete mockQueries[key];
   mockPlanIdea.mockClear();
+  mockCreateIdea.mockClear();
+  jest.requireMock('expo-router').router.push.mockClear();
   mockParams = { date: WEDNESDAY, id: 'r2' };
   await i18n.changeLanguage('en');
 });
@@ -289,5 +291,38 @@ describe('new idea from Recipes (#110)', () => {
     await act(() => fireEvent(screen.getByLabelText('New idea'), 'submitEditing'));
     expect(mockCreateIdea).toHaveBeenCalledWith({ groupId: 'g1', title: 'Thai curry' });
     expect(router.push).toHaveBeenCalledWith({ pathname: '/recipe/[id]', params: { id: 'r7' } });
+  });
+});
+
+describe('review fixes', () => {
+  test('typing on until a recipe matches drops the idea pick', async () => {
+    mockQueries['mealPlan.week'] = { dinners: [], openLines: 0 };
+    mockQueries['recipes.list'] = [recipe('r1', 'Taco')];
+    await render(<PickDinnerScreen />);
+    await fireEvent.changeText(screen.getByLabelText('Search recipes'), 'Tac');
+    await fireEvent.press(screen.getByText('Plan «Tac» as an idea'));
+    expect(screen.getByText('Plan the idea')).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText('Search recipes'), 'Taco');
+    expect(screen.queryByText('Plan the idea')).toBeNull();
+  });
+
+  test('"New idea" with a recipe\'s name opens that recipe', async () => {
+    mockQueries['recipes.list'] = (args: { archived: boolean }) =>
+      args.archived ? [] : [recipe('r1', 'Lasagne')];
+    const { router } = jest.requireMock('expo-router');
+    await render(<RecipesScreen />);
+    await fireEvent.changeText(screen.getByLabelText('New idea'), 'lasagne');
+    await act(() => fireEvent(screen.getByLabelText('New idea'), 'submitEditing'));
+    expect(mockCreateIdea).not.toHaveBeenCalled();
+    expect(router.push).toHaveBeenCalledWith({ pathname: '/recipe/[id]', params: { id: 'r1' } });
+  });
+
+  test('an empty family sees just one message when typing', async () => {
+    mockQueries['mealPlan.week'] = { dinners: [], openLines: 0 };
+    mockQueries['recipes.list'] = [];
+    await render(<PickDinnerScreen />);
+    await fireEvent.changeText(screen.getByLabelText('Search recipes'), 'Taco');
+    expect(screen.queryByText('No recipe is called that.')).toBeNull();
+    expect(screen.getByText('Plan «Taco» as an idea')).toBeTruthy();
   });
 });

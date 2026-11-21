@@ -97,33 +97,36 @@ export default function RecipeScreen() {
         </Text>
       ) : null}
 
-      <View style={styles.rating}>
-        <Text variant="section" color={colors.muted}>
-          {t('rating.yours')}
-        </Text>
-        <View style={{ marginHorizontal: -7 }}>
-          <StarPicker
-            value={recipe.rating.mine}
-            onChange={(stars) => void attempt(t, () => rate({ recipeId: id, stars }))}
-          />
-        </View>
-        {/* The family line fades to its new numbers when a rating changes. */}
-        <Animated.View key={`${recipe.rating.average}-${recipe.rating.count}`} entering={fadeIn}>
-          <Text variant="small" color={colors.muted}>
-            {recipe.rating.average === null
-              ? t('rating.nobody')
-              : [
-                  t('rating.family', {
-                    count: recipe.rating.count,
-                    rating: recipe.rating.average.toLocaleString(i18n.language),
-                  }),
-                  ...recipe.ratings
-                    .filter((r) => !r.isMe)
-                    .map((r) => `${r.name.split(' ')[0] || '?'} ${r.stars}★`),
-                ].join(' · ')}
+      {/* An archived idea lands here; ideas get stars once they are recipes (#109). */}
+      {recipe.isIdea ? null : (
+        <View style={styles.rating}>
+          <Text variant="section" color={colors.muted}>
+            {t('rating.yours')}
           </Text>
-        </Animated.View>
-      </View>
+          <View style={{ marginHorizontal: -7 }}>
+            <StarPicker
+              value={recipe.rating.mine}
+              onChange={(stars) => void attempt(t, () => rate({ recipeId: id, stars }))}
+            />
+          </View>
+          {/* The family line fades to its new numbers when a rating changes. */}
+          <Animated.View key={`${recipe.rating.average}-${recipe.rating.count}`} entering={fadeIn}>
+            <Text variant="small" color={colors.muted}>
+              {recipe.rating.average === null
+                ? t('rating.nobody')
+                : [
+                    t('rating.family', {
+                      count: recipe.rating.count,
+                      rating: recipe.rating.average.toLocaleString(i18n.language),
+                    }),
+                    ...recipe.ratings
+                      .filter((r) => !r.isMe)
+                      .map((r) => `${r.name.split(' ')[0] || '?'} ${r.stars}★`),
+                  ].join(' · ')}
+            </Text>
+          </Animated.View>
+        </View>
+      )}
 
       <Text variant="section" color={colors.muted} style={styles.section}>
         {t('recipeEdit.ingredients')}

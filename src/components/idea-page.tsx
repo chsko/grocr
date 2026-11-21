@@ -36,14 +36,16 @@ export function IdeaPage({ idea }: { idea: Idea }) {
 
   async function add() {
     const item = parseItemInput(text);
-    if (!item.name) return;
+    // Return pressed twice quickly must not add the item twice.
+    if (!item.name || busy) return;
     setBusy(true);
+    setText('');
     const ok = await attempt(t, async () => {
       await addIngredient({ recipeId: idea._id, ...item });
       return true;
     });
     setBusy(false);
-    if (ok) setText('');
+    if (!ok) setText(text);
   }
 
   return (

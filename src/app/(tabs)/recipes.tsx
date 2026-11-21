@@ -17,6 +17,7 @@ import {
 } from '@/components/ui';
 import { Fonts, Radius } from '@/constants/theme';
 import { api } from '@/convex/_generated/api';
+import { normalizeName } from '@/convex/lib/catalog';
 import { makeStyles, useColors } from '@/lib/appearance';
 import { attempt } from '@/lib/errors';
 import { dayShort } from '@/lib/format';
@@ -46,9 +47,19 @@ export default function RecipesScreen() {
   // Dinner ideas (#106) get their own section above the recipes.
   const shownIdeas = shown.filter((r) => r.isIdea);
   const shownRecipes = shown.filter((r) => !r.isIdea);
+  const hasAny = (recipes?.length ?? 0) > 0;
+  // The Ideas heading and "+ New idea" show in the full list, and while a search matches ideas.
+  const ideasHeading = !archived && (shownIdeas.length > 0 || (hasAny && !needle));
 
   async function addIdea() {
     if (!newIdea.trim()) return;
+    // A recipe of that name already exists: open it instead of making an idea twin.
+    const same = recipes?.find((r) => normalizeName(r.title) === normalizeName(newIdea));
+    if (same) {
+      setNewIdea('');
+      router.push({ pathname: '/recipe/[id]', params: { id: same._id } });
+      return;
+    }
     const id = await attempt(t, () => createIdea({ groupId: family.groupId, title: newIdea }));
     if (id === undefined) return;
     setNewIdea('');
@@ -109,7 +120,7 @@ export default function RecipesScreen() {
             </Text>
           </View>
         </View>
-        {r.isIdea ? (
+        {r.isIdea && !archived ? (
           <Pressable
             accessibilityRole="button"
             hitSlop={8}
@@ -137,14 +148,14 @@ export default function RecipesScreen() {
           <Button onPress={() => router.push('/recipe/edit')} title={t('recipes.addFirst')} />
         </View>
       ) : null}
-      {(shownIdeas.length > 0 || recipes?.length) && !archived && !needle ? (
+      {ideasHeading ? (
         <Text variant="section" color={colors.muted} style={styles.section}>
           {t('ideas.section', { count: shownIdeas.length })}
         </Text>
       ) : null}
       {shownIdeas.map(renderRow)}
       {/* A new idea without a day (#110), typed in place like "+ New gift". */}
-      {recipes?.length && !archived && !needle ? (
+      {hasAny && !archived && !needle ? (
         <QuietField
           accessibilityLabel={t('ideas.new')}
           value={newIdea}
@@ -155,7 +166,7 @@ export default function RecipesScreen() {
           onSubmitEditing={() => void addIdea()}
         />
       ) : null}
-      {(shownIdeas.length > 0 || !needle) && shownRecipes.length > 0 && !archived ? (
+      {ideasHeading && shownRecipes.length > 0 ? (
         <Text variant="section" color={colors.muted} style={styles.section}>
           {t('ideas.recipesSection', { count: shownRecipes.length })}
         </Text>
