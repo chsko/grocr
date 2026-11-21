@@ -72,7 +72,7 @@ afterEach(() => {
 
 describe("what's new sheet", () => {
   test('rises after a moment with only the entries they have not seen', async () => {
-    await render(<WhatsNewSheet />, me(LATEST_WHATS_NEW - 3));
+    await render(<WhatsNewSheet />, me(LATEST_WHATS_NEW - 4));
     expect(screen.queryByText('New in Grocr')).toBeNull();
     await act(() => jest.advanceTimersByTime(1000));
     expect(screen.getByText('New in Grocr')).toBeTruthy();
@@ -132,7 +132,7 @@ describe("what's new sheet", () => {
   });
 
   test('"Show me" closes it and opens the feature', async () => {
-    await openSheet(me(LATEST_WHATS_NEW - 3));
+    await openSheet(me(LATEST_WHATS_NEW - 4));
     await fireEvent.press(screen.getByRole('link', { name: 'Show me: Advent calendar' }));
     expect(mockSee).toHaveBeenCalledWith({ upTo: LATEST_WHATS_NEW });
     expect(mockRouter.navigate).toHaveBeenCalledWith({
@@ -144,7 +144,7 @@ describe("what's new sheet", () => {
 
   test('speaks Norwegian', async () => {
     await i18n.changeLanguage('nb');
-    await openSheet(me(LATEST_WHATS_NEW - 3));
+    await openSheet(me(LATEST_WHATS_NEW - 4));
     expect(screen.getByText('Nytt i Grocr')).toBeTruthy();
     expect(screen.getByText('Julekalender')).toBeTruthy();
     expect(screen.getByText('Fint')).toBeTruthy();
